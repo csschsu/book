@@ -1,0 +1,11 @@
+.vscode/
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+*.db
+*.log
+*.pdf
+*.eml
+git.txt
+
