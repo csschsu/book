@@ -14,7 +14,7 @@ genererate 5 locations each with 25 random unique existing assets
 CREATE TABLE location (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER UNIQUE, name TEXT NOT NULL, address TEXT, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE);
 
 generate 100 free 
-use a random existing asset, set a random start_time between 2026-06-20 and 2026-07-20, set end_time 24 hours after start_time 
+use a random existing asset, set a random start_time between current date - 1 day and current date + 9 days, set end_time 24 hours after start_time 
 CREATE TABLE free (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE);
 
 generate 10 booked
@@ -52,7 +52,7 @@ public class TestDataGenerator {
         public String phone;
 
         public address() {
-        } // Standardkonstruktor för Jackson
+        }
 
         public address(String email, String phone) {
             this.email = email;
@@ -69,12 +69,10 @@ public class TestDataGenerator {
     }
 
     public static void main(String[] args) {
-        // Skapar eller ansluter till en lokal SQLite-databasfil i projektmappen
-        String dbUrl = "jdbc:sqlite:booking_system.db";
+        String dbUrl = "jdbc:sqlite:booking_test.db";
         System.out.println("Ansluter till databasen: " + dbUrl);
         Jdbi jdbi = Jdbi.create(dbUrl);
 
-        // Skapar tabellerna om de inte redan finns
         initDatabase(jdbi);
 
         System.out.println("Genererar testdata...");
@@ -101,6 +99,20 @@ public class TestDataGenerator {
 
     public static void generateData(Jdbi jdbi) {
         jdbi.useHandle(handle -> {
+            // Inledande rensning (Motsvarande TRUNCATE i SQLite)
+            // Tabellerna rensas i bakåtvänd ordning för att inte bryta mot FOREIGN
+            // KEY-restriktioner
+            handle.execute("DELETE FROM booked");
+            handle.execute("DELETE FROM free");
+            handle.execute("DELETE FROM location");
+            handle.execute("DELETE FROM asset");
+            handle.execute("DELETE FROM buyer");
+            handle.execute("DELETE FROM supplier");
+
+            // Nollställer AUTOINCREMENT-räknarna i SQLite så att ID börjar om på 1
+            handle.execute(
+                    "DELETE FROM sqlite_sequence WHERE name IN ('booked', 'free', 'location', 'asset', 'buyer', 'supplier')");
+
             // 1. Generera 25 leverantörer (suppliers)
             PreparedBatch supplierBatch = handle.prepareBatch("INSERT INTO supplier (name, address) VALUES (?, ?)");
             for (int i = 1; i <= 25; i++) {
@@ -156,8 +168,9 @@ public class TestDataGenerator {
             PreparedBatch freeBatch = handle
                     .prepareBatch("INSERT INTO free (asset_id, start_time, end_time) VALUES (?, ?, ?)");
 
-            LocalDateTime startRange = LocalDateTime.of(2026, 6, 20, 0, 0);
-            LocalDateTime endRange = LocalDateTime.of(2026, 7, 20, 0, 0);
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime startRange = now.minusDays(1);
+            LocalDateTime endRange = now.plusDays(9);
             long minEpochSecond = startRange.toEpochSecond(java.time.ZoneOffset.UTC);
             long maxEpochSecond = endRange.toEpochSecond(java.time.ZoneOffset.UTC);
 
@@ -177,7 +190,6 @@ public class TestDataGenerator {
             }
             freeBatch.execute();
 
-            // Korrigerad logik: hämtar id-värden och mappar med .get(i)
             List<Long> freeIds = handle.createQuery("SELECT id FROM free ORDER BY id ASC").mapTo(Long.class).list();
             for (int i = 0; i < freeIds.size(); i++) {
                 freeSlots.get(i).setId(freeIds.get(i));
