@@ -78,6 +78,7 @@ CREATE TABLE free (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER NOT NU
 CREATE TABLE booked (id INTEGER PRIMARY KEY AUTOINCREMENT, free_id INTEGER NOT NULL, buyer_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE, FOREIGN KEY (buyer_id) REFERENCES buyer(id) ON DELETE CASCADE);
 
  */
+
 package org.community.booking;
 
 import org.jdbi.v3.core.Jdbi;
@@ -97,6 +98,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -104,6 +107,8 @@ import java.util.List;
 public class Book {
 
     private final Jdbi jdbi;
+    // Det nya specifika datumformatet med mellanslag som separator
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     public Book(Jdbi jdbi) {
         this.jdbi = jdbi;
@@ -114,11 +119,12 @@ public class Book {
         this.jdbi.registerColumnMapper(Models.address.class, new JsonAddressMapper.Column());
         this.jdbi.registerArgument(new JsonAddressMapper.Factory());
 
-        // 3. Registrera LocalDateTime-mappers för att lagra och läsa datum som ISO-8601-strängar i SQLite
+        // 3. Registrera mappers för att lagra och läsa datum enligt mönstret
+        // 'yyyy-MM-dd HH:mm:ss'
         this.jdbi.registerArgument(new AbstractArgumentFactory<LocalDateTime>(Types.VARCHAR) {
             @Override
             protected Argument build(LocalDateTime value, ConfigRegistry config) {
-                return (position, statement, ctx) -> statement.setString(position, value.toString());
+                return (position, statement, ctx) -> statement.setString(position, value.format(FORMATTER));
             }
         });
 
@@ -130,7 +136,8 @@ public class Book {
                     return null;
                 }
                 try {
-                    return LocalDateTime.parse(value.replace(' ', 'T'));
+                    // Tolkar strängen direkt med det nya mönstret utan att ersätta tecken
+                    return LocalDateTime.parse(value, FORMATTER);
                 } catch (Exception e) {
                     throw new SQLException("Kunde inte deserialisera datum till LocalDateTime: " + value, e);
                 }
@@ -158,7 +165,7 @@ public class Book {
         @SqlQuery("SELECT id, name, address FROM buyer WHERE id = :id")
         Models.Buyer getBuyerById(@Bind("id") int id);
 
-        // --- Bokningsfunktioner (från tidigare steg) ---
+        // --- Bokningsfunktioner ---
 
         @SqlQuery("SELECT f.id, f.asset_id AS assetId, f.start_time AS startTime, f.end_time AS endTime " +
                 "FROM free f " +
@@ -270,7 +277,10 @@ public class Book {
         jdbi.useExtension(BookingDao.class, dao -> dao.deleteFreeTime(freeId));
     }
 
+    // --- Innerklass Timeslot ---
+
     public static class Timeslot {
+
         private int freeid;
         private LocalDateTime startTime;
         private LocalDateTime endTime;
@@ -297,6 +307,12 @@ public class Book {
 
         public void setEndTime(LocalDateTime endTime) {
             this.endTime = endTime;
+        }
+
+        @Override
+        public String toString() {
+            return freeid + " " + startTime.truncatedTo(ChronoUnit.HOURS) + "-" + endTime.truncatedTo(ChronoUnit.HOURS)
+                    + "<br>";
         }
     }
 }

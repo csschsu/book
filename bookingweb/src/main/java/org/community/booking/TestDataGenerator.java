@@ -44,7 +44,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class TestDataGenerator {
 
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public static class address {
@@ -69,7 +69,7 @@ public class TestDataGenerator {
     }
 
     public static void main(String[] args) {
-        String dbUrl = "jdbc:sqlite:booking_test.db";
+        String dbUrl = "jdbc:sqlite:booking_system.db";
         System.out.println("Ansluter till databasen: " + dbUrl);
         Jdbi jdbi = Jdbi.create(dbUrl);
 
