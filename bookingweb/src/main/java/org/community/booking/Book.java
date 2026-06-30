@@ -173,9 +173,9 @@ public class Book {
                 "FROM free f " +
                 "JOIN asset a ON f.asset_id = a.id " +
                 "JOIN location l ON l.asset_id = a.id " +
-                "WHERE l.name = :location " +
+                "WHERE l.id = :locationId " +
                 "  AND f.end_time > :startTime")
-        List<Models.Free> getFreeBlocks(@Bind("location") String location, @Bind("startTime") LocalDateTime startTime);
+        List<Models.Free> getFreeBlocks(@Bind("locationId") int locationId, @Bind("startTime") LocalDateTime startTime);
 
         @SqlQuery("SELECT b.id, b.free_id AS freeId, b.buyer_id AS buyerId, b.start_time AS startTime, b.end_time AS endTime "
                 +
@@ -185,8 +185,7 @@ public class Book {
                 "JOIN location l ON l.asset_id = a.id " +
                 "WHERE l.name = :location " +
                 "  AND f.end_time > :startTime")
-        List<Models.Booked> getBookedBlocks(@Bind("location") String location,
-                @Bind("startTime") LocalDateTime startTime);
+        List<Models.Booked> getBookedBlocks(@Bind("locationId") int locationId, @Bind("startTime") LocalDateTime startTime);
 
         @SqlUpdate("INSERT INTO booked (free_id, buyer_id, start_time, end_time) " +
                 "VALUES (:freeId, :buyerId, :startTime, :endTime)")
@@ -220,15 +219,13 @@ public class Book {
 
     // --- Tidslogik med stöd för partiella bokningar ---
 
-    public List<Models.Timeslot> findTimeslot(String location, LocalDateTime startTime) {
+    public List<Models.Timeslot> findTimeslot(Models.Location location, LocalDateTime startTime) {
         List<Models.Free> freeBlocks = jdbi.withExtension(BookingDao.class,
-                dao -> dao.getFreeBlocks(location, startTime));
+                dao -> dao.getFreeBlocks(location.id, startTime));
         List<Models.Booked> bookedBlocks = jdbi.withExtension(BookingDao.class,
-                dao -> dao.getBookedBlocks(location, startTime));
+                dao -> dao.getBookedBlocks(location.id, startTime));
 
-        List<Models.Timeslot> availableSlots = new ArrayList<>();
-
-        for (Models.Free free : freeBlocks) {
+        List<Models.Timeslot> availableSlots = new ArrayList<>();        for (Models.Free free : freeBlocks) {
             List<Models.Booked> relevantBookings = new ArrayList<>();
             for (Models.Booked b : bookedBlocks) {
                 if (b.freeId == free.id) {

@@ -11,28 +11,88 @@ import java.util.List;
 
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-
 public class BookController {
 
-  private static String DB_URL = "jdbc:sqlite:../booking_system.db?foreign_keys=true";
-  Jdbi jdbi = Jdbi.create(DB_URL);
+  private static final String DB_URL = "jdbc:sqlite:../booking_system.db?foreign_keys=true";
+  private final Book book;
+
+  public BookController() {
+    Jdbi jdbi = Jdbi.create(DB_URL);
+    jdbi.installPlugin(new SqlObjectPlugin());
+    this.book = new Book(jdbi);
+  }
+
+  // Constructor for testing / dependency injection
+  public BookController(Book book) {
+    this.book = book;
+  }
 
   @GetMapping("/book")
   public String book() {
     return "Greetings from Spring Boot!";
   }
 
-  @GetMapping("/free")
-  public String free() {
-    jdbi.installPlugin(new SqlObjectPlugin());
-    Book book = new Book(jdbi);
-    List<Models.Timeslot> slots = book.findTimeslot("Location 1", LocalDateTime.now());
-    return slots.toString();
+  @PostMapping("/free")
+  public String free(@RequestBody Models.Location location) {
 
+    List<Models.Timeslot> slots = book.findTimeslot(location, LocalDateTime.now());
+    return slots.toString();
+  }
+
+  @PostMapping("/supplier")
+  public void addSupplier(@RequestBody Models.Supplier supplier) {
+    book.addSupplier(supplier);
+  }
+
+  @GetMapping("/supplier/{id}")
+  public Models.Supplier getSupplier(@PathVariable("id") int id) {
+    return book.getSupplier(id);
+  }
+
+  @PostMapping("/buyer")
+  public void addBuyer(@RequestBody Models.Buyer buyer) {
+    book.addBuyer(buyer);
+  }
+
+  @GetMapping("/buyer/{id}")
+  public Models.Buyer getBuyer(@PathVariable("id") int id) {
+    return book.getBuyer(id);
+  }
+
+  @PostMapping("/timeslot")
+  public List<Models.Timeslot> findTimeslot(
+      @RequestBody Models.Location location,
+      @RequestParam("startTime") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime) {
+    return book.findTimeslot(location, startTime);
+  }
+
+  @PostMapping("/bookTime")
+  public void bookTime(
+      @RequestParam("freeId") int freeId,
+      @RequestParam("buyerId") int buyerId,
+      @RequestParam("startTime") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+      @RequestParam("endTime") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) {
+    book.bookTime(freeId, buyerId, startTime, endTime);
+  }
+
+  @DeleteMapping("/bookedTime/{bookedId}")
+  public void deleteBookedTime(@PathVariable("bookedId") int bookedId) {
+    book.deleteBookedTime(bookedId);
+  }
+
+  @DeleteMapping("/freeTime/{freeId}")
+  public void deleteFreeTime(@PathVariable("freeId") int freeId) {
+    book.deleteFreeTime(freeId);
   }
 
 }
