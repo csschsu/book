@@ -30,7 +30,7 @@ public class BookController {
   public String free() {
     jdbi.installPlugin(new SqlObjectPlugin());
     Book book = new Book(jdbi);
-    List<Book.Timeslot> slots = book.findTimeslot("Location 1", LocalDateTime.now());
+    List<Models.Timeslot> slots = book.findTimeslot("Location 1", LocalDateTime.now());
     return slots.toString();
 
   }

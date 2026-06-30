@@ -6,17 +6,19 @@ bookTime(freeid, startTime, endTime)
 deleteBookedTime(bookedid)
 deleteFreeTime(freeid)
 
+@Data
 public class Models {
+
     public static class Supplier {
         public int id;
         public String name;
-        public String address;
+        public Models.Address address;
     }
 
     public static class Buyer {
         public int id;
         public String name;
-        public String address;
+        public Models.Address address;
     }
 
     public static class Asset {
@@ -27,9 +29,9 @@ public class Models {
     }
 
     public static class Location {
-        public int id;£
+        public int id;
         public String name;
-        public String address;
+        public Models.Address address;
     }
 
     public static class Booked {
@@ -47,21 +49,21 @@ public class Models {
         public LocalDateTime endTime;
     }
 
-    //Transient
-    public static class Freeslot {
+    // Transient
+    public static class Timeslot {
         public int freeid;
         public LocalDateTime startTime;
         public LocalDateTime endTime;
     }
 
-    //JSON
-    public static class address {
+    // JSON
+    public static class Address {
         public String email;
-        public String phone;    
-        } 
+        public String phone;
     }
+}
 
-    address is a JSON object in a text string
+    Address is a JSON object in a text string
 
 sqlite tables in the database
 
@@ -81,6 +83,7 @@ CREATE TABLE booked (id INTEGER PRIMARY KEY AUTOINCREMENT, free_id INTEGER NOT N
 
 package org.community.booking;
 
+import org.community.booking.Models.Timeslot;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.argument.AbstractArgumentFactory;
 import org.jdbi.v3.core.argument.Argument;
@@ -99,7 +102,6 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -116,7 +118,7 @@ public class Book {
         this.jdbi.installPlugin(new SqlObjectPlugin());
 
         // 2. Registrera dina JSON-mappers så att JDBI känner till Models.address
-        this.jdbi.registerColumnMapper(Models.address.class, new JsonAddressMapper.Column());
+        this.jdbi.registerColumnMapper(Models.Address.class, new JsonAddressMapper.Column());
         this.jdbi.registerArgument(new JsonAddressMapper.Factory());
 
         // 3. Registrera mappers för att lagra och läsa datum enligt mönstret
@@ -218,13 +220,13 @@ public class Book {
 
     // --- Tidslogik med stöd för partiella bokningar ---
 
-    public List<Timeslot> findTimeslot(String location, LocalDateTime startTime) {
+    public List<Models.Timeslot> findTimeslot(String location, LocalDateTime startTime) {
         List<Models.Free> freeBlocks = jdbi.withExtension(BookingDao.class,
                 dao -> dao.getFreeBlocks(location, startTime));
         List<Models.Booked> bookedBlocks = jdbi.withExtension(BookingDao.class,
                 dao -> dao.getBookedBlocks(location, startTime));
 
-        List<Timeslot> availableSlots = new ArrayList<>();
+        List<Models.Timeslot> availableSlots = new ArrayList<>();
 
         for (Models.Free free : freeBlocks) {
             List<Models.Booked> relevantBookings = new ArrayList<>();
@@ -253,15 +255,15 @@ public class Book {
             }
         }
 
-        availableSlots.sort(Comparator.comparing(Timeslot::getStartTime));
+        availableSlots.sort(Comparator.comparing(slot -> slot.startTime));
         return availableSlots;
     }
 
     private Timeslot createSlot(int freeId, LocalDateTime start, LocalDateTime end) {
         Timeslot slot = new Timeslot();
-        slot.setFreeid(freeId);
-        slot.setStartTime(start);
-        slot.setEndTime(end);
+        slot.freeid = freeId;
+        slot.startTime = start;
+        slot.endTime = end;
         return slot;
     }
 
@@ -277,42 +279,4 @@ public class Book {
         jdbi.useExtension(BookingDao.class, dao -> dao.deleteFreeTime(freeId));
     }
 
-    // --- Innerklass Timeslot ---
-
-    public static class Timeslot {
-
-        private int freeid;
-        private LocalDateTime startTime;
-        private LocalDateTime endTime;
-
-        public int getFreeid() {
-            return freeid;
-        }
-
-        public void setFreeid(int freeid) {
-            this.freeid = freeid;
-        }
-
-        public LocalDateTime getStartTime() {
-            return startTime;
-        }
-
-        public void setStartTime(LocalDateTime startTime) {
-            this.startTime = startTime;
-        }
-
-        public LocalDateTime getEndTime() {
-            return endTime;
-        }
-
-        public void setEndTime(LocalDateTime endTime) {
-            this.endTime = endTime;
-        }
-
-        @Override
-        public String toString() {
-            return freeid + " " + startTime.truncatedTo(ChronoUnit.HOURS) + "-" + endTime.truncatedTo(ChronoUnit.HOURS)
-                    + "<br>";
-        }
-    }
 }

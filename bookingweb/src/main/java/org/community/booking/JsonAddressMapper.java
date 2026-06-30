@@ -19,15 +19,15 @@ public class JsonAddressMapper {
      * Läser från databasen: Omvandlar JSON-text i SQLite till
      * Models.address-objekt.
      */
-    public static class Column implements ColumnMapper<Models.address> {
+    public static class Column implements ColumnMapper<Models.Address> {
         @Override
-        public Models.address map(ResultSet r, int columnNumber, StatementContext ctx) throws SQLException {
+        public Models.Address map(ResultSet r, int columnNumber, StatementContext ctx) throws SQLException {
             String json = r.getString(columnNumber);
             if (json == null || json.isEmpty()) {
                 return null;
             }
             try {
-                return objectMapper.readValue(json, Models.address.class);
+                return objectMapper.readValue(json, Models.Address.class);
             } catch (Exception e) {
                 throw new SQLException("Kunde inte deserialisera JSON till Models.address", e);
             }
@@ -40,7 +40,7 @@ public class JsonAddressMapper {
     public static class Factory implements ArgumentFactory {
         @Override
         public Optional<Argument> build(java.lang.reflect.Type type, Object value, ConfigRegistry config) {
-            if (type == Models.address.class && value != null) {
+            if (type == Models.Address.class && value != null) {
                 return Optional.of((position, statement, ctx) -> {
                     try {
                         String json = objectMapper.writeValueAsString(value);

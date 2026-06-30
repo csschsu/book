@@ -2,19 +2,23 @@
 package org.community.booking;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
+import lombok.Data;
+
+@Data
 public class Models {
 
     public static class Supplier {
         public int id;
         public String name;
-        public Models.address address;
+        public Models.Address address;
     }
 
     public static class Buyer {
         public int id;
         public String name;
-        public Models.address address;
+        public Models.Address address;
     }
 
     public static class Asset {
@@ -27,7 +31,7 @@ public class Models {
     public static class Location {
         public int id;
         public String name;
-        public Models.address address;
+        public Models.Address address;
     }
 
     public static class Booked {
@@ -45,15 +49,22 @@ public class Models {
         public LocalDateTime endTime;
     }
 
-    //Transient
-    public static class Freeslot {
+    // Transient
+    public static class Timeslot {
         public int freeid;
         public LocalDateTime startTime;
         public LocalDateTime endTime;
+
+        public String toString() {
+            return freeid + " " + startTime.truncatedTo(ChronoUnit.HOURS) + "-" +
+                    endTime.truncatedTo(ChronoUnit.HOURS)
+                    + "<br>";
+
+        }
     }
 
-    //JSON
-    public static class address {
+    // JSON
+    public static class Address {
         public String email;
         public String phone;
     }
