@@ -173,9 +173,9 @@ public class Book {
                 "FROM free f " +
                 "JOIN asset a ON f.asset_id = a.id " +
                 "JOIN location l ON l.asset_id = a.id " +
-                "WHERE l.id = :locationId " +
+                "WHERE l.id = :location " +
                 "  AND f.end_time > :startTime")
-        List<Models.Free> getFreeBlocks(@Bind("locationId") int locationId, @Bind("startTime") LocalDateTime startTime);
+        List<Models.Free> getFreeBlocks(@Bind("location") int location, @Bind("startTime") LocalDateTime startTime);
 
         @SqlQuery("SELECT b.id, b.free_id AS freeId, b.buyer_id AS buyerId, b.start_time AS startTime, b.end_time AS endTime "
                 +
@@ -183,9 +183,9 @@ public class Book {
                 "JOIN free f ON b.free_id = f.id " +
                 "JOIN asset a ON f.asset_id = a.id " +
                 "JOIN location l ON l.asset_id = a.id " +
-                "WHERE l.name = :location " +
+                "WHERE l.id = :location " +
                 "  AND f.end_time > :startTime")
-        List<Models.Booked> getBookedBlocks(@Bind("locationId") int locationId, @Bind("startTime") LocalDateTime startTime);
+        List<Models.Booked> getBookedBlocks(@Bind("location") int location, @Bind("startTime") LocalDateTime startTime);
 
         @SqlUpdate("INSERT INTO booked (free_id, buyer_id, start_time, end_time) " +
                 "VALUES (:freeId, :buyerId, :startTime, :endTime)")
@@ -225,7 +225,8 @@ public class Book {
         List<Models.Booked> bookedBlocks = jdbi.withExtension(BookingDao.class,
                 dao -> dao.getBookedBlocks(location.id, startTime));
 
-        List<Models.Timeslot> availableSlots = new ArrayList<>();        for (Models.Free free : freeBlocks) {
+        List<Models.Timeslot> availableSlots = new ArrayList<>();
+        for (Models.Free free : freeBlocks) {
             List<Models.Booked> relevantBookings = new ArrayList<>();
             for (Models.Booked b : bookedBlocks) {
                 if (b.freeId == free.id) {
