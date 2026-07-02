@@ -179,7 +179,7 @@ public class TestDataGenerator {
                 long randomStartSecond = ThreadLocalRandom.current().nextLong(minEpochSecond, maxEpochSecond);
 
                 LocalDateTime startTime = LocalDateTime.ofEpochSecond(randomStartSecond, 0, java.time.ZoneOffset.UTC);
-                LocalDateTime endTime = startTime.plusHours(24);
+                LocalDateTime endTime = startTime.plusHours(48);
 
                 freeBatch.bind(0, randomAssetId)
                         .bind(1, startTime.format(FORMATTER))
