@@ -144,16 +144,16 @@ public class TestDataGenerator {
             assetBatch.execute();
             List<Long> assetIds = handle.createQuery("SELECT id FROM asset").mapTo(Long.class).list();
 
-            // 4. Generera 5 platser (locations) med 25 unika assets vardera
+            // 4. Generera 2 platser (locations) med 50 unika assets vardera
             List<Long> shuffledAssets = new ArrayList<>(assetIds);
             Collections.shuffle(shuffledAssets);
             PreparedBatch locationBatch = handle
                     .prepareBatch("INSERT INTO location (asset_id, name, address) VALUES (?, ?, ?)");
 
             int assetIndex = 0;
-            for (int loc = 1; loc <= 5; loc++) {
+            for (int loc = 1; loc <= 2; loc++) {
                 String jsonAddress = toJson("location" + loc + "@example.com", "070-33333" + loc);
-                for (int i = 0; i < 25; i++) {
+                for (int i = 0; i < 50; i++) {
                     long uniqueAssetId = shuffledAssets.get(assetIndex++);
                     locationBatch.bind(0, uniqueAssetId)
                             .bind(1, "Location " + loc)
