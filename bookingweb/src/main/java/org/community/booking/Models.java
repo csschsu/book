@@ -34,6 +34,13 @@ public class Models {
         public Models.Address address;
     }
 
+    public static class AssetLocation {
+        public int id;
+        public int locationId;
+        public int assetId;
+        public String name;
+    }
+
     public static class Booked {
         public int id;
         public int freeId;
@@ -52,6 +59,7 @@ public class Models {
     // Transient
     public static class Timeslot {
         public int freeid;
+        public int assetId;
         public LocalDateTime startTime;
         public LocalDateTime endTime;
 

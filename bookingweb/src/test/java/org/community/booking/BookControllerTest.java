@@ -67,6 +67,7 @@ public class BookControllerTest {
         List<Models.Timeslot> slots = new ArrayList<>();
         Models.Timeslot slot = new Models.Timeslot();
         slot.freeid = 10;
+        slot.assetId = 15;
         slot.startTime = LocalDateTime.of(2026, 6, 30, 10, 0);
         slot.endTime = LocalDateTime.of(2026, 6, 30, 12, 0);
         slots.add(slot);
@@ -147,6 +148,7 @@ public class BookControllerTest {
         List<Models.Timeslot> slots = new ArrayList<>();
         Models.Timeslot slot = new Models.Timeslot();
         slot.freeid = 10;
+        slot.assetId = 15;
         slot.startTime = startTime;
         slot.endTime = startTime.plusHours(2);
         slots.add(slot);
@@ -159,6 +161,7 @@ public class BookControllerTest {
                         .content(objectMapper.writeValueAsString(location)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].freeid").value(10))
+                .andExpect(jsonPath("$[0].assetId").value(15))
                 .andExpect(jsonPath("$[0].startTime").value("2026-06-30T10:00:00"))
                 .andExpect(jsonPath("$[0].endTime").value("2026-06-30T12:00:00"));
     }

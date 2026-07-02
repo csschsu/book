@@ -12,6 +12,7 @@ import java.util.List;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,10 +21,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@CrossOrigin(origins = "*")
 @RestController
 public class BookController {
 
-  private static final String DB_URL = "jdbc:sqlite:../booking_system.db?foreign_keys=true";
+  private static final String DB_URL = "jdbc:sqlite:booking_system.db?foreign_keys=true";
   private final Book book;
 
   public BookController() {
@@ -40,6 +42,16 @@ public class BookController {
   @GetMapping("/book")
   public String book() {
     return "Greetings from Spring Boot!";
+  }
+
+  @GetMapping("/assetlocations")
+  public List<Models.AssetLocation> getAssetLocations() {
+    return book.getAssetLocations();
+  }
+
+  @GetMapping("/locations")
+  public List<Models.Location> getLocations() {
+    return book.getLocations();
   }
 
   @PostMapping("/free")
@@ -67,6 +79,16 @@ public class BookController {
   @GetMapping("/buyer/{id}")
   public Models.Buyer getBuyer(@PathVariable("id") int id) {
     return book.getBuyer(id);
+  }
+
+  @GetMapping("/buyers")
+  public List<Models.Buyer> getBuyers() {
+    return book.getBuyers();
+  }
+
+  @PostMapping("/buyer/findOrCreate")
+  public Models.Buyer findOrCreateBuyer(@RequestParam("name") String name) {
+    return book.findOrCreateBuyer(name);
   }
 
   @PostMapping("/timeslot")

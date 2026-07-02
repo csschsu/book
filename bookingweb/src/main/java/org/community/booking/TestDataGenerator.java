@@ -11,7 +11,8 @@ genererate 200 assets using a random existing supplier_id, set price_per_hour 1
 CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, supplier_id INTEGER NOT NULL, description TEXT, price_per_hour REAL NOT NULL, FOREIGN KEY (supplier_id) REFERENCES supplier(id) ON DELETE CASCADE);
 
 genererate 5 locations each with 25 random unique existing assets
-CREATE TABLE location (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER UNIQUE, name TEXT NOT NULL, address TEXT, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE);
+CREATE TABLE location (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT);
+CREATE TABLE asset_location (id INTEGER PRIMARY KEY AUTOINCREMENT, location_id , asset_id INTEGER UNIQUE, name TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE, FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE);
 
 generate 100 free 
 use a random existing asset, set a random start_time between current date - 1 day and current date + 9 days, set end_time 24 hours after start_time 
@@ -89,7 +90,9 @@ public class TestDataGenerator {
             handle.execute(
                     "CREATE TABLE IF NOT EXISTS asset (id INTEGER PRIMARY KEY AUTOINCREMENT, supplier_id INTEGER NOT NULL, description TEXT, price_per_hour REAL NOT NULL, FOREIGN KEY (supplier_id) REFERENCES supplier(id) ON DELETE CASCADE)");
             handle.execute(
-                    "CREATE TABLE IF NOT EXISTS location (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER UNIQUE, name TEXT NOT NULL, address TEXT, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE)");
+                    "CREATE TABLE IF NOT EXISTS location (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT)");
+            handle.execute(
+                    "CREATE TABLE IF NOT EXISTS asset_location (id INTEGER PRIMARY KEY AUTOINCREMENT, location_id INTEGER, asset_id INTEGER UNIQUE, name TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE, FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE)");
             handle.execute(
                     "CREATE TABLE IF NOT EXISTS free (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE)");
             handle.execute(
@@ -104,6 +107,7 @@ public class TestDataGenerator {
             // KEY-restriktioner
             handle.execute("DELETE FROM booked");
             handle.execute("DELETE FROM free");
+            handle.execute("DELETE FROM asset_location");
             handle.execute("DELETE FROM location");
             handle.execute("DELETE FROM asset");
             handle.execute("DELETE FROM buyer");
@@ -111,7 +115,7 @@ public class TestDataGenerator {
 
             // Nollställer AUTOINCREMENT-räknarna i SQLite så att ID börjar om på 1
             handle.execute(
-                    "DELETE FROM sqlite_sequence WHERE name IN ('booked', 'free', 'location', 'asset', 'buyer', 'supplier')");
+                    "DELETE FROM sqlite_sequence WHERE name IN ('booked', 'free', 'asset_location', 'asset', 'buyer', 'supplier')");
 
             // 1. Generera 25 leverantörer (suppliers)
             PreparedBatch supplierBatch = handle.prepareBatch("INSERT INTO supplier (name, address) VALUES (?, ?)");
@@ -144,24 +148,32 @@ public class TestDataGenerator {
             assetBatch.execute();
             List<Long> assetIds = handle.createQuery("SELECT id FROM asset").mapTo(Long.class).list();
 
-            // 4. Generera 2 platser (locations) med 50 unika assets vardera
-            List<Long> shuffledAssets = new ArrayList<>(assetIds);
-            Collections.shuffle(shuffledAssets);
-            PreparedBatch locationBatch = handle
-                    .prepareBatch("INSERT INTO location (asset_id, name, address) VALUES (?, ?, ?)");
-
-            int assetIndex = 0;
+            // 4. Generera 2 platser (locations) och koppla 50 unika assets till vardera
+            PreparedBatch locationBatch = handle.prepareBatch("INSERT INTO location (name, address) VALUES (?, ?)");
             for (int loc = 1; loc <= 2; loc++) {
                 String jsonAddress = toJson("location" + loc + "@example.com", "070-33333" + loc);
+                locationBatch.bind(0, "Location " + loc).bind(1, jsonAddress).add();
+            }
+            locationBatch.execute();
+            List<Long> locationIds = handle.createQuery("SELECT id FROM location").mapTo(Long.class).list();
+
+            List<Long> shuffledAssets = new ArrayList<>(assetIds);
+            Collections.shuffle(shuffledAssets);
+            PreparedBatch assetLocationBatch = handle
+                    .prepareBatch("INSERT INTO asset_location (location_id, asset_id, name) VALUES (?, ?, ?)");
+
+            int assetIndex = 0;
+            for (int locIndex = 0; locIndex < locationIds.size(); locIndex++) {
+                long locationId = locationIds.get(locIndex);
                 for (int i = 0; i < 50; i++) {
                     long uniqueAssetId = shuffledAssets.get(assetIndex++);
-                    locationBatch.bind(0, uniqueAssetId)
-                            .bind(1, "Location " + loc)
-                            .bind(2, jsonAddress)
+                    assetLocationBatch.bind(0, locationId)
+                            .bind(1, uniqueAssetId)
+                            .bind(2, "Asset Location " + (locIndex + 1))
                             .add();
                 }
             }
-            locationBatch.execute();
+            assetLocationBatch.execute();
 
             // 5. Generera 100 lediga tider (free)
             List<FreeTimeSlot> freeSlots = new ArrayList<>();

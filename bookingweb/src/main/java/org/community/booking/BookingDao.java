@@ -26,11 +26,18 @@ public interface BookingDao {
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS location (" +
             "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+            "name TEXT NOT NULL, " +
+            "address TEXT)")
+    void createLocationTable();
+
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS asset_location (" +
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+            "location_id INTEGER, " +
             "asset_id INTEGER UNIQUE, " +
             "name TEXT NOT NULL, " +
-            "address TEXT, " +
-            "FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE)")
-    void createLocationTable();
+            "FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE, " +
+            "FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE)")
+    void createAssetLocationTable();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS free (" +
             "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
@@ -55,6 +62,7 @@ public interface BookingDao {
         createBuyerTable();
         createAssetTable();
         createLocationTable();
+        createAssetLocationTable();
         createFreeTable();
         createBookedTable();
     }

@@ -1,6 +1,6 @@
 /* Generate java program in this file using jdbi funtions : 
 
-public List <Timeslot> findTimeslot (location, startTime)
+public List <Timeslot> findTimeslot (AssetLocation, startTime)
 list not booked time in a Free record in timeslots and sort on startTime
 bookTime(freeid, startTime, endTime)
 deleteBookedTime(bookedid)
@@ -28,7 +28,7 @@ public class Models {
         public double pricePerHour;
     }
 
-    public static class Location {
+    public static class AssetLocation {
         public int id;
         public String name;
         public Models.Address address;
@@ -73,7 +73,7 @@ CREATE TABLE buyer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, ad
 
 CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, supplier_id INTEGER NOT NULL, description TEXT, price_per_hour REAL NOT NULL, FOREIGN KEY (supplier_id) REFERENCES supplier(id) ON DELETE CASCADE);
 
-CREATE TABLE location (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER UNIQUE, name TEXT NOT NULL, address TEXT, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE);
+CREATE TABLE asset_location (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER UNIQUE, name TEXT NOT NULL, address TEXT, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE);
 
 CREATE TABLE free (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE);
 
@@ -151,6 +151,8 @@ public class Book {
     @RegisterFieldMapper(Models.Booked.class)
     @RegisterFieldMapper(Models.Supplier.class)
     @RegisterFieldMapper(Models.Buyer.class)
+    @RegisterFieldMapper(Models.Location.class)
+    @RegisterFieldMapper(Models.AssetLocation.class)
     public interface BookingDao {
 
         // --- JSON / Entitetshantering ---
@@ -167,13 +169,28 @@ public class Book {
         @SqlQuery("SELECT id, name, address FROM buyer WHERE id = :id")
         Models.Buyer getBuyerById(@Bind("id") int id);
 
+        @SqlQuery("SELECT id, name, address FROM location")
+        List<Models.Location> getLocations();
+
+        @SqlQuery("SELECT id, location_id, asset_id, name FROM asset_location")
+        List<Models.AssetLocation> getAssetLocations();
+
+        @SqlQuery("SELECT id, name, address FROM buyer WHERE name = :name")
+        Models.Buyer getBuyerByName(@Bind("name") String name);
+
+        @SqlQuery("SELECT id, name, address FROM buyer")
+        List<Models.Buyer> getBuyers();
+
+        @SqlUpdate("INSERT INTO buyer (name, address) VALUES (:name, :address)")
+        void insertBuyer(@Bind("name") String name, @Bind("address") Models.Address address);
+
         // --- Bokningsfunktioner ---
 
         @SqlQuery("SELECT f.id, f.asset_id AS assetId, f.start_time AS startTime, f.end_time AS endTime " +
                 "FROM free f " +
                 "JOIN asset a ON f.asset_id = a.id " +
-                "JOIN location l ON l.asset_id = a.id " +
-                "WHERE l.id = :location " +
+                "JOIN asset_location l ON l.asset_id = a.id " +
+                "WHERE l.location_id = :location " +
                 "  AND f.end_time > :startTime")
         List<Models.Free> getFreeBlocks(@Bind("location") int location, @Bind("startTime") LocalDateTime startTime);
 
@@ -182,8 +199,8 @@ public class Book {
                 "FROM booked b " +
                 "JOIN free f ON b.free_id = f.id " +
                 "JOIN asset a ON f.asset_id = a.id " +
-                "JOIN location l ON l.asset_id = a.id " +
-                "WHERE l.id = :location " +
+                "JOIN asset_location l ON l.asset_id = a.id " +
+                "WHERE l.location_id = :location " +
                 "  AND f.end_time > :startTime")
         List<Models.Booked> getBookedBlocks(@Bind("location") int location, @Bind("startTime") LocalDateTime startTime);
 
@@ -217,6 +234,32 @@ public class Book {
         return jdbi.withExtension(BookingDao.class, dao -> dao.getBuyerById(id));
     }
 
+    public List<Models.Location> getLocations() {
+        return jdbi.withExtension(BookingDao.class, BookingDao::getLocations);
+    }
+
+    public List<Models.AssetLocation> getAssetLocations() {
+        return jdbi.withExtension(BookingDao.class, BookingDao::getAssetLocations);
+    }
+
+    public List<Models.Buyer> getBuyers() {
+        return jdbi.withExtension(BookingDao.class, BookingDao::getBuyers);
+    }
+
+    public Models.Buyer findOrCreateBuyer(String name) {
+        return jdbi.withExtension(BookingDao.class, dao -> {
+            Models.Buyer buyer = dao.getBuyerByName(name);
+            if (buyer == null) {
+                Models.Address addr = new Models.Address();
+                addr.email = name.toLowerCase().replaceAll("[^a-zA-Z0-9]", "") + "@example.com";
+                addr.phone = "070-0000000";
+                dao.insertBuyer(name, addr);
+                buyer = dao.getBuyerByName(name);
+            }
+            return buyer;
+        });
+    }
+
     // --- Tidslogik med stöd för partiella bokningar ---
 
     public List<Models.Timeslot> findTimeslot(Models.Location location, LocalDateTime startTime) {
@@ -241,7 +284,7 @@ public class Book {
 
             for (Models.Booked booking : relevantBookings) {
                 if (booking.startTime.isAfter(currentStart)) {
-                    availableSlots.add(createSlot(free.id, currentStart, booking.startTime));
+                    availableSlots.add(createSlot(free.id, free.assetId, currentStart, booking.startTime));
                 }
                 if (booking.endTime.isAfter(currentStart)) {
                     currentStart = booking.endTime;
@@ -249,7 +292,7 @@ public class Book {
             }
 
             if (currentStart.isBefore(blockEnd)) {
-                availableSlots.add(createSlot(free.id, currentStart, blockEnd));
+                availableSlots.add(createSlot(free.id, free.assetId, currentStart, blockEnd));
             }
         }
 
@@ -257,9 +300,10 @@ public class Book {
         return availableSlots;
     }
 
-    private Timeslot createSlot(int freeId, LocalDateTime start, LocalDateTime end) {
+    private Timeslot createSlot(int freeId, int assetId, LocalDateTime start, LocalDateTime end) {
         Timeslot slot = new Timeslot();
         slot.freeid = freeId;
+        slot.assetId = assetId;
         slot.startTime = start;
         slot.endTime = end;
         return slot;
