@@ -1,88 +1,27 @@
-/* Generate java program in this file using jdbi funtions : 
+/*
+Update Book.java program using new instruction : 
 
-public List <Timeslot> findTimeslot (AssetLocation, startTime)
-list not booked time in a Free record in timeslots and sort on startTime
-bookTime(freeid, startTime, endTime)
-deleteBookedTime(bookedid)
-deleteFreeTime(freeid)
+User enter wanted.starttime and wanted.endtime in form
 
-@Data
-public class Models {
+findTimeslot Model.Location search for free timeslots   
+Free time is free minus booked time and 
+Create a timeslot for each record in free    
+for each timeslot
+  read booked with free_id.
+    for each booked 
+      create a new timeslot using booked end_time as timeslot start_time and old timeslot end_time as end_time.
+      update old timeslot, set booked start_time as end_time 
+Finaly loop all timeslots and return Timeslots where wanted.starttime and wanted.endtime fits within the timeslot.
 
-    public static class Supplier {
-        public int id;
-        public String name;
-        public Models.Address address;
-    }
-
-    public static class Buyer {
-        public int id;
-        public String name;
-        public Models.Address address;
-    }
-
-    public static class Asset {
-        public int id;
-        public int supplierId;
-        public String description;
-        public double pricePerHour;
-    }
-
-    public static class AssetLocation {
-        public int id;
-        public String name;
-        public Models.Address address;
-    }
-
-    public static class Booked {
-        public int id;
-        public int freeId;
-        public int buyerId;
-        public LocalDateTime startTime;
-        public LocalDateTime endTime;
-    }
-
-    public static class Free {
-        public int id;
-        public int assetId;
-        public LocalDateTime startTime;
-        public LocalDateTime endTime;
-    }
-
-    // Transient
-    public static class Timeslot {
-        public int freeid;
-        public LocalDateTime startTime;
-        public LocalDateTime endTime;
-    }
-
-    // JSON
-    public static class Address {
-        public String email;
-        public String phone;
-    }
-}
-
-    Address is a JSON object in a text string
-
-sqlite tables in the database
-
-CREATE TABLE supplier (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT);
-
-CREATE TABLE buyer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT);
-
-CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, supplier_id INTEGER NOT NULL, description TEXT, price_per_hour REAL NOT NULL, FOREIGN KEY (supplier_id) REFERENCES supplier(id) ON DELETE CASCADE);
-
-CREATE TABLE asset_location (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER UNIQUE, name TEXT NOT NULL, address TEXT, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE);
-
-CREATE TABLE free (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE);
-
-CREATE TABLE booked (id INTEGER PRIMARY KEY AUTOINCREMENT, free_id INTEGER NOT NULL, buyer_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE, FOREIGN KEY (buyer_id) REFERENCES buyer(id) ON DELETE CASCADE);
+bookTime(freeid, wanted.startTime, wanted.endTime)
+create a record in booked.
 
  */
 
 package org.community.booking;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.community.booking.Models.Timeslot;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.argument.AbstractArgumentFactory;
@@ -108,11 +47,13 @@ import java.util.List;
 
 public class Book {
 
+    private static final Logger logger = LogManager.getLogger(Book.class);
     private final Jdbi jdbi;
     // Det nya specifika datumformatet med mellanslag som separator
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     public Book(Jdbi jdbi) {
+        logger.debug("Initializing Book service with Jdbi instance");
         this.jdbi = jdbi;
         // 1. Installera SQL Object plugin
         this.jdbi.installPlugin(new SqlObjectPlugin());
@@ -214,47 +155,71 @@ public class Book {
 
         @SqlUpdate("DELETE FROM free WHERE id = :freeId")
         void deleteFreeTime(@Bind("freeId") int freeId);
+
+        @SqlQuery("SELECT f.id, f.asset_id AS assetId, f.start_time AS startTime, f.end_time AS endTime " +
+                "FROM free f " +
+                "WHERE f.asset_id = :assetId " +
+                "  AND f.end_time > :startTime")
+        List<Models.Free> getFreeBlocksByAsset(@Bind("assetId") int assetId,
+                @Bind("startTime") LocalDateTime startTime);
+
+        @SqlQuery("SELECT b.id, b.free_id AS freeId, b.buyer_id AS buyerId, b.start_time AS startTime, b.end_time AS endTime "
+                +
+                "FROM booked b " +
+                "WHERE b.free_id = :freeId")
+        List<Models.Booked> getBookedBlocksByFreeId(@Bind("freeId") int freeId);
     }
 
     // --- Exponerade JSON-metoder ---
 
     public void addSupplier(Models.Supplier supplier) {
+        logger.debug("Adding supplier: name={}, id={}", supplier.name, supplier.id);
         jdbi.useExtension(BookingDao.class, dao -> dao.insertSupplier(supplier));
     }
 
     public Models.Supplier getSupplier(int id) {
+        logger.debug("Getting supplier by id: {}", id);
         return jdbi.withExtension(BookingDao.class, dao -> dao.getSupplierById(id));
     }
 
     public void addBuyer(Models.Buyer buyer) {
+        logger.debug("Adding buyer: name={}, id={}", buyer.name, buyer.id);
         jdbi.useExtension(BookingDao.class, dao -> dao.insertBuyer(buyer));
     }
 
     public Models.Buyer getBuyer(int id) {
+        logger.debug("Getting buyer by id: {}", id);
         return jdbi.withExtension(BookingDao.class, dao -> dao.getBuyerById(id));
     }
 
     public List<Models.Location> getLocations() {
+        logger.debug("Getting all locations");
         return jdbi.withExtension(BookingDao.class, BookingDao::getLocations);
     }
 
     public List<Models.AssetLocation> getAssetLocations() {
+        logger.debug("Getting all asset locations");
         return jdbi.withExtension(BookingDao.class, BookingDao::getAssetLocations);
     }
 
     public List<Models.Buyer> getBuyers() {
+        logger.debug("Getting all buyers");
         return jdbi.withExtension(BookingDao.class, BookingDao::getBuyers);
     }
 
     public Models.Buyer findOrCreateBuyer(String name) {
+        logger.debug("findOrCreateBuyer called with name: {}", name);
         return jdbi.withExtension(BookingDao.class, dao -> {
             Models.Buyer buyer = dao.getBuyerByName(name);
             if (buyer == null) {
+                logger.debug("Buyer '{}' not found, creating new buyer record", name);
                 Models.Address addr = new Models.Address();
                 addr.email = name.toLowerCase().replaceAll("[^a-zA-Z0-9]", "") + "@example.com";
                 addr.phone = "070-0000000";
                 dao.insertBuyer(name, addr);
                 buyer = dao.getBuyerByName(name);
+            } else {
+                logger.debug("Found existing buyer: id={}, name={}", buyer.id, buyer.name);
             }
             return buyer;
         });
@@ -262,42 +227,132 @@ public class Book {
 
     // --- Tidslogik med stöd för partiella bokningar ---
 
-    public List<Models.Timeslot> findTimeslot(Models.Location location, LocalDateTime startTime) {
+    public List<Models.Timeslot> findTimeslot(Models.Location location, LocalDateTime wantedStartTime,
+            LocalDateTime wantedEndTime) {
+        logger.debug("findTimeslot (Location) called: locationId={}, wantedStartTime={}, wantedEndTime={}", 
+                location != null ? location.id : "null", wantedStartTime, wantedEndTime);
         List<Models.Free> freeBlocks = jdbi.withExtension(BookingDao.class,
-                dao -> dao.getFreeBlocks(location.id, startTime));
-        List<Models.Booked> bookedBlocks = jdbi.withExtension(BookingDao.class,
-                dao -> dao.getBookedBlocks(location.id, startTime));
+                dao -> dao.getFreeBlocks(location.id, wantedStartTime));
+        logger.debug("Fetched {} free blocks for locationId={}", freeBlocks.size(), location != null ? location.id : "null");
 
-        List<Models.Timeslot> availableSlots = new ArrayList<>();
+        List<Models.Timeslot> timeslots = new ArrayList<>();
+        // start to create timeslots for each record in free
         for (Models.Free free : freeBlocks) {
-            List<Models.Booked> relevantBookings = new ArrayList<>();
-            for (Models.Booked b : bookedBlocks) {
-                if (b.freeId == free.id) {
-                    relevantBookings.add(b);
+            Models.Timeslot newSlot = createSlot(free.id, free.assetId, free.startTime, free.endTime);
+            timeslots.add(newSlot);
+            logger.debug("Created initial timeslot from free block: freeId={}, assetId={}, start={}, end={}",
+                    free.id, free.assetId, free.startTime, free.endTime);
+        }
+
+        // for each timeslot (using index loop to support dynamic additions)
+        for (int i = 0; i < timeslots.size(); i++) {
+            Models.Timeslot slot = timeslots.get(i);
+            // read booked with free_id
+            List<Models.Booked> bookedBlocks = jdbi.withExtension(BookingDao.class,
+                    dao -> dao.getBookedBlocksByFreeId(slot.freeid));
+            logger.debug("Processing timeslot index {}: freeId={}, assetId={}, slotStart={}, slotEnd={}. Found {} booked blocks.",
+                    i, slot.freeid, slot.assetId, slot.startTime, slot.endTime, bookedBlocks.size());
+
+            for (Models.Booked booked : bookedBlocks) {
+                if (!booked.startTime.isBefore(slot.startTime) && !booked.endTime.isAfter(slot.endTime)) {
+                    logger.debug("Splitting timeslot [{} - {}] by booked block [{} - {}]",
+                            slot.startTime, slot.endTime, booked.startTime, booked.endTime);
+                    // create a new timeslot using booked end_time as timeslot start_time and old
+                    // timeslot end_time as end_time
+                    Models.Timeslot newSlot = createSlot(slot.freeid, slot.assetId, booked.endTime, slot.endTime);
+
+                    // update old timeslot, set booked start_time as end_time
+                    slot.endTime = booked.startTime;
+
+                    // Add new timeslot to list to be processed for any other bookings
+                    timeslots.add(newSlot);
+                    logger.debug("Result of split: Updated slot to [{} - {}] and added new slot [{} - {}]",
+                            slot.startTime, slot.endTime, newSlot.startTime, newSlot.endTime);
                 }
-            }
-
-            relevantBookings.sort(Comparator.comparing(b -> b.startTime));
-
-            LocalDateTime currentStart = free.startTime.isBefore(startTime) ? startTime : free.startTime;
-            LocalDateTime blockEnd = free.endTime;
-
-            for (Models.Booked booking : relevantBookings) {
-                if (booking.startTime.isAfter(currentStart)) {
-                    availableSlots.add(createSlot(free.id, free.assetId, currentStart, booking.startTime));
-                }
-                if (booking.endTime.isAfter(currentStart)) {
-                    currentStart = booking.endTime;
-                }
-            }
-
-            if (currentStart.isBefore(blockEnd)) {
-                availableSlots.add(createSlot(free.id, free.assetId, currentStart, blockEnd));
             }
         }
 
-        availableSlots.sort(Comparator.comparing(slot -> slot.startTime));
-        return availableSlots;
+        // Include timeslot in result only when wantedStartTime and wantedEndTime are
+        // within the timeslot
+        List<Models.Timeslot> filteredSlots = new ArrayList<>();
+        for (Models.Timeslot slot : timeslots) {
+            if (slot.startTime.isBefore(slot.endTime) && !wantedStartTime.isBefore(slot.startTime)
+                    && !wantedEndTime.isAfter(slot.endTime)) {
+                filteredSlots.add(slot);
+            } else {
+                logger.debug("Filtered out timeslot: [{} - {}] (does not fit [{} - {}] or duration is non-positive)",
+                        slot.startTime, slot.endTime, wantedStartTime, wantedEndTime);
+            }
+        }
+
+        // sort timeslots on startTime
+        filteredSlots.sort(Comparator.comparing(slot -> slot.startTime));
+        logger.debug("Returning {} filtered and sorted timeslots", filteredSlots.size());
+        return filteredSlots;
+    }
+
+    public List<Models.Timeslot> findTimeslot(Models.AssetLocation assetLocation, LocalDateTime wantedStartTime,
+            LocalDateTime wantedEndTime) {
+        logger.debug("findTimeslot (AssetLocation) called: assetId={}, locationId={}, wantedStartTime={}, wantedEndTime={}", 
+                assetLocation != null ? assetLocation.assetId : "null", assetLocation != null ? assetLocation.locationId : "null", wantedStartTime, wantedEndTime);
+        List<Models.Free> freeBlocks = jdbi.withExtension(BookingDao.class,
+                dao -> dao.getFreeBlocksByAsset(assetLocation.assetId, wantedStartTime));
+        logger.debug("Fetched {} free blocks for assetId={}", freeBlocks.size(), assetLocation != null ? assetLocation.assetId : "null");
+
+        List<Models.Timeslot> timeslots = new ArrayList<>();
+        // start to create timeslots for each record in free
+        for (Models.Free free : freeBlocks) {
+            Models.Timeslot newSlot = createSlot(free.id, free.assetId, free.startTime, free.endTime);
+            timeslots.add(newSlot);
+            logger.debug("Created initial timeslot from free block: freeId={}, assetId={}, start={}, end={}",
+                    free.id, free.assetId, free.startTime, free.endTime);
+        }
+
+        // for each timeslot (using index loop to support dynamic additions)
+        for (int i = 0; i < timeslots.size(); i++) {
+            Models.Timeslot slot = timeslots.get(i);
+            // read booked with free_id
+            List<Models.Booked> bookedBlocks = jdbi.withExtension(BookingDao.class,
+                    dao -> dao.getBookedBlocksByFreeId(slot.freeid));
+            logger.debug("Processing timeslot index {}: freeId={}, assetId={}, slotStart={}, slotEnd={}. Found {} booked blocks.",
+                    i, slot.freeid, slot.assetId, slot.startTime, slot.endTime, bookedBlocks.size());
+
+            for (Models.Booked booked : bookedBlocks) {
+                if (!booked.startTime.isBefore(slot.startTime) && !booked.endTime.isAfter(slot.endTime)) {
+                    logger.debug("Splitting timeslot [{} - {}] by booked block [{} - {}]",
+                            slot.startTime, slot.endTime, booked.startTime, booked.endTime);
+                    // create a new timeslot using booked end_time as timeslot start_time and old
+                    // timeslot end_time as end_time
+                    Models.Timeslot newSlot = createSlot(slot.freeid, slot.assetId, booked.endTime, slot.endTime);
+
+                    // update old timeslot, set booked start_time as end_time
+                    slot.endTime = booked.startTime;
+
+                    // Add new timeslot to list to be processed for any other bookings
+                    timeslots.add(newSlot);
+                    logger.debug("Result of split: Updated slot to [{} - {}] and added new slot [{} - {}]",
+                            slot.startTime, slot.endTime, newSlot.startTime, newSlot.endTime);
+                }
+            }
+        }
+
+        // Include timeslot in result only when wantedStartTime and wantedEndTime are
+        // within the timeslot
+        List<Models.Timeslot> filteredSlots = new ArrayList<>();
+        for (Models.Timeslot slot : timeslots) {
+            if (slot.startTime.isBefore(slot.endTime) && !wantedStartTime.isBefore(slot.startTime)
+                    && !wantedEndTime.isAfter(slot.endTime)) {
+                filteredSlots.add(slot);
+            } else {
+                logger.debug("Filtered out timeslot: [{} - {}] (does not fit [{} - {}] or duration is non-positive)",
+                        slot.startTime, slot.endTime, wantedStartTime, wantedEndTime);
+            }
+        }
+
+        // sort timeslots on startTime
+        filteredSlots.sort(Comparator.comparing(slot -> slot.startTime));
+        logger.debug("Returning {} filtered and sorted timeslots", filteredSlots.size());
+        return filteredSlots;
     }
 
     private Timeslot createSlot(int freeId, int assetId, LocalDateTime start, LocalDateTime end) {
@@ -310,14 +365,17 @@ public class Book {
     }
 
     public void bookTime(int freeId, int buyerId, LocalDateTime startTime, LocalDateTime endTime) {
+        logger.debug("bookTime called: freeId={}, buyerId={}, startTime={}, endTime={}", freeId, buyerId, startTime, endTime);
         jdbi.useExtension(BookingDao.class, dao -> dao.bookTime(freeId, buyerId, startTime, endTime));
     }
 
     public void deleteBookedTime(int bookedId) {
+        logger.debug("deleteBookedTime called: bookedId={}", bookedId);
         jdbi.useExtension(BookingDao.class, dao -> dao.deleteBookedTime(bookedId));
     }
 
     public void deleteFreeTime(int freeId) {
+        logger.debug("deleteFreeTime called: freeId={}", freeId);
         jdbi.useExtension(BookingDao.class, dao -> dao.deleteFreeTime(freeId));
     }
 

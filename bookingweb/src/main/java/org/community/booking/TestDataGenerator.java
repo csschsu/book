@@ -208,28 +208,28 @@ public class TestDataGenerator {
             }
 
             // 6. Generera 10 bokade tider (booked)
-            PreparedBatch bookedBatch = handle
-                    .prepareBatch("INSERT INTO booked (free_id, buyer_id, start_time, end_time) VALUES (?, ?, ?, ?)");
-            for (int i = 0; i < 10; i++) {
-                FreeTimeSlot randomFree = freeSlots.get(ThreadLocalRandom.current().nextInt(freeSlots.size()));
-                long randomBuyerId = buyerIds.get(ThreadLocalRandom.current().nextInt(buyerIds.size()));
+            // PreparedBatch bookedBatch = handle
+            //         .prepareBatch("INSERT INTO booked (free_id, buyer_id, start_time, end_time) VALUES (?, ?, ?, ?)");
+            // for (int i = 0; i < 10; i++) {
+            //     FreeTimeSlot randomFree = freeSlots.get(ThreadLocalRandom.current().nextInt(freeSlots.size()));
+            //     long randomBuyerId = buyerIds.get(ThreadLocalRandom.current().nextInt(buyerIds.size()));
 
-                long freeStartSec = randomFree.getStart().toEpochSecond(java.time.ZoneOffset.UTC);
-                long freeEndSec = randomFree.getEnd().toEpochSecond(java.time.ZoneOffset.UTC);
+            //     long freeStartSec = randomFree.getStart().toEpochSecond(java.time.ZoneOffset.UTC);
+            //     long freeEndSec = randomFree.getEnd().toEpochSecond(java.time.ZoneOffset.UTC);
 
-                long bookedStartSec = ThreadLocalRandom.current().nextLong(freeStartSec, freeEndSec);
-                long bookedEndSec = ThreadLocalRandom.current().nextLong(bookedStartSec, freeEndSec);
+            //     long bookedStartSec = ThreadLocalRandom.current().nextLong(freeStartSec, freeEndSec);
+            //     long bookedEndSec = ThreadLocalRandom.current().nextLong(bookedStartSec, freeEndSec);
 
-                LocalDateTime bookedStart = LocalDateTime.ofEpochSecond(bookedStartSec, 0, java.time.ZoneOffset.UTC);
-                LocalDateTime bookedEnd = LocalDateTime.ofEpochSecond(bookedEndSec, 0, java.time.ZoneOffset.UTC);
+            //     LocalDateTime bookedStart = LocalDateTime.ofEpochSecond(bookedStartSec, 0, java.time.ZoneOffset.UTC);
+            //     LocalDateTime bookedEnd = LocalDateTime.ofEpochSecond(bookedEndSec, 0, java.time.ZoneOffset.UTC);
 
-                bookedBatch.bind(0, randomFree.getId())
-                        .bind(1, randomBuyerId)
-                        .bind(2, bookedStart.format(FORMATTER))
-                        .bind(3, bookedEnd.format(FORMATTER))
-                        .add();
-            }
-            bookedBatch.execute();
+            //     bookedBatch.bind(0, randomFree.getId())
+            //             .bind(1, randomBuyerId)
+            //             .bind(2, bookedStart.format(FORMATTER))
+            //             .bind(3, bookedEnd.format(FORMATTER))
+            //             .add();
+            // }
+            // bookedBatch.execute();
         });
     }
 

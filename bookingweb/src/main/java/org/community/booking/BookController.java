@@ -56,8 +56,8 @@ public class BookController {
 
   @PostMapping("/free")
   public String free(@RequestBody Models.Location location) {
-
-    List<Models.Timeslot> slots = book.findTimeslot(location, LocalDateTime.now());
+    LocalDateTime now = LocalDateTime.now();
+    List<Models.Timeslot> slots = book.findTimeslot(location, now, now.plusHours(24));
     return slots.toString();
   }
 
@@ -94,8 +94,9 @@ public class BookController {
   @PostMapping("/timeslot")
   public List<Models.Timeslot> findTimeslot(
       @RequestBody Models.Location location,
-      @RequestParam("startTime") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime) {
-    return book.findTimeslot(location, startTime);
+      @RequestParam("startTime") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+      @RequestParam("endTime") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) {
+    return book.findTimeslot(location, startTime, endTime);
   }
 
   @PostMapping("/bookTime")

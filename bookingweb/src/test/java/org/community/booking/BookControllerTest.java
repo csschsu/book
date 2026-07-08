@@ -72,7 +72,7 @@ public class BookControllerTest {
         slot.endTime = LocalDateTime.of(2026, 6, 30, 12, 0);
         slots.add(slot);
 
-        when(book.findTimeslot(any(Models.Location.class), any(LocalDateTime.class))).thenReturn(slots);
+        when(book.findTimeslot(any(Models.Location.class), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(slots);
 
         mockMvc.perform(post("/free")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -153,10 +153,11 @@ public class BookControllerTest {
         slot.endTime = startTime.plusHours(2);
         slots.add(slot);
 
-        when(book.findTimeslot(any(Models.Location.class), eq(startTime))).thenReturn(slots);
+        when(book.findTimeslot(any(Models.Location.class), eq(startTime), any(LocalDateTime.class))).thenReturn(slots);
 
         mockMvc.perform(post("/timeslot")
                         .param("startTime", "2026-06-30T10:00:00")
+                        .param("endTime", "2026-06-30T12:00:00")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(location)))
                 .andExpect(status().isOk())

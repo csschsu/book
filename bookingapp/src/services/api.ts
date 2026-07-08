@@ -18,8 +18,8 @@ export async function fetchLocations(): Promise<Location[]> {
   return response.json();
 }
 
-export async function fetchTimeslots(location: Location, startTime: string): Promise<Timeslot[]> {
-  const url = `${API_BASE}/timeslot?startTime=${encodeURIComponent(startTime)}`;
+export async function fetchTimeslots(location: Location, startTime: string, endTime: string): Promise<Timeslot[]> {
+  const url = `${API_BASE}/timeslot?startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`;
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -52,6 +52,16 @@ export async function fetchBuyers(): Promise<Buyer[]> {
   const response = await fetch(`${API_BASE}/buyers`);
   if (!response.ok) {
     throw new Error(`Failed to fetch buyers: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+export async function findOrCreateBuyer(name: string): Promise<Buyer> {
+  const response = await fetch(`${API_BASE}/buyer/findOrCreate?name=${encodeURIComponent(name)}`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to find or create buyer: ${response.statusText}`);
   }
   return response.json();
 }
