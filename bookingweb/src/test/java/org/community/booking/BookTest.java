@@ -26,13 +26,12 @@ public class BookTest {
 
         // Initialize schema
         jdbi.useHandle(handle -> {
-            handle.execute("CREATE TABLE supplier (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT)");
-            handle.execute("CREATE TABLE buyer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT)");
-            handle.execute("CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, supplier_id INTEGER NOT NULL, description TEXT, price_per_hour REAL NOT NULL, FOREIGN KEY (supplier_id) REFERENCES supplier(id) ON DELETE CASCADE)");
-            handle.execute("CREATE TABLE location (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT)");
+            handle.execute("CREATE TABLE user (id INTEGER PRIMARY KEY AUTOINCREMENT, code INTEGER, name TEXT NOT NULL, address TEXT)");
+            handle.execute("CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, mark TEXT, price_per_hour REAL NOT NULL, blob BLOB, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
+            handle.execute("CREATE TABLE location (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, latitude REAL, longitude REAL, address TEXT)");
             handle.execute("CREATE TABLE asset_location (id INTEGER PRIMARY KEY AUTOINCREMENT, location_id INTEGER, asset_id INTEGER UNIQUE, name TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE, FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE)");
             handle.execute("CREATE TABLE free (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE)");
-            handle.execute("CREATE TABLE booked (id INTEGER PRIMARY KEY AUTOINCREMENT, free_id INTEGER NOT NULL, buyer_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE, FOREIGN KEY (buyer_id) REFERENCES buyer(id) ON DELETE CASCADE)");
+            handle.execute("CREATE TABLE booked (id INTEGER PRIMARY KEY AUTOINCREMENT, free_id INTEGER NOT NULL, user_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
         });
     }
 
@@ -48,10 +47,9 @@ public class BookTest {
     public void testFindTimeslotWithAssetLocationAndSplitting() {
         // Setup initial test data
         jdbi.useHandle(handle -> {
-            handle.execute("INSERT INTO supplier (id, name, address) VALUES (1, 'Supplier 1', 'Supplier Address')");
-            handle.execute("INSERT INTO buyer (id, name, address) VALUES (1, 'Buyer 1', 'Buyer Address')");
-            handle.execute("INSERT INTO asset (id, supplier_id, description, price_per_hour) VALUES (1, 1, 'Asset 1', 10.0)");
-            handle.execute("INSERT INTO location (id, name, address) VALUES (1, 'Location 1', 'Location Address')");
+            handle.execute("INSERT INTO user (id, code, name, address) VALUES (1, 1001, 'User 1', 'User Address')");
+            handle.execute("INSERT INTO asset (id, user_id, mark, price_per_hour, blob) VALUES (1, 1, 'Asset 1', 10.0, NULL)");
+            handle.execute("INSERT INTO location (id, name, latitude, longitude, address) VALUES (1, 'Location 1', 59.3293, 18.0686, 'Location Address')");
             handle.execute("INSERT INTO asset_location (id, location_id, asset_id, name) VALUES (1, 1, 1, 'Asset Location 1')");
             
             // Free block: 2026-07-04T10:00:00 to 2026-07-04T18:00:00
@@ -60,8 +58,8 @@ public class BookTest {
             // Bookings:
             // Booking 1: 2026-07-04T12:00:00 to 2026-07-04T13:00:00
             // Booking 2: 2026-07-04T15:00:00 to 2026-07-04T16:00:00
-            handle.execute("INSERT INTO booked (id, free_id, buyer_id, start_time, end_time) VALUES (101, 10, 1, '2026-07-04T12:00:00', '2026-07-04T13:00:00')");
-            handle.execute("INSERT INTO booked (id, free_id, buyer_id, start_time, end_time) VALUES (102, 10, 1, '2026-07-04T15:00:00', '2026-07-04T16:00:00')");
+            handle.execute("INSERT INTO booked (id, free_id, user_id, start_time, end_time) VALUES (101, 10, 1, '2026-07-04T12:00:00', '2026-07-04T13:00:00')");
+            handle.execute("INSERT INTO booked (id, free_id, user_id, start_time, end_time) VALUES (102, 10, 1, '2026-07-04T15:00:00', '2026-07-04T16:00:00')");
         });
 
         Models.AssetLocation al = new Models.AssetLocation();

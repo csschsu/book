@@ -1,9 +1,6 @@
 /*
 Create  TestDataGenerator.java jdbi in package org.community.booking  to create testdata in tables 
 
-genererate 25 suppliers
-CREATE TABLE supplier (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT);
-
 genererate 10 buyers
 CREATE TABLE buyer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT);
 
@@ -23,12 +20,12 @@ use a random existing free_id, set a random start_time between free start_time a
 CREATE TABLE booked (id INTEGER PRIMARY KEY AUTOINCREMENT, free_id INTEGER NOT NULL, buyer_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE, FOREIGN KEY (buyer_id) REFERENCES buyer(id) ON DELETE CASCADE);
 
 
-use //JSON
+create address jdbi address mapper //JSON
 public static class address {
         public String email;
         public String phone;    
         } 
-    } to create address
+    } 
 
 */
 
@@ -74,85 +71,74 @@ public class TestDataGenerator {
         System.out.println("Ansluter till databasen: " + dbUrl);
         Jdbi jdbi = Jdbi.create(dbUrl);
 
-        initDatabase(jdbi);
-
         System.out.println("Genererar testdata...");
         generateData(jdbi);
         System.out.println("Klart! Testdata har genererats framgångsrikt.");
     }
 
-    private static void initDatabase(Jdbi jdbi) {
-        jdbi.useHandle(handle -> {
-            handle.execute(
-                    "CREATE TABLE IF NOT EXISTS supplier (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT)");
-            handle.execute(
-                    "CREATE TABLE IF NOT EXISTS buyer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT)");
-            handle.execute(
-                    "CREATE TABLE IF NOT EXISTS asset (id INTEGER PRIMARY KEY AUTOINCREMENT, supplier_id INTEGER NOT NULL, description TEXT, price_per_hour REAL NOT NULL, FOREIGN KEY (supplier_id) REFERENCES supplier(id) ON DELETE CASCADE)");
-            handle.execute(
-                    "CREATE TABLE IF NOT EXISTS location (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT)");
-            handle.execute(
-                    "CREATE TABLE IF NOT EXISTS asset_location (id INTEGER PRIMARY KEY AUTOINCREMENT, location_id INTEGER, asset_id INTEGER UNIQUE, name TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE, FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE)");
-            handle.execute(
-                    "CREATE TABLE IF NOT EXISTS free (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE)");
-            handle.execute(
-                    "CREATE TABLE IF NOT EXISTS booked (id INTEGER PRIMARY KEY AUTOINCREMENT, free_id INTEGER NOT NULL, buyer_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE, FOREIGN KEY (buyer_id) REFERENCES buyer(id) ON DELETE CASCADE)");
-        });
-    }
 
     public static void generateData(Jdbi jdbi) {
         jdbi.useHandle(handle -> {
             // Inledande rensning (Motsvarande TRUNCATE i SQLite)
             // Tabellerna rensas i bakåtvänd ordning för att inte bryta mot FOREIGN
             // KEY-restriktioner
-            handle.execute("DELETE FROM booked");
-            handle.execute("DELETE FROM free");
-            handle.execute("DELETE FROM asset_location");
-            handle.execute("DELETE FROM location");
-            handle.execute("DELETE FROM asset");
-            handle.execute("DELETE FROM buyer");
-            handle.execute("DELETE FROM supplier");
+            handle.execute("DROP TABLE IF EXISTS booked");
+            handle.execute("DROP TABLE IF EXISTS free");
+            handle.execute("DROP TABLE IF EXISTS asset_location");
+            handle.execute("DROP TABLE IF EXISTS location");
+            handle.execute("DROP TABLE IF EXISTS asset");
+            handle.execute("DROP TABLE IF EXISTS user");
 
             // Nollställer AUTOINCREMENT-räknarna i SQLite så att ID börjar om på 1
             handle.execute(
-                    "DELETE FROM sqlite_sequence WHERE name IN ('booked', 'free', 'asset_location', 'asset', 'buyer', 'supplier')");
+                    "DELETE FROM sqlite_sequence WHERE name IN ('booked', 'free', 'asset_location', 'asset', 'user')");
 
-            // 1. Generera 25 leverantörer (suppliers)
-            PreparedBatch supplierBatch = handle.prepareBatch("INSERT INTO supplier (name, address) VALUES (?, ?)");
-            for (int i = 1; i <= 25; i++) {
-                String jsonAddress = toJson("supplier" + i + "@example.com", "070-11111" + String.format("%02d", i));
-                supplierBatch.bind(0, "Supplier " + i).bind(1, jsonAddress).add();
-            }
-            supplierBatch.execute();
-            List<Long> supplierIds = handle.createQuery("SELECT id FROM supplier").mapTo(Long.class).list();
+            handle.execute(
+                    "CREATE TABLE user (id INTEGER PRIMARY KEY AUTOINCREMENT, code INTEGER, name TEXT NOT NULL, address TEXT)");
+            handle.execute(
+                    "CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, mark TEXT, price_per_hour REAL NOT NULL, blob BLOB, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
+            handle.execute(
+                    "CREATE TABLE location (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, latitude REAL, longitude REAL, address TEXT)");
+            handle.execute(
+                    "CREATE TABLE asset_location (id INTEGER PRIMARY KEY AUTOINCREMENT, location_id INTEGER, asset_id INTEGER UNIQUE, name TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE, FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE)");
+            handle.execute(
+                    "CREATE TABLE free (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE)");
+            handle.execute(
+                    "CREATE TABLE booked (id INTEGER PRIMARY KEY AUTOINCREMENT, free_id INTEGER NOT NULL, user_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
 
-            // 2. Generera 10 köpare (buyers)
-            PreparedBatch buyerBatch = handle.prepareBatch("INSERT INTO buyer (name, address) VALUES (?, ?)");
+            // 2. Generera 10 köpare (users)
+            PreparedBatch userBatch = handle.prepareBatch("INSERT INTO user (code, name, address) VALUES (?, ?, ?)");
             for (int i = 1; i <= 10; i++) {
-                String jsonAddress = toJson("buyer" + i + "@example.com", "070-22222" + String.format("%02d", i));
-                buyerBatch.bind(0, "Buyer " + i).bind(1, jsonAddress).add();
+                String jsonAddress = toJson("user" + i + "@example.com", "070-22222" + String.format("%02d", i));
+                userBatch.bind(0, 1000 + i).bind(1, "User " + i).bind(2, jsonAddress).add();
             }
-            buyerBatch.execute();
-            List<Long> buyerIds = handle.createQuery("SELECT id FROM buyer").mapTo(Long.class).list();
+            userBatch.execute();
+            List<Long> userIds = handle.createQuery("SELECT id FROM user").mapTo(Long.class).list();
 
             // 3. Generera 200 tillgångar (assets)
             PreparedBatch assetBatch = handle
-                    .prepareBatch("INSERT INTO asset (supplier_id, description, price_per_hour) VALUES (?, ?, ?)");
+                    .prepareBatch("INSERT INTO asset (user_id, mark, price_per_hour, blob) VALUES (?, ?, ?, ?)");
             for (int i = 1; i <= 200; i++) {
-                long randomSupplierId = supplierIds.get(ThreadLocalRandom.current().nextInt(supplierIds.size()));
-                assetBatch.bind(0, randomSupplierId)
-                        .bind(1, "Asset Description " + i)
+                long randomUserId = userIds.get(ThreadLocalRandom.current().nextInt(userIds.size()));
+                assetBatch.bind(0, randomUserId)
+                        .bind(1, "Asset Mark " + i)
                         .bind(2, 1.0)
+                        .bind(3, (byte[]) null)
                         .add();
             }
             assetBatch.execute();
             List<Long> assetIds = handle.createQuery("SELECT id FROM asset").mapTo(Long.class).list();
 
             // 4. Generera 2 platser (locations) och koppla 50 unika assets till vardera
-            PreparedBatch locationBatch = handle.prepareBatch("INSERT INTO location (name, address) VALUES (?, ?)");
+            PreparedBatch locationBatch = handle
+                    .prepareBatch("INSERT INTO location (name, latitude, longitude, address) VALUES (?, ?, ?, ?)");
             for (int loc = 1; loc <= 2; loc++) {
                 String jsonAddress = toJson("location" + loc + "@example.com", "070-33333" + loc);
-                locationBatch.bind(0, "Location " + loc).bind(1, jsonAddress).add();
+                locationBatch.bind(0, "Location " + loc)
+                        .bind(1, 59.3293 + loc * 0.01)
+                        .bind(2, 18.0686 + loc * 0.01)
+                        .bind(3, jsonAddress)
+                        .add();
             }
             locationBatch.execute();
             List<Long> locationIds = handle.createQuery("SELECT id FROM location").mapTo(Long.class).list();
@@ -208,28 +194,6 @@ public class TestDataGenerator {
             }
 
             // 6. Generera 10 bokade tider (booked)
-            // PreparedBatch bookedBatch = handle
-            //         .prepareBatch("INSERT INTO booked (free_id, buyer_id, start_time, end_time) VALUES (?, ?, ?, ?)");
-            // for (int i = 0; i < 10; i++) {
-            //     FreeTimeSlot randomFree = freeSlots.get(ThreadLocalRandom.current().nextInt(freeSlots.size()));
-            //     long randomBuyerId = buyerIds.get(ThreadLocalRandom.current().nextInt(buyerIds.size()));
-
-            //     long freeStartSec = randomFree.getStart().toEpochSecond(java.time.ZoneOffset.UTC);
-            //     long freeEndSec = randomFree.getEnd().toEpochSecond(java.time.ZoneOffset.UTC);
-
-            //     long bookedStartSec = ThreadLocalRandom.current().nextLong(freeStartSec, freeEndSec);
-            //     long bookedEndSec = ThreadLocalRandom.current().nextLong(bookedStartSec, freeEndSec);
-
-            //     LocalDateTime bookedStart = LocalDateTime.ofEpochSecond(bookedStartSec, 0, java.time.ZoneOffset.UTC);
-            //     LocalDateTime bookedEnd = LocalDateTime.ofEpochSecond(bookedEndSec, 0, java.time.ZoneOffset.UTC);
-
-            //     bookedBatch.bind(0, randomFree.getId())
-            //             .bind(1, randomBuyerId)
-            //             .bind(2, bookedStart.format(FORMATTER))
-            //             .bind(3, bookedEnd.format(FORMATTER))
-            //             .add();
-            // }
-            // bookedBatch.execute();
         });
     }
 

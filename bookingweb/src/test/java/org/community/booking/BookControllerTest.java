@@ -82,58 +82,33 @@ public class BookControllerTest {
     }
 
     @Test
-    public void testAddSupplier() throws Exception {
-        Models.Supplier supplier = new Models.Supplier();
-        supplier.id = 101;
-        supplier.name = "John Doe";
+    public void testAddUser() throws Exception {
+        Models.User user = new Models.User();
+        user.id = 201;
+        user.code = 1234;
+        user.name = "Jane Doe";
 
-        mockMvc.perform(post("/supplier")
+        mockMvc.perform(post("/user")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(supplier)))
+                        .content(objectMapper.writeValueAsString(user)))
                 .andExpect(status().isOk());
 
-        verify(book).addSupplier(any(Models.Supplier.class));
+        verify(book).addUser(any(Models.User.class));
     }
 
     @Test
-    public void testGetSupplier() throws Exception {
-        Models.Supplier supplier = new Models.Supplier();
-        supplier.id = 101;
-        supplier.name = "John Doe";
+    public void testGetUser() throws Exception {
+        Models.User user = new Models.User();
+        user.id = 201;
+        user.code = 1234;
+        user.name = "Jane Doe";
 
-        when(book.getSupplier(101)).thenReturn(supplier);
+        when(book.getUser(201)).thenReturn(user);
 
-        mockMvc.perform(get("/supplier/101"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(101))
-                .andExpect(jsonPath("$.name").value("John Doe"));
-    }
-
-    @Test
-    public void testAddBuyer() throws Exception {
-        Models.Buyer buyer = new Models.Buyer();
-        buyer.id = 201;
-        buyer.name = "Jane Doe";
-
-        mockMvc.perform(post("/buyer")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(buyer)))
-                .andExpect(status().isOk());
-
-        verify(book).addBuyer(any(Models.Buyer.class));
-    }
-
-    @Test
-    public void testGetBuyer() throws Exception {
-        Models.Buyer buyer = new Models.Buyer();
-        buyer.id = 201;
-        buyer.name = "Jane Doe";
-
-        when(book.getBuyer(201)).thenReturn(buyer);
-
-        mockMvc.perform(get("/buyer/201"))
+        mockMvc.perform(get("/user/201"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(201))
+                .andExpect(jsonPath("$.code").value(1234))
                 .andExpect(jsonPath("$.name").value("Jane Doe"));
     }
 
@@ -174,7 +149,7 @@ public class BookControllerTest {
 
         mockMvc.perform(post("/bookTime")
                         .param("freeId", "15")
-                        .param("buyerId", "201")
+                        .param("userId", "201")
                         .param("startTime", "2026-06-30T10:00:00")
                         .param("endTime", "2026-06-30T12:00:00"))
                 .andExpect(status().isOk());

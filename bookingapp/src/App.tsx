@@ -1,5 +1,5 @@
 /* create a booking app in react typescript using tailwind styling and API calls. 
-Update number step 6  App prompts user to enter buyer name and stores it using @PostMapping("/buyer/findOrCreate"))
+Update number step 6  App prompts user to enter user name and stores it using @PostMapping("/user/findOrCreate"))
 and use tailwind styles for coloring "bg-white text-black p-6 shadow-md" 
  
 Booking is done in steps
@@ -9,7 +9,7 @@ Booking is done in steps
 3. User enters starttime and endtime
 4. Display a list of free timeslots in the selected location id using @PostMapping("/timeslot")
 5. User select a free timeslot.
-6. App prompts user to enter buyer name and stores it using @PostMapping("/buyer/findOrCreate"))
+6. App prompts user to enter user name and stores it using @PostMapping("/user/findOrCreate"))
 7. Book time using @PostMapping("/bookTime")
 8. Display booking details and status of booking
 8. User press return button to go to start 
@@ -28,7 +28,7 @@ import {
   MapPin,
   Calendar,
   Clock,
-  User,
+  User as UserIcon,
   CheckCircle,
   ChevronRight,
   ChevronLeft,
@@ -38,8 +38,8 @@ import {
   AlertCircle,
   Check
 } from 'lucide-react';
-import type { Location, Timeslot, Buyer, AssetLocation } from './types/models';
-import { fetchLocations, fetchAssetLocations, fetchTimeslots, findOrCreateBuyer, bookTime } from './services/api';
+import type { Location, Timeslot, User, AssetLocation } from './types/models';
+import { fetchLocations, fetchAssetLocations, fetchTimeslots, findOrCreateUser, bookTime } from './services/api';
 
 function App() {
   // Navigation & Step State (Aligned to 8 distinct steps)
@@ -60,9 +60,9 @@ function App() {
   const [timeslots, setTimeslots] = useState<Timeslot[]>([]);
   const [selectedTimeslot, setSelectedTimeslot] = useState<Timeslot | null>(null);
 
-  // Buyer State (Step 6)
-  const [buyerName, setBuyerName] = useState<string>('');
-  const [buyer, setBuyer] = useState<Buyer | null>(null);
+  // User State (Step 6)
+  const [userName, setUserName] = useState<string>('');
+  const [user, setUser] = useState<User | null>(null);
 
   // Booking result (Step 8)
   const [bookedDetails, setBookedDetails] = useState<{
@@ -70,7 +70,7 @@ function App() {
     assetLocationName: string;
     startTime: string;
     endTime: string;
-    buyerName: string;
+    userName: string;
   } | null>(null);
 
   // Fetch locations and asset locations on mount
@@ -190,29 +190,29 @@ function App() {
 
   const handleSelectTimeslot = (slot: Timeslot) => {
     setSelectedTimeslot(slot);
-    setStep(6); // Step 5 (Select timeslot) complete. Transition to Step 6 (Enter Buyer Name)
+    setStep(6); // Step 5 (Select timeslot) complete. Transition to Step 6 (Enter User Name)
   };
 
   const handleConfirmBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedLocation || !selectedTimeslot || !buyerName.trim()) {
-      setError('Buyer name is required.');
+    if (!selectedLocation || !selectedTimeslot || !userName.trim()) {
+      setError('User name is required.');
       return;
     }
 
     setLoading(true);
     setError(null);
     try {
-      const cleanName = buyerName.trim();
+      const cleanName = userName.trim();
 
-      // 1. Find or create the buyer using @PostMapping("/buyer/findOrCreate") (Step 6)
-      const buyerDetails = await findOrCreateBuyer(cleanName);
-      setBuyer(buyerDetails);
+      // 1. Find or create the user using @PostMapping("/user/findOrCreate") (Step 6)
+      const userDetails = await findOrCreateUser(cleanName);
+      setUser(userDetails);
 
       // 2. Book the timeslot using @PostMapping("/bookTime") (Step 7)
       await bookTime(
         selectedTimeslot.freeid,
-        buyerDetails.id,
+        userDetails.id,
         getBackendLocalISO(startTime),
         getBackendLocalISO(endTime)
       );
@@ -223,7 +223,7 @@ function App() {
         assetLocationName: getAssetLocationName(selectedTimeslot.assetId),
         startTime: getBackendLocalISO(startTime),
         endTime: getBackendLocalISO(endTime),
-        buyerName: buyerDetails.name,
+        userName: userDetails.name,
       });
 
       setStep(8); // Transition to Step 8 (Display details & status)
@@ -238,8 +238,8 @@ function App() {
   const handleReset = () => {
     setSelectedLocation(null);
     setSelectedTimeslot(null);
-    setBuyerName('');
-    setBuyer(null);
+    setUserName('');
+    setUser(null);
     setBookedDetails(null);
     setError(null);
     setStep(1); // Reset to Step 1 (View locations)
@@ -293,7 +293,7 @@ function App() {
             <ChevronRight className="w-4 h-4 text-slate-400 hidden sm:block" />
             <li className={`flex items-center gap-1.5 pb-2 border-b-2 ${step >= 6 ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-400'}`}>
               <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${step >= 6 ? 'bg-blue-600 text-white font-bold' : 'bg-slate-200 text-slate-500'}`}>6</span>
-              Buyer Name
+              User Name
             </li>
             <ChevronRight className="w-4 h-4 text-slate-400 hidden sm:block" />
             <li className={`flex items-center gap-1.5 pb-2 border-b-2 ${step >= 8 ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-400'}`}>
@@ -516,13 +516,13 @@ function App() {
               </div>
             )}
 
-            {/* STEP 6 & 7: Enter Buyer Name & Book Time */}
+            {/* STEP 6 & 7: Enter User Name & Book Time */}
             {step === 6 && selectedLocation && selectedTimeslot && (
               <div className="animate-fadeIn">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                    <User className="w-5 h-5 text-blue-600" />
-                    Step 6: Enter Buyer Details
+                    <UserIcon className="w-5 h-5 text-blue-600" />
+                    Step 6: Enter User Details
                   </h2>
                   <button
                     onClick={() => setStep(4)}
@@ -546,20 +546,20 @@ function App() {
 
                 <form onSubmit={handleConfirmBooking} className="bg-white text-black p-6 shadow-md border border-slate-200 rounded-2xl space-y-6">
                   <div>
-                    <label htmlFor="buyer-name" className="block text-sm font-semibold text-slate-700 mb-2">
-                      Your Name / Buyer Name
+                    <label htmlFor="user-name" className="block text-sm font-semibold text-slate-700 mb-2">
+                      Your Name / User Name
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <User className="h-5 w-5 text-slate-400" />
+                        <UserIcon className="h-5 w-5 text-slate-400" />
                       </div>
                       <input
-                        id="buyer-name"
+                        id="user-name"
                         type="text"
-                        value={buyerName}
-                        onChange={(e) => setBuyerName(e.target.value)}
+                        value={userName}
+                        onChange={(e) => setUserName(e.target.value)}
                         className="w-full border border-blue-200 rounded-xl pl-10 pr-3 py-3 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 text-base min-h-[48px]"
-                        placeholder="Enter buyer name to store and book"
+                        placeholder="Enter user name to store and book"
                         required
                         autoComplete="name"
                       />
@@ -571,7 +571,7 @@ function App() {
                       type="submit"
                       className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2"
                     >
-                      Store Buyer & Book (Step 7)
+                      Store User & Book (Step 7)
                       <CheckCircle className="w-5 h-5" />
                     </button>
                   </div>
@@ -608,10 +608,10 @@ function App() {
                     </div>
                   </div>
                   <div className="border-t border-slate-200 pt-4">
-                    <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Registered Buyer</span>
-                    <span className="font-bold text-slate-900">{bookedDetails.buyerName}</span>
-                    {buyer && (
-                      <span className="text-xs text-slate-500 block mt-1">Email: {buyer.address?.email}</span>
+                    <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Registered User</span>
+                    <span className="font-bold text-slate-900">{bookedDetails.userName}</span>
+                    {user && (
+                      <span className="text-xs text-slate-500 block mt-1">Email: {user.address?.email}</span>
                     )}
                   </div>
                   <div className="border-t border-slate-200 pt-4 flex items-center justify-between">

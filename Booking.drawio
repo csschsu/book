@@ -6,6 +6,10 @@ import java.time.temporal.ChronoUnit;
 
 import lombok.Data;
 
+/* 1. Remove existing class and table Supplier 
+   2. Use updated fields class and table Asset
+*/
+
 @Data
 public class Models {
 
@@ -19,24 +23,25 @@ public class Models {
     public static class Asset {
         public int id;
         public int userId;
-        public String mark;
         public double pricePerHour;
+        public String mark;
         public byte[] blob;
     }
 
     public static class Location {
         public int id;
         public String name;
+        public String street;
+        public String town;
+        public String streetnumber;
         public Double latitude;
         public Double longitude;
-        public Models.Address address;
     }
 
     public static class AssetLocation {
         public int id;
         public int locationId;
         public int assetId;
-        public String name;
     }
 
     public static class Booked {
@@ -65,7 +70,6 @@ public class Models {
             return freeid + " " + startTime.truncatedTo(ChronoUnit.HOURS) + "-" +
                     endTime.truncatedTo(ChronoUnit.HOURS)
                     + "<br>";
-
         }
     }
 
@@ -76,3 +80,4 @@ public class Models {
     }
 
 }
+

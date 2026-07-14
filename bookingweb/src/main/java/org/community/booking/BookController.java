@@ -61,34 +61,24 @@ public class BookController {
     return slots.toString();
   }
 
-  @PostMapping("/supplier")
-  public void addSupplier(@RequestBody Models.Supplier supplier) {
-    book.addSupplier(supplier);
+  @PostMapping("/user")
+  public void addUser(@RequestBody Models.User user) {
+    book.addUser(user);
   }
 
-  @GetMapping("/supplier/{id}")
-  public Models.Supplier getSupplier(@PathVariable("id") int id) {
-    return book.getSupplier(id);
+  @GetMapping("/user/{id}")
+  public Models.User getUser(@PathVariable("id") int id) {
+    return book.getUser(id);
   }
 
-  @PostMapping("/buyer")
-  public void addBuyer(@RequestBody Models.Buyer buyer) {
-    book.addBuyer(buyer);
+  @GetMapping("/users")
+  public List<Models.User> getUsers() {
+    return book.getUsers();
   }
 
-  @GetMapping("/buyer/{id}")
-  public Models.Buyer getBuyer(@PathVariable("id") int id) {
-    return book.getBuyer(id);
-  }
-
-  @GetMapping("/buyers")
-  public List<Models.Buyer> getBuyers() {
-    return book.getBuyers();
-  }
-
-  @PostMapping("/buyer/findOrCreate")
-  public Models.Buyer findOrCreateBuyer(@RequestParam("name") String name) {
-    return book.findOrCreateBuyer(name);
+  @PostMapping("/user/findOrCreate")
+  public Models.User findOrCreateUser(@RequestParam("name") String name) {
+    return book.findOrCreateUser(name);
   }
 
   @PostMapping("/timeslot")
@@ -102,10 +92,10 @@ public class BookController {
   @PostMapping("/bookTime")
   public void bookTime(
       @RequestParam("freeId") int freeId,
-      @RequestParam("buyerId") int buyerId,
+      @RequestParam("userId") int userId,
       @RequestParam("startTime") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
       @RequestParam("endTime") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) {
-    book.bookTime(freeId, buyerId, startTime, endTime);
+    book.bookTime(freeId, userId, startTime, endTime);
   }
 
   @DeleteMapping("/bookedTime/{bookedId}")

@@ -90,40 +90,33 @@ public class Book {
 
     @RegisterFieldMapper(Models.Free.class)
     @RegisterFieldMapper(Models.Booked.class)
-    @RegisterFieldMapper(Models.Supplier.class)
-    @RegisterFieldMapper(Models.Buyer.class)
+    @RegisterFieldMapper(Models.User.class)
     @RegisterFieldMapper(Models.Location.class)
     @RegisterFieldMapper(Models.AssetLocation.class)
     public interface BookingDao {
 
         // --- JSON / Entitetshantering ---
 
-        @SqlUpdate("INSERT INTO supplier (name, address) VALUES (:name, :address)")
-        void insertSupplier(@BindFields Models.Supplier supplier);
+        @SqlUpdate("INSERT INTO user (code, name, address) VALUES (:code, :name, :address)")
+        void insertUser(@BindFields Models.User user);
 
-        @SqlQuery("SELECT id, name, address FROM supplier WHERE id = :id")
-        Models.Supplier getSupplierById(@Bind("id") int id);
+        @SqlQuery("SELECT id, code, name, address FROM user WHERE id = :id")
+        Models.User getUserById(@Bind("id") int id);
 
-        @SqlUpdate("INSERT INTO buyer (name, address) VALUES (:name, :address)")
-        void insertBuyer(@BindFields Models.Buyer buyer);
-
-        @SqlQuery("SELECT id, name, address FROM buyer WHERE id = :id")
-        Models.Buyer getBuyerById(@Bind("id") int id);
-
-        @SqlQuery("SELECT id, name, address FROM location")
+        @SqlQuery("SELECT id, name, latitude, longitude, address FROM location")
         List<Models.Location> getLocations();
 
         @SqlQuery("SELECT id, location_id, asset_id, name FROM asset_location")
         List<Models.AssetLocation> getAssetLocations();
 
-        @SqlQuery("SELECT id, name, address FROM buyer WHERE name = :name")
-        Models.Buyer getBuyerByName(@Bind("name") String name);
+        @SqlQuery("SELECT id, code, name, address FROM user WHERE name = :name")
+        Models.User getUserByName(@Bind("name") String name);
 
-        @SqlQuery("SELECT id, name, address FROM buyer")
-        List<Models.Buyer> getBuyers();
+        @SqlQuery("SELECT id, code, name, address FROM user")
+        List<Models.User> getUsers();
 
-        @SqlUpdate("INSERT INTO buyer (name, address) VALUES (:name, :address)")
-        void insertBuyer(@Bind("name") String name, @Bind("address") Models.Address address);
+        @SqlUpdate("INSERT INTO user (code, name, address) VALUES (:code, :name, :address)")
+        void insertUser(@Bind("code") int code, @Bind("name") String name, @Bind("address") Models.Address address);
 
         // --- Bokningsfunktioner ---
 
@@ -135,7 +128,7 @@ public class Book {
                 "  AND f.end_time > :startTime")
         List<Models.Free> getFreeBlocks(@Bind("location") int location, @Bind("startTime") LocalDateTime startTime);
 
-        @SqlQuery("SELECT b.id, b.free_id AS freeId, b.buyer_id AS buyerId, b.start_time AS startTime, b.end_time AS endTime "
+        @SqlQuery("SELECT b.id, b.free_id AS freeId, b.user_id AS userId, b.start_time AS startTime, b.end_time AS endTime "
                 +
                 "FROM booked b " +
                 "JOIN free f ON b.free_id = f.id " +
@@ -145,9 +138,9 @@ public class Book {
                 "  AND f.end_time > :startTime")
         List<Models.Booked> getBookedBlocks(@Bind("location") int location, @Bind("startTime") LocalDateTime startTime);
 
-        @SqlUpdate("INSERT INTO booked (free_id, buyer_id, start_time, end_time) " +
-                "VALUES (:freeId, :buyerId, :startTime, :endTime)")
-        void bookTime(@Bind("freeId") int freeId, @Bind("buyerId") int buyerId,
+        @SqlUpdate("INSERT INTO booked (free_id, user_id, start_time, end_time) " +
+                "VALUES (:freeId, :userId, :startTime, :endTime)")
+        void bookTime(@Bind("freeId") int freeId, @Bind("userId") int userId,
                 @Bind("startTime") LocalDateTime startTime, @Bind("endTime") LocalDateTime endTime);
 
         @SqlUpdate("DELETE FROM booked WHERE id = :bookedId")
@@ -163,7 +156,7 @@ public class Book {
         List<Models.Free> getFreeBlocksByAsset(@Bind("assetId") int assetId,
                 @Bind("startTime") LocalDateTime startTime);
 
-        @SqlQuery("SELECT b.id, b.free_id AS freeId, b.buyer_id AS buyerId, b.start_time AS startTime, b.end_time AS endTime "
+        @SqlQuery("SELECT b.id, b.free_id AS freeId, b.user_id AS userId, b.start_time AS startTime, b.end_time AS endTime "
                 +
                 "FROM booked b " +
                 "WHERE b.free_id = :freeId")
@@ -172,24 +165,14 @@ public class Book {
 
     // --- Exponerade JSON-metoder ---
 
-    public void addSupplier(Models.Supplier supplier) {
-        logger.debug("Adding supplier: name={}, id={}", supplier.name, supplier.id);
-        jdbi.useExtension(BookingDao.class, dao -> dao.insertSupplier(supplier));
+    public void addUser(Models.User user) {
+        logger.debug("Adding user: name={}, id={}", user.name, user.id);
+        jdbi.useExtension(BookingDao.class, dao -> dao.insertUser(user));
     }
 
-    public Models.Supplier getSupplier(int id) {
-        logger.debug("Getting supplier by id: {}", id);
-        return jdbi.withExtension(BookingDao.class, dao -> dao.getSupplierById(id));
-    }
-
-    public void addBuyer(Models.Buyer buyer) {
-        logger.debug("Adding buyer: name={}, id={}", buyer.name, buyer.id);
-        jdbi.useExtension(BookingDao.class, dao -> dao.insertBuyer(buyer));
-    }
-
-    public Models.Buyer getBuyer(int id) {
-        logger.debug("Getting buyer by id: {}", id);
-        return jdbi.withExtension(BookingDao.class, dao -> dao.getBuyerById(id));
+    public Models.User getUser(int id) {
+        logger.debug("Getting user by id: {}", id);
+        return jdbi.withExtension(BookingDao.class, dao -> dao.getUserById(id));
     }
 
     public List<Models.Location> getLocations() {
@@ -202,26 +185,27 @@ public class Book {
         return jdbi.withExtension(BookingDao.class, BookingDao::getAssetLocations);
     }
 
-    public List<Models.Buyer> getBuyers() {
-        logger.debug("Getting all buyers");
-        return jdbi.withExtension(BookingDao.class, BookingDao::getBuyers);
+    public List<Models.User> getUsers() {
+        logger.debug("Getting all users");
+        return jdbi.withExtension(BookingDao.class, BookingDao::getUsers);
     }
 
-    public Models.Buyer findOrCreateBuyer(String name) {
-        logger.debug("findOrCreateBuyer called with name: {}", name);
+    public Models.User findOrCreateUser(String name) {
+        logger.debug("findOrCreateUser called with name: {}", name);
         return jdbi.withExtension(BookingDao.class, dao -> {
-            Models.Buyer buyer = dao.getBuyerByName(name);
-            if (buyer == null) {
-                logger.debug("Buyer '{}' not found, creating new buyer record", name);
+            Models.User user = dao.getUserByName(name);
+            if (user == null) {
+                logger.debug("User '{}' not found, creating new user record", name);
                 Models.Address addr = new Models.Address();
                 addr.email = name.toLowerCase().replaceAll("[^a-zA-Z0-9]", "") + "@example.com";
                 addr.phone = "070-0000000";
-                dao.insertBuyer(name, addr);
-                buyer = dao.getBuyerByName(name);
+                int code = Math.abs(name.hashCode() % 100000);
+                dao.insertUser(code, name, addr);
+                user = dao.getUserByName(name);
             } else {
-                logger.debug("Found existing buyer: id={}, name={}", buyer.id, buyer.name);
+                logger.debug("Found existing user: id={}, name={}", user.id, user.name);
             }
-            return buyer;
+            return user;
         });
     }
 
@@ -364,9 +348,9 @@ public class Book {
         return slot;
     }
 
-    public void bookTime(int freeId, int buyerId, LocalDateTime startTime, LocalDateTime endTime) {
-        logger.debug("bookTime called: freeId={}, buyerId={}, startTime={}, endTime={}", freeId, buyerId, startTime, endTime);
-        jdbi.useExtension(BookingDao.class, dao -> dao.bookTime(freeId, buyerId, startTime, endTime));
+    public void bookTime(int freeId, int userId, LocalDateTime startTime, LocalDateTime endTime) {
+        logger.debug("bookTime called: freeId={}, userId={}, startTime={}, endTime={}", freeId, userId, startTime, endTime);
+        jdbi.useExtension(BookingDao.class, dao -> dao.bookTime(freeId, userId, startTime, endTime));
     }
 
     public void deleteBookedTime(int bookedId) {

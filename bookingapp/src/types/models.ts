@@ -3,23 +3,19 @@ export interface Address {
   phone: string;
 }
 
-export interface Supplier {
+export interface User {
   id: number;
-  name: string;
-  address: Address;
-}
-
-export interface Buyer {
-  id: number;
+  code: number;
   name: string;
   address: Address;
 }
 
 export interface Asset {
   id: number;
-  supplierId: number;
-  description: string;
+  userId: number;
+  mark: string;
   pricePerHour: number;
+  blob?: string;
 }
 
 export interface AssetLocation {
@@ -31,13 +27,15 @@ export interface AssetLocation {
 export interface Location {
   id: number;
   name: string;
+  latitude?: number;
+  longitude?: number;
   address: Address;
 }
 
 export interface Booked {
   id: number;
   freeId: number;
-  buyerId: number;
+  userId: number;
   startTime: string; // ISO-8601 String
   endTime: string;   // ISO-8601 String
 }

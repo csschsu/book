@@ -1,4 +1,4 @@
-import type { Location, Timeslot, Buyer, AssetLocation } from '../types/models';
+import type { Location, Timeslot, User, AssetLocation } from '../types/models';
 
 const API_BASE = '/api';
 
@@ -34,47 +34,47 @@ export async function fetchTimeslots(location: Location, startTime: string, endT
   return response.json();
 }
 
-export async function addBuyer(buyer: Omit<Buyer, 'id'> & { id?: number }): Promise<void> {
-  const response = await fetch(`${API_BASE}/buyer`, {
+export async function addUser(user: Omit<User, 'id'> & { id?: number }): Promise<void> {
+  const response = await fetch(`${API_BASE}/user`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(buyer),
+    body: JSON.stringify(user),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to add buyer: ${response.statusText}`);
+    throw new Error(`Failed to add user: ${response.statusText}`);
   }
 }
 
-export async function fetchBuyers(): Promise<Buyer[]> {
-  const response = await fetch(`${API_BASE}/buyers`);
+export async function fetchUsers(): Promise<User[]> {
+  const response = await fetch(`${API_BASE}/users`);
   if (!response.ok) {
-    throw new Error(`Failed to fetch buyers: ${response.statusText}`);
+    throw new Error(`Failed to fetch users: ${response.statusText}`);
   }
   return response.json();
 }
 
-export async function findOrCreateBuyer(name: string): Promise<Buyer> {
-  const response = await fetch(`${API_BASE}/buyer/findOrCreate?name=${encodeURIComponent(name)}`, {
+export async function findOrCreateUser(name: string): Promise<User> {
+  const response = await fetch(`${API_BASE}/user/findOrCreate?name=${encodeURIComponent(name)}`, {
     method: 'POST',
   });
   if (!response.ok) {
-    throw new Error(`Failed to find or create buyer: ${response.statusText}`);
+    throw new Error(`Failed to find or create user: ${response.statusText}`);
   }
   return response.json();
 }
 
 export async function bookTime(
   freeId: number,
-  buyerId: number,
+  userId: number,
   startTime: string,
   endTime: string
 ): Promise<void> {
   const params = new URLSearchParams({
     freeId: freeId.toString(),
-    buyerId: buyerId.toString(),
+    userId: userId.toString(),
     startTime,
     endTime,
   });
