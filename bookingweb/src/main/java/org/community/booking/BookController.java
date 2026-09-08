@@ -54,6 +54,16 @@ public class BookController {
     return book.getLocations();
   }
 
+  @GetMapping("/booked")
+  public List<Models.Booked> getBooked(@RequestParam("locationId") int locationId) {
+    return book.getBookedBlocksByLocation(locationId);
+  }
+
+  @GetMapping("/booked/{locationId}")
+  public List<Models.Booked> getBookedByLocationId(@PathVariable("locationId") int locationId) {
+    return book.getBookedBlocksByLocation(locationId);
+  }
+
   @PostMapping("/free")
   public String free(@RequestBody Models.Location location) {
     LocalDateTime now = LocalDateTime.now();

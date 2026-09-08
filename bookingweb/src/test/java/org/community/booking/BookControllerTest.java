@@ -43,7 +43,8 @@ public class BookControllerTest {
         objectMapper = JsonMapper.builder().build();
 
         StringHttpMessageConverter stringConverter = new StringHttpMessageConverter();
-        JacksonJsonHttpMessageConverter jacksonConverter = new JacksonJsonHttpMessageConverter((JsonMapper) objectMapper);
+        JacksonJsonHttpMessageConverter jacksonConverter = new JacksonJsonHttpMessageConverter(
+                (JsonMapper) objectMapper);
 
         mockMvc = MockMvcBuilders.standaloneSetup(bookController)
                 .setConversionService(new DefaultFormattingConversionService())
@@ -72,13 +73,36 @@ public class BookControllerTest {
         slot.endTime = LocalDateTime.of(2026, 6, 30, 12, 0);
         slots.add(slot);
 
-        when(book.findTimeslot(any(Models.Location.class), any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(slots);
+        when(book.findTimeslot(any(Models.Location.class), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(slots);
 
         mockMvc.perform(post("/free")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(location)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(location)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(slots.toString()));
+    }
+
+    @Test
+    public void testGetBooked() throws Exception {
+        List<Models.Booked> bookedList = new ArrayList<>();
+        Models.Booked booked = new Models.Booked();
+        booked.id = 1;
+        booked.freeId = 10;
+        booked.userId = 201;
+        booked.startTime = LocalDateTime.of(2026, 7, 14, 18, 0);
+        booked.endTime = LocalDateTime.of(2026, 7, 14, 20, 0);
+        bookedList.add(booked);
+
+        when(book.getBookedBlocksByLocation(1)).thenReturn(bookedList);
+
+        mockMvc.perform(get("/booked").param("locationId", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[0].freeId").value(10))
+                .andExpect(jsonPath("$[0].userId").value(201))
+                .andExpect(jsonPath("$[0].startTime").value("2026-07-14T18:00:00"))
+                .andExpect(jsonPath("$[0].endTime").value("2026-07-14T20:00:00"));
     }
 
     @Test
@@ -89,8 +113,8 @@ public class BookControllerTest {
         user.name = "Jane Doe";
 
         mockMvc.perform(post("/user")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(user)))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(user)))
                 .andExpect(status().isOk());
 
         verify(book).addUser(any(Models.User.class));
@@ -131,10 +155,10 @@ public class BookControllerTest {
         when(book.findTimeslot(any(Models.Location.class), eq(startTime), any(LocalDateTime.class))).thenReturn(slots);
 
         mockMvc.perform(post("/timeslot")
-                        .param("startTime", "2026-06-30T10:00:00")
-                        .param("endTime", "2026-06-30T12:00:00")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(location)))
+                .param("startTime", "2026-06-30T10:00:00")
+                .param("endTime", "2026-06-30T12:00:00")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(location)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].freeid").value(10))
                 .andExpect(jsonPath("$[0].assetId").value(15))
@@ -148,10 +172,10 @@ public class BookControllerTest {
         LocalDateTime end = LocalDateTime.of(2026, 6, 30, 12, 0);
 
         mockMvc.perform(post("/bookTime")
-                        .param("freeId", "15")
-                        .param("userId", "201")
-                        .param("startTime", "2026-06-30T10:00:00")
-                        .param("endTime", "2026-06-30T12:00:00"))
+                .param("freeId", "15")
+                .param("userId", "201")
+                .param("startTime", "2026-06-30T10:00:00")
+                .param("endTime", "2026-06-30T12:00:00"))
                 .andExpect(status().isOk());
 
         verify(book).bookTime(15, 201, start, end);

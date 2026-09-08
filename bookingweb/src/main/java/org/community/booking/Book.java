@@ -161,6 +161,15 @@ public class Book {
                 "FROM booked b " +
                 "WHERE b.free_id = :freeId")
         List<Models.Booked> getBookedBlocksByFreeId(@Bind("freeId") int freeId);
+
+        @SqlQuery("SELECT b.id, b.free_id AS freeId, b.user_id AS userId, b.start_time AS startTime, b.end_time AS endTime "
+                + "FROM booked b "
+                + "JOIN free f ON b.free_id = f.id "
+                + "JOIN asset a ON f.asset_id = a.id "
+                + "JOIN asset_location l ON l.asset_id = a.id "
+                + "WHERE l.location_id = :location "
+                + "ORDER BY b.start_time ASC")
+        List<Models.Booked> getBookedBlocksByLocation(@Bind("location") int location);
     }
 
     // --- Exponerade JSON-metoder ---
@@ -190,6 +199,11 @@ public class Book {
         return jdbi.withExtension(BookingDao.class, BookingDao::getUsers);
     }
 
+    public List<Models.Booked> getBookedBlocksByLocation(int locationId) {
+        logger.debug("Getting booked blocks for locationId: {}", locationId);
+        return jdbi.withExtension(BookingDao.class, dao -> dao.getBookedBlocksByLocation(locationId));
+    }
+
     public Models.User findOrCreateUser(String name) {
         logger.debug("findOrCreateUser called with name: {}", name);
         return jdbi.withExtension(BookingDao.class, dao -> {
@@ -213,11 +227,12 @@ public class Book {
 
     public List<Models.Timeslot> findTimeslot(Models.Location location, LocalDateTime wantedStartTime,
             LocalDateTime wantedEndTime) {
-        logger.debug("findTimeslot (Location) called: locationId={}, wantedStartTime={}, wantedEndTime={}", 
+        logger.debug("findTimeslot (Location) called: locationId={}, wantedStartTime={}, wantedEndTime={}",
                 location != null ? location.id : "null", wantedStartTime, wantedEndTime);
         List<Models.Free> freeBlocks = jdbi.withExtension(BookingDao.class,
                 dao -> dao.getFreeBlocks(location.id, wantedStartTime));
-        logger.debug("Fetched {} free blocks for locationId={}", freeBlocks.size(), location != null ? location.id : "null");
+        logger.debug("Fetched {} free blocks for locationId={}", freeBlocks.size(),
+                location != null ? location.id : "null");
 
         List<Models.Timeslot> timeslots = new ArrayList<>();
         // start to create timeslots for each record in free
@@ -234,7 +249,8 @@ public class Book {
             // read booked with free_id
             List<Models.Booked> bookedBlocks = jdbi.withExtension(BookingDao.class,
                     dao -> dao.getBookedBlocksByFreeId(slot.freeid));
-            logger.debug("Processing timeslot index {}: freeId={}, assetId={}, slotStart={}, slotEnd={}. Found {} booked blocks.",
+            logger.debug(
+                    "Processing timeslot index {}: freeId={}, assetId={}, slotStart={}, slotEnd={}. Found {} booked blocks.",
                     i, slot.freeid, slot.assetId, slot.startTime, slot.endTime, bookedBlocks.size());
 
             for (Models.Booked booked : bookedBlocks) {
@@ -277,11 +293,14 @@ public class Book {
 
     public List<Models.Timeslot> findTimeslot(Models.AssetLocation assetLocation, LocalDateTime wantedStartTime,
             LocalDateTime wantedEndTime) {
-        logger.debug("findTimeslot (AssetLocation) called: assetId={}, locationId={}, wantedStartTime={}, wantedEndTime={}", 
-                assetLocation != null ? assetLocation.assetId : "null", assetLocation != null ? assetLocation.locationId : "null", wantedStartTime, wantedEndTime);
+        logger.debug(
+                "findTimeslot (AssetLocation) called: assetId={}, locationId={}, wantedStartTime={}, wantedEndTime={}",
+                assetLocation != null ? assetLocation.assetId : "null",
+                assetLocation != null ? assetLocation.locationId : "null", wantedStartTime, wantedEndTime);
         List<Models.Free> freeBlocks = jdbi.withExtension(BookingDao.class,
                 dao -> dao.getFreeBlocksByAsset(assetLocation.assetId, wantedStartTime));
-        logger.debug("Fetched {} free blocks for assetId={}", freeBlocks.size(), assetLocation != null ? assetLocation.assetId : "null");
+        logger.debug("Fetched {} free blocks for assetId={}", freeBlocks.size(),
+                assetLocation != null ? assetLocation.assetId : "null");
 
         List<Models.Timeslot> timeslots = new ArrayList<>();
         // start to create timeslots for each record in free
@@ -298,7 +317,8 @@ public class Book {
             // read booked with free_id
             List<Models.Booked> bookedBlocks = jdbi.withExtension(BookingDao.class,
                     dao -> dao.getBookedBlocksByFreeId(slot.freeid));
-            logger.debug("Processing timeslot index {}: freeId={}, assetId={}, slotStart={}, slotEnd={}. Found {} booked blocks.",
+            logger.debug(
+                    "Processing timeslot index {}: freeId={}, assetId={}, slotStart={}, slotEnd={}. Found {} booked blocks.",
                     i, slot.freeid, slot.assetId, slot.startTime, slot.endTime, bookedBlocks.size());
 
             for (Models.Booked booked : bookedBlocks) {
@@ -349,7 +369,8 @@ public class Book {
     }
 
     public void bookTime(int freeId, int userId, LocalDateTime startTime, LocalDateTime endTime) {
-        logger.debug("bookTime called: freeId={}, userId={}, startTime={}, endTime={}", freeId, userId, startTime, endTime);
+        logger.debug("bookTime called: freeId={}, userId={}, startTime={}, endTime={}", freeId, userId, startTime,
+                endTime);
         jdbi.useExtension(BookingDao.class, dao -> dao.bookTime(freeId, userId, startTime, endTime));
     }
 

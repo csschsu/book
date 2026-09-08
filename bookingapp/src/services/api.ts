@@ -1,4 +1,4 @@
-import type { Location, Timeslot, User, AssetLocation } from '../types/models';
+import type { Location, Timeslot, User, AssetLocation, Booked } from '../types/models';
 
 const API_BASE = '/api';
 
@@ -14,6 +14,14 @@ export async function fetchLocations(): Promise<Location[]> {
   const response = await fetch(`${API_BASE}/locations`);
   if (!response.ok) {
     throw new Error(`Failed to fetch locations: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+export async function fetchBookedByLocation(locationId: number): Promise<Booked[]> {
+  const response = await fetch(`${API_BASE}/booked?locationId=${locationId}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch booked times: ${response.statusText}`);
   }
   return response.json();
 }

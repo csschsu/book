@@ -38,8 +38,13 @@ import {
   AlertCircle,
   Check
 } from 'lucide-react';
-import type { Location, Timeslot, User, AssetLocation } from './types/models';
-import { fetchLocations, fetchAssetLocations, fetchTimeslots, findOrCreateUser, bookTime } from './services/api';
+import { Calendar as BigCalendar, momentLocalizer } from 'react-big-calendar';
+import moment from 'moment';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
+import type { Location, Timeslot, User, AssetLocation, Booked } from './types/models';
+import { fetchLocations, fetchAssetLocations, fetchTimeslots, findOrCreateUser, bookTime, fetchBookedByLocation, fetchUsers } from './services/api';
+
+const localizer = momentLocalizer(moment);
 
 function App() {
   // Navigation & Step State (Aligned to 8 distinct steps)
@@ -51,6 +56,11 @@ function App() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [assetLocations, setAssetLocations] = useState<AssetLocation[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [bookedList, setBookedList] = useState<Booked[]>([]);
+  const [loadingBooked, setLoadingBooked] = useState<boolean>(false);
+  const [calendarDate, setCalendarDate] = useState<Date>(new Date());
+  const [calendarView, setCalendarView] = useState<any>('month');
 
   // Search Range State (Step 3)
   const [startTime, setStartTime] = useState<string>('');
@@ -73,18 +83,26 @@ function App() {
     userName: string;
   } | null>(null);
 
-  // Fetch locations and asset locations on mount
+  // Formatting helper: YYYY-MM-DDTHH:mm
+  const formatToLocalISO = (date: Date) => {
+    const pad = (num: number) => String(num).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
+  // Fetch locations, asset locations, and users on mount
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       setError(null);
       try {
-        const [locs, assets] = await Promise.all([
+        const [locs, assets, userList] = await Promise.all([
           fetchLocations(),
-          fetchAssetLocations()
+          fetchAssetLocations(),
+          fetchUsers().catch(() => [])
         ]);
         setLocations(locs);
         setAssetLocations(assets);
+        setUsers(userList);
       } catch (err: any) {
         console.error(err);
         setError('Failed to fetch available spaces. Make sure the Spring Boot backend is running.');
@@ -101,15 +119,30 @@ function App() {
     const start = new Date(now.getTime() + 60 * 60 * 1000); // +1 hour
     const end = new Date(start.getTime() + 24 * 60 * 60 * 1000); // +24 hours
 
-    // Formatting: YYYY-MM-DDTHH:mm
-    const formatToLocalISO = (date: Date) => {
-      const pad = (num: number) => String(num).padStart(2, '0');
-      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-    };
-
     setStartTime(formatToLocalISO(start));
     setEndTime(formatToLocalISO(end));
   }, []);
+
+  // Fetch booked times whenever selectedLocation changes
+  useEffect(() => {
+    if (!selectedLocation) {
+      setBookedList([]);
+      return;
+    }
+    const locationId = selectedLocation.id;
+    async function loadBooked() {
+      setLoadingBooked(true);
+      try {
+        const booked = await fetchBookedByLocation(locationId);
+        setBookedList(booked);
+      } catch (err: any) {
+        console.error('Failed to load booked times:', err);
+      } finally {
+        setLoadingBooked(false);
+      }
+    }
+    loadBooked();
+  }, [selectedLocation]);
 
   // Convert local datetime-local value (YYYY-MM-DDTHH:mm) to backend ISO format (YYYY-MM-DDTHH:mm:ss) without timezone shifts
   const getBackendLocalISO = (dateTimeStr: string): string => {
@@ -244,6 +277,19 @@ function App() {
     setError(null);
     setStep(1); // Reset to Step 1 (View locations)
   };
+
+  // Map booked times to Big Calendar events
+  const calendarEvents = bookedList.map((b) => {
+    const bookedUser = users.find((u) => u.id === b.userId);
+    const title = bookedUser ? `Booked: ${bookedUser.name}` : `Booked (User #${b.userId})`;
+    return {
+      id: b.id,
+      title,
+      start: new Date(b.startTime),
+      end: new Date(b.endTime),
+      resource: b,
+    };
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center relative overflow-hidden">
@@ -406,6 +452,69 @@ function App() {
                   <div className="flex flex-wrap gap-4 text-xs text-slate-600 mt-1.5">
                     {selectedLocation.address?.email && <span>Email: {selectedLocation.address.email}</span>}
                     {selectedLocation.address?.phone && <span>Phone: {selectedLocation.address.phone}</span>}
+                  </div>
+                </div>
+
+                {/* Big Calendar: View booked time for the selected location */}
+                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-md mb-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-4 border-b border-slate-100">
+                    <div>
+                      <h3 className="font-bold text-base md:text-lg text-slate-800 flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-blue-600" />
+                        Calendar Overview - Booked Times
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Existing bookings for <span className="font-semibold text-slate-700">{selectedLocation.name}</span>. Red blocks indicate booked periods. Click or drag to pre-fill search times below.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                        Booked ({calendarEvents.length})
+                      </span>
+                      {loadingBooked && (
+                        <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="h-[520px]">
+                    <BigCalendar
+                      localizer={localizer}
+                      events={calendarEvents}
+                      startAccessor="start"
+                      endAccessor="end"
+                      titleAccessor="title"
+                      views={['month', 'week', 'day', 'agenda']}
+                      defaultView="month"
+                      date={calendarDate}
+                      onNavigate={(newDate) => setCalendarDate(newDate)}
+                      onView={(newView) => setCalendarView(newView)}
+                      view={calendarView}
+                      selectable
+                      onSelectSlot={(slotInfo) => {
+                        let start = new Date(slotInfo.start);
+                        let end = new Date(slotInfo.end);
+                        if (calendarView === 'month' && start.getHours() === 0 && end.getHours() === 0) {
+                          start.setHours(9, 0, 0, 0);
+                          end = new Date(start);
+                          end.setHours(17, 0, 0, 0);
+                        }
+                        setStartTime(formatToLocalISO(start));
+                        setEndTime(formatToLocalISO(end));
+                      }}
+                      eventPropGetter={() => ({
+                        style: {
+                          backgroundColor: '#ef4444',
+                          borderColor: '#dc2626',
+                          color: '#ffffff',
+                          borderRadius: '6px',
+                          padding: '2px 6px',
+                          fontSize: '0.75rem',
+                          fontWeight: 500,
+                        },
+                      })}
+                    />
                   </div>
                 </div>
 
