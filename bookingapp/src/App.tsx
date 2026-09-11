@@ -36,15 +36,45 @@ import {
   Mail,
   Phone,
   AlertCircle,
-  Check
+  Check,
+  MousePointer,
+  Info,
+  X
 } from 'lucide-react';
-import { Calendar as BigCalendar, momentLocalizer } from 'react-big-calendar';
+import { Calendar as BigCalendar, momentLocalizer, type View } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import type { Location, Timeslot, User, AssetLocation, Booked } from './types/models';
 import { fetchLocations, fetchAssetLocations, fetchTimeslots, findOrCreateUser, bookTime, fetchBookedByLocation, fetchUsers } from './services/api';
 
 const localizer = momentLocalizer(moment);
+
+// Formatting helper: YYYY-MM-DDTHH:mm
+const formatToLocalISO = (date: Date): string => {
+  const pad = (num: number) => String(num).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const getDefaultStartTime = (): string => {
+  const now = new Date();
+  now.setMinutes(0, 0, 0);
+  return formatToLocalISO(new Date(now.getTime() + 60 * 60 * 1000));
+};
+
+const getDefaultEndTime = (): string => {
+  const now = new Date();
+  now.setMinutes(0, 0, 0);
+  return formatToLocalISO(new Date(now.getTime() + 25 * 60 * 60 * 1000));
+};
+
+interface CalendarEvent {
+  id: string | number;
+  title: string;
+  start: Date;
+  end: Date;
+  isSelection?: boolean;
+  resource?: Booked;
+}
 
 function App() {
   // Navigation & Step State (Aligned to 8 distinct steps)
@@ -60,11 +90,11 @@ function App() {
   const [bookedList, setBookedList] = useState<Booked[]>([]);
   const [loadingBooked, setLoadingBooked] = useState<boolean>(false);
   const [calendarDate, setCalendarDate] = useState<Date>(new Date());
-  const [calendarView, setCalendarView] = useState<any>('month');
+  const [calendarView, setCalendarView] = useState<View>('month');
 
   // Search Range State (Step 3)
-  const [startTime, setStartTime] = useState<string>('');
-  const [endTime, setEndTime] = useState<string>('');
+  const [startTime, setStartTime] = useState<string>(getDefaultStartTime);
+  const [endTime, setEndTime] = useState<string>(getDefaultEndTime);
 
   // Timeslots State (Step 4 & 5)
   const [timeslots, setTimeslots] = useState<Timeslot[]>([]);
@@ -83,12 +113,6 @@ function App() {
     userName: string;
   } | null>(null);
 
-  // Formatting helper: YYYY-MM-DDTHH:mm
-  const formatToLocalISO = (date: Date) => {
-    const pad = (num: number) => String(num).padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-  };
-
   // Fetch locations, asset locations, and users on mount
   useEffect(() => {
     async function loadData() {
@@ -103,7 +127,7 @@ function App() {
         setLocations(locs);
         setAssetLocations(assets);
         setUsers(userList);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err);
         setError('Failed to fetch available spaces. Make sure the Spring Boot backend is running.');
       } finally {
@@ -111,37 +135,32 @@ function App() {
       }
     }
     loadData();
-
-    // Default dates setting
-    const now = new Date();
-    now.setMinutes(0, 0, 0); // Round to hour
-
-    const start = new Date(now.getTime() + 60 * 60 * 1000); // +1 hour
-    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000); // +24 hours
-
-    setStartTime(formatToLocalISO(start));
-    setEndTime(formatToLocalISO(end));
   }, []);
 
   // Fetch booked times whenever selectedLocation changes
   useEffect(() => {
-    if (!selectedLocation) {
-      setBookedList([]);
-      return;
-    }
+    if (!selectedLocation) return;
     const locationId = selectedLocation.id;
+    let isCancelled = false;
     async function loadBooked() {
       setLoadingBooked(true);
       try {
         const booked = await fetchBookedByLocation(locationId);
-        setBookedList(booked);
-      } catch (err: any) {
+        if (!isCancelled) {
+          setBookedList(booked);
+        }
+      } catch (err: unknown) {
         console.error('Failed to load booked times:', err);
       } finally {
-        setLoadingBooked(false);
+        if (!isCancelled) {
+          setLoadingBooked(false);
+        }
       }
     }
     loadBooked();
+    return () => {
+      isCancelled = true;
+    };
   }, [selectedLocation]);
 
   // Convert local datetime-local value (YYYY-MM-DDTHH:mm) to backend ISO format (YYYY-MM-DDTHH:mm:ss) without timezone shifts
@@ -187,6 +206,7 @@ function App() {
   // Actions
   const handleSelectLocation = (loc: Location) => {
     setSelectedLocation(loc);
+    setBookedList([]);
     setStep(3); // Step 2 (Select Location) complete. Transition to Step 3 (Enters timeframe)
   };
 
@@ -213,7 +233,7 @@ function App() {
       setTimeslots(data);
       setSelectedTimeslot(null);
       setStep(4); // Transition to Step 4 (Display free timeslots)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setError('Error fetching timeslots for this location.');
     } finally {
@@ -260,7 +280,7 @@ function App() {
       });
 
       setStep(8); // Transition to Step 8 (Display details & status)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setError('Booking failed. The selected timeslot might have been booked or another error occurred.');
     } finally {
@@ -279,17 +299,208 @@ function App() {
   };
 
   // Map booked times to Big Calendar events
-  const calendarEvents = bookedList.map((b) => {
+  const bookedEvents = bookedList.map((b) => {
     const bookedUser = users.find((u) => u.id === b.userId);
     const title = bookedUser ? `Booked: ${bookedUser.name}` : `Booked (User #${b.userId})`;
     return {
-      id: b.id,
+      id: `booked-${b.id}`,
       title,
       start: new Date(b.startTime),
       end: new Date(b.endTime),
+      isSelection: false,
       resource: b,
     };
   });
+
+  // Selected area event shown visually on the calendar
+  const hasValidSelection = Boolean(
+    startTime &&
+    endTime &&
+    !isNaN(new Date(startTime).getTime()) &&
+    !isNaN(new Date(endTime).getTime()) &&
+    new Date(startTime) < new Date(endTime)
+  );
+
+  const selectedAreaEvent = hasValidSelection
+    ? [
+      {
+        id: 'selected-search-window',
+        title: `Selected Search Area (${formatTimeOnly(startTime)} - ${formatTimeOnly(endTime)})`,
+        start: new Date(startTime),
+        end: new Date(endTime),
+        isSelection: true,
+      },
+    ]
+    : [];
+
+  const calendarEvents = [...bookedEvents, ...selectedAreaEvent];
+
+  const getDurationDescription = (startStr: string, endStr: string) => {
+    if (!startStr || !endStr) return '';
+    const startD = new Date(startStr);
+    const endD = new Date(endStr);
+    if (isNaN(startD.getTime()) || isNaN(endD.getTime()) || startD >= endD) return '';
+
+    const diffMs = endD.getTime() - startD.getTime();
+    const totalMinutes = Math.round(diffMs / (1000 * 60));
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    const days = Math.floor(hours / 24);
+    const remHours = hours % 24;
+
+    if (days > 0) {
+      return remHours > 0 ? `${days}d ${remHours}h` : `${days} day${days > 1 ? 's' : ''}`;
+    }
+    if (hours > 0) {
+      return mins > 0 ? `${hours}h ${mins}m` : `${hours} hour${hours > 1 ? 's' : ''}`;
+    }
+    return `${mins} min`;
+  };
+
+  const handleSelectSlot = (slotInfo: {
+    start: Date;
+    end: Date;
+    slots: Date[];
+    action: 'select' | 'click' | 'doubleClick';
+  }) => {
+    let start = new Date(slotInfo.start);
+    let end = new Date(slotInfo.end);
+
+    if (calendarView === 'month') {
+      if (slotInfo.slots && slotInfo.slots.length > 1) {
+        // Multi-day area selection in Month view
+        const firstDay = new Date(slotInfo.slots[0]);
+        firstDay.setHours(9, 0, 0, 0);
+        const lastDay = new Date(slotInfo.slots[slotInfo.slots.length - 1]);
+        lastDay.setHours(18, 0, 0, 0);
+        start = firstDay;
+        end = lastDay;
+      } else {
+        // Single day clicked or selected in Month view
+        start.setHours(9, 0, 0, 0);
+        end = new Date(start);
+        end.setHours(17, 0, 0, 0);
+      }
+    } else {
+      // In Week or Day view
+      const isAllDay =
+        start.getHours() === 0 &&
+        start.getMinutes() === 0 &&
+        end.getHours() === 0 &&
+        end.getMinutes() === 0 &&
+        end.getTime() - start.getTime() >= 24 * 60 * 60 * 1000;
+
+      if (isAllDay) {
+        if (slotInfo.slots && slotInfo.slots.length > 1) {
+          const firstDay = new Date(slotInfo.slots[0]);
+          firstDay.setHours(9, 0, 0, 0);
+          const lastDay = new Date(slotInfo.slots[slotInfo.slots.length - 1]);
+          lastDay.setHours(18, 0, 0, 0);
+          start = firstDay;
+          end = lastDay;
+        } else {
+          start.setHours(9, 0, 0, 0);
+          end = new Date(start);
+          end.setHours(17, 0, 0, 0);
+        }
+      } else if (slotInfo.action === 'click' && start.getTime() === end.getTime()) {
+        // Single slot click: default to 1 hour
+        end = new Date(start.getTime() + 60 * 60 * 1000);
+      }
+    }
+
+    setStartTime(formatToLocalISO(start));
+    setEndTime(formatToLocalISO(end));
+    setError(null);
+  };
+
+  const handleDrillDown = (date: Date, view?: View) => {
+    setCalendarDate(date);
+    setCalendarView(view || 'day');
+  };
+
+  const slotPropGetter = (date: Date) => {
+    if (hasValidSelection) {
+      const s = new Date(startTime);
+      const e = new Date(endTime);
+      if (date >= s && date < e) {
+        return {
+          className: 'rbc-selected-area-cell',
+        };
+      }
+    }
+    return {};
+  };
+
+  const dayPropGetter = (date: Date) => {
+    if (hasValidSelection) {
+      const s = new Date(startTime);
+      const e = new Date(endTime);
+      const sDay = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+      const eDay = new Date(e.getFullYear(), e.getMonth(), e.getDate(), 23, 59, 59);
+      if (date >= sDay && date <= eDay) {
+        return {
+          className: 'rbc-selected-area-cell',
+        };
+      }
+    }
+    return {};
+  };
+
+  const eventPropGetter = (event: CalendarEvent) => {
+    if (event.isSelection) {
+      return {
+        style: {
+          backgroundColor: '#2563eb',
+          borderColor: '#1d4ed8',
+          color: '#ffffff',
+          borderRadius: '8px',
+          padding: '3px 8px',
+          fontSize: '0.775rem',
+          fontWeight: 600,
+          border: '2px solid #1d4ed8',
+          boxShadow: '0 4px 10px rgba(37, 99, 235, 0.35)',
+          zIndex: 10,
+        },
+      };
+    }
+    return {
+      style: {
+        backgroundColor: '#ef4444',
+        borderColor: '#dc2626',
+        color: '#ffffff',
+        borderRadius: '6px',
+        padding: '2px 6px',
+        fontSize: '0.75rem',
+        fontWeight: 500,
+      },
+    };
+  };
+
+  const handleClearSelection = () => {
+    setStartTime('');
+    setEndTime('');
+  };
+
+  const handleSetPreset = (preset: 'today' | 'next24h') => {
+    const now = new Date();
+    if (preset === 'today') {
+      const s = new Date(now);
+      s.setHours(9, 0, 0, 0);
+      const e = new Date(now);
+      e.setHours(17, 0, 0, 0);
+      setStartTime(formatToLocalISO(s));
+      setEndTime(formatToLocalISO(e));
+      setCalendarDate(s);
+    } else if (preset === 'next24h') {
+      const s = new Date(now.getTime() + 60 * 60 * 1000);
+      s.setMinutes(0, 0, 0);
+      const e = new Date(s.getTime() + 24 * 60 * 60 * 1000);
+      setStartTime(formatToLocalISO(s));
+      setEndTime(formatToLocalISO(e));
+      setCalendarDate(s);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center relative overflow-hidden">
@@ -490,33 +701,86 @@ function App() {
                       date={calendarDate}
                       onNavigate={(newDate) => setCalendarDate(newDate)}
                       onView={(newView) => setCalendarView(newView)}
+                      onDrillDown={handleDrillDown}
                       view={calendarView}
                       selectable
-                      onSelectSlot={(slotInfo) => {
-                        let start = new Date(slotInfo.start);
-                        let end = new Date(slotInfo.end);
-                        if (calendarView === 'month' && start.getHours() === 0 && end.getHours() === 0) {
-                          start.setHours(9, 0, 0, 0);
-                          end = new Date(start);
-                          end.setHours(17, 0, 0, 0);
-                        }
-                        setStartTime(formatToLocalISO(start));
-                        setEndTime(formatToLocalISO(end));
-                      }}
-                      eventPropGetter={() => ({
-                        style: {
-                          backgroundColor: '#ef4444',
-                          borderColor: '#dc2626',
-                          color: '#ffffff',
-                          borderRadius: '6px',
-                          padding: '2px 6px',
-                          fontSize: '0.75rem',
-                          fontWeight: 500,
-                        },
-                      })}
+                      onSelectSlot={handleSelectSlot}
+                      eventPropGetter={eventPropGetter}
+                      slotPropGetter={slotPropGetter}
+                      dayPropGetter={dayPropGetter}
                     />
                   </div>
                 </div>
+
+                {/* Active Selection Feedback Banner */}
+                {hasValidSelection ? (
+                  <div className="bg-blue-50/80 border border-blue-200 rounded-2xl p-4 sm:p-5 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fadeIn">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/20 mt-0.5">
+                        <MousePointer className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold uppercase tracking-wider text-blue-800">
+                            Selected Area in Calendar
+                          </span>
+                          {getDurationDescription(startTime, endTime) && (
+                            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-200/60 text-blue-900 border border-blue-300/60">
+                              Duration: {getDurationDescription(startTime, endTime)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 text-slate-800 font-bold text-base flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span>{formatDateTime(startTime)}</span>
+                          <span className="text-blue-500">→</span>
+                          <span>{formatDateTime(endTime)}</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Highlighted in blue on the calendar. Drag another area or adjust the inputs below anytime.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end md:self-center flex-shrink-0">
+                      {calendarView === 'month' ? (
+                        <button
+                          type="button"
+                          onClick={() => setCalendarView('week')}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors shadow-sm"
+                        >
+                          Switch to Week (Hours)
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setCalendarView('month')}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors shadow-sm"
+                        >
+                          Switch to Month
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleClearSelection}
+                        className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1 shadow-sm"
+                        title="Clear selection"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-4 mb-6 flex items-center gap-3 text-slate-600 text-sm">
+                    <Info className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                    <div>
+                      <p className="font-semibold text-slate-700">Select an area in the calendar above</p>
+                      <p className="text-xs text-slate-500">
+                        Drag across time slots or days in the calendar to automatically define your start and end time.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <form onSubmit={handleSearchTimeslots} className="bg-white text-black p-6 shadow-md border border-slate-200 rounded-2xl space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -548,10 +812,28 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="flex justify-end pt-4 border-t border-slate-200">
+                  <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500 font-medium">Quick Presets:</span>
+                      <button
+                        type="button"
+                        onClick={() => handleSetPreset('today')}
+                        className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 transition-colors"
+                      >
+                        Today (9-17)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSetPreset('next24h')}
+                        className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 transition-colors"
+                      >
+                        Next 24h
+                      </button>
+                    </div>
+
                     <button
                       type="submit"
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl flex items-center gap-2 shadow-md hover:shadow-lg transition-all ml-auto"
                     >
                       Find Free Timeslots
                       <ChevronRight className="w-5 h-5" />
