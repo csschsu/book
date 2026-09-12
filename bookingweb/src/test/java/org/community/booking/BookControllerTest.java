@@ -29,171 +29,192 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 public class BookControllerTest {
 
-    private MockMvc mockMvc;
-    private ObjectMapper objectMapper;
+        private MockMvc mockMvc;
+        private ObjectMapper objectMapper;
 
-    @Mock
-    private Book book;
+        @Mock
+        private Book book;
 
-    @InjectMocks
-    private BookController bookController;
+        @InjectMocks
+        private BookController bookController;
 
-    @BeforeEach
-    public void setUp() {
-        objectMapper = JsonMapper.builder().build();
+        @BeforeEach
+        public void setUp() {
+                objectMapper = JsonMapper.builder().build();
 
-        StringHttpMessageConverter stringConverter = new StringHttpMessageConverter();
-        JacksonJsonHttpMessageConverter jacksonConverter = new JacksonJsonHttpMessageConverter(
-                (JsonMapper) objectMapper);
+                StringHttpMessageConverter stringConverter = new StringHttpMessageConverter();
+                JacksonJsonHttpMessageConverter jacksonConverter = new JacksonJsonHttpMessageConverter(
+                                (JsonMapper) objectMapper);
 
-        mockMvc = MockMvcBuilders.standaloneSetup(bookController)
-                .setConversionService(new DefaultFormattingConversionService())
-                .setMessageConverters(stringConverter, jacksonConverter)
-                .build();
-    }
+                mockMvc = MockMvcBuilders.standaloneSetup(bookController)
+                                .setConversionService(new DefaultFormattingConversionService())
+                                .setMessageConverters(stringConverter, jacksonConverter)
+                                .build();
+        }
 
-    @Test
-    public void testBook() throws Exception {
-        mockMvc.perform(get("/book"))
-                .andExpect(status().isOk())
-                .andExpect(content().string("Greetings from Spring Boot!"));
-    }
+        @Test
+        public void testBook() throws Exception {
+                mockMvc.perform(get("/book"))
+                                .andExpect(status().isOk())
+                                .andExpect(content().string("Greetings from Spring Boot!"));
+        }
 
-    @Test
-    public void testFree() throws Exception {
-        Models.Location location = new Models.Location();
-        location.id = 1;
-        location.name = "Garage A";
+        @Test
+        public void testFree() throws Exception {
+                Models.Location location = new Models.Location();
+                location.id = 1;
+                location.name = "Garage A";
 
-        List<Models.Timeslot> slots = new ArrayList<>();
-        Models.Timeslot slot = new Models.Timeslot();
-        slot.freeid = 10;
-        slot.assetId = 15;
-        slot.startTime = LocalDateTime.of(2026, 6, 30, 10, 0);
-        slot.endTime = LocalDateTime.of(2026, 6, 30, 12, 0);
-        slots.add(slot);
+                List<Models.Timeslot> slots = new ArrayList<>();
+                Models.Timeslot slot = new Models.Timeslot();
+                slot.freeid = 10;
+                slot.assetId = 15;
+                slot.startTime = LocalDateTime.of(2026, 6, 30, 10, 0);
+                slot.endTime = LocalDateTime.of(2026, 6, 30, 12, 0);
+                slots.add(slot);
 
-        when(book.findTimeslot(any(Models.Location.class), any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(slots);
+                when(book.findTimeslot(any(Models.Location.class), any(LocalDateTime.class), any(LocalDateTime.class)))
+                                .thenReturn(slots);
 
-        mockMvc.perform(post("/free")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(location)))
-                .andExpect(status().isOk())
-                .andExpect(content().string(slots.toString()));
-    }
+                mockMvc.perform(post("/free")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(location)))
+                                .andExpect(status().isOk())
+                                .andExpect(content().string(slots.toString()));
+        }
 
-    @Test
-    public void testGetBooked() throws Exception {
-        List<Models.Booked> bookedList = new ArrayList<>();
-        Models.Booked booked = new Models.Booked();
-        booked.id = 1;
-        booked.freeId = 10;
-        booked.userId = 201;
-        booked.startTime = LocalDateTime.of(2026, 7, 14, 18, 0);
-        booked.endTime = LocalDateTime.of(2026, 7, 14, 20, 0);
-        bookedList.add(booked);
+        @Test
+        public void testGetBooked() throws Exception {
+                List<Models.Booked> bookedList = new ArrayList<>();
+                Models.Booked booked = new Models.Booked();
+                booked.id = 1;
+                booked.freeId = 10;
+                booked.userId = 201;
+                booked.startTime = LocalDateTime.of(2026, 7, 14, 18, 0);
+                booked.endTime = LocalDateTime.of(2026, 7, 14, 20, 0);
+                bookedList.add(booked);
 
-        when(book.getBookedBlocksByLocation(1)).thenReturn(bookedList);
+                when(book.getBookedBlocksByLocation(1)).thenReturn(bookedList);
 
-        mockMvc.perform(get("/booked").param("locationId", "1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[0].freeId").value(10))
-                .andExpect(jsonPath("$[0].userId").value(201))
-                .andExpect(jsonPath("$[0].startTime").value("2026-07-14T18:00:00"))
-                .andExpect(jsonPath("$[0].endTime").value("2026-07-14T20:00:00"));
-    }
+                mockMvc.perform(get("/booked").param("locationId", "1"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$[0].id").value(1))
+                                .andExpect(jsonPath("$[0].freeId").value(10))
+                                .andExpect(jsonPath("$[0].userId").value(201))
+                                .andExpect(jsonPath("$[0].startTime").value("2026-07-14T18:00:00"))
+                                .andExpect(jsonPath("$[0].endTime").value("2026-07-14T20:00:00"));
+        }
 
-    @Test
-    public void testAddUser() throws Exception {
-        Models.User user = new Models.User();
-        user.id = 201;
-        user.code = 1234;
-        user.name = "Jane Doe";
+        @Test
+        public void testGetFree() throws Exception {
+                List<Models.Free> freeList = new ArrayList<>();
+                Models.Free free = new Models.Free();
+                free.id = 1;
+                free.assetId = 15;
+                free.startTime = LocalDateTime.of(2026, 7, 14, 8, 0);
+                free.endTime = LocalDateTime.of(2026, 7, 14, 22, 0);
+                freeList.add(free);
 
-        mockMvc.perform(post("/user")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(user)))
-                .andExpect(status().isOk());
+                when(book.getFreeBlocksByLocation(1)).thenReturn(freeList);
 
-        verify(book).addUser(any(Models.User.class));
-    }
+                mockMvc.perform(get("/free").param("locationId", "1"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$[0].id").value(1))
+                                .andExpect(jsonPath("$[0].assetId").value(15))
+                                .andExpect(jsonPath("$[0].startTime").value("2026-07-14T08:00:00"))
+                                .andExpect(jsonPath("$[0].endTime").value("2026-07-14T22:00:00"));
+        }
 
-    @Test
-    public void testGetUser() throws Exception {
-        Models.User user = new Models.User();
-        user.id = 201;
-        user.code = 1234;
-        user.name = "Jane Doe";
+        @Test
+        public void testAddUser() throws Exception {
+                Models.User user = new Models.User();
+                user.id = 201;
+                user.code = 1234;
+                user.name = "Jane Doe";
 
-        when(book.getUser(201)).thenReturn(user);
+                mockMvc.perform(post("/user")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(user)))
+                                .andExpect(status().isOk());
 
-        mockMvc.perform(get("/user/201"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(201))
-                .andExpect(jsonPath("$.code").value(1234))
-                .andExpect(jsonPath("$.name").value("Jane Doe"));
-    }
+                verify(book).addUser(any(Models.User.class));
+        }
 
-    @Test
-    public void testFindTimeslot() throws Exception {
-        Models.Location location = new Models.Location();
-        location.id = 1;
-        location.name = "Garage A";
+        @Test
+        public void testGetUser() throws Exception {
+                Models.User user = new Models.User();
+                user.id = 201;
+                user.code = 1234;
+                user.name = "Jane Doe";
 
-        LocalDateTime startTime = LocalDateTime.of(2026, 6, 30, 10, 0);
+                when(book.getUser(201)).thenReturn(user);
 
-        List<Models.Timeslot> slots = new ArrayList<>();
-        Models.Timeslot slot = new Models.Timeslot();
-        slot.freeid = 10;
-        slot.assetId = 15;
-        slot.startTime = startTime;
-        slot.endTime = startTime.plusHours(2);
-        slots.add(slot);
+                mockMvc.perform(get("/user/201"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.id").value(201))
+                                .andExpect(jsonPath("$.code").value(1234))
+                                .andExpect(jsonPath("$.name").value("Jane Doe"));
+        }
 
-        when(book.findTimeslot(any(Models.Location.class), eq(startTime), any(LocalDateTime.class))).thenReturn(slots);
+        @Test
+        public void testFindTimeslot() throws Exception {
+                Models.Location location = new Models.Location();
+                location.id = 1;
+                location.name = "Garage A";
 
-        mockMvc.perform(post("/timeslot")
-                .param("startTime", "2026-06-30T10:00:00")
-                .param("endTime", "2026-06-30T12:00:00")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(location)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].freeid").value(10))
-                .andExpect(jsonPath("$[0].assetId").value(15))
-                .andExpect(jsonPath("$[0].startTime").value("2026-06-30T10:00:00"))
-                .andExpect(jsonPath("$[0].endTime").value("2026-06-30T12:00:00"));
-    }
+                LocalDateTime startTime = LocalDateTime.of(2026, 6, 30, 10, 0);
 
-    @Test
-    public void testBookTime() throws Exception {
-        LocalDateTime start = LocalDateTime.of(2026, 6, 30, 10, 0);
-        LocalDateTime end = LocalDateTime.of(2026, 6, 30, 12, 0);
+                List<Models.Timeslot> slots = new ArrayList<>();
+                Models.Timeslot slot = new Models.Timeslot();
+                slot.freeid = 10;
+                slot.assetId = 15;
+                slot.startTime = startTime;
+                slot.endTime = startTime.plusHours(2);
+                slots.add(slot);
 
-        mockMvc.perform(post("/bookTime")
-                .param("freeId", "15")
-                .param("userId", "201")
-                .param("startTime", "2026-06-30T10:00:00")
-                .param("endTime", "2026-06-30T12:00:00"))
-                .andExpect(status().isOk());
+                when(book.findTimeslot(any(Models.Location.class), eq(startTime), any(LocalDateTime.class)))
+                                .thenReturn(slots);
 
-        verify(book).bookTime(15, 201, start, end);
-    }
+                mockMvc.perform(post("/timeslot")
+                                .param("startTime", "2026-06-30T10:00:00")
+                                .param("endTime", "2026-06-30T12:00:00")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(location)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$[0].freeid").value(10))
+                                .andExpect(jsonPath("$[0].assetId").value(15))
+                                .andExpect(jsonPath("$[0].startTime").value("2026-06-30T10:00:00"))
+                                .andExpect(jsonPath("$[0].endTime").value("2026-06-30T12:00:00"));
+        }
 
-    @Test
-    public void testDeleteBookedTime() throws Exception {
-        mockMvc.perform(delete("/bookedTime/5"))
-                .andExpect(status().isOk());
+        @Test
+        public void testBookTime() throws Exception {
+                LocalDateTime start = LocalDateTime.of(2026, 6, 30, 10, 0);
+                LocalDateTime end = LocalDateTime.of(2026, 6, 30, 12, 0);
 
-        verify(book).deleteBookedTime(5);
-    }
+                mockMvc.perform(post("/bookTime")
+                                .param("freeId", "15")
+                                .param("userId", "201")
+                                .param("startTime", "2026-06-30T10:00:00")
+                                .param("endTime", "2026-06-30T12:00:00"))
+                                .andExpect(status().isOk());
 
-    @Test
-    public void testDeleteFreeTime() throws Exception {
-        mockMvc.perform(delete("/freeTime/7"))
-                .andExpect(status().isOk());
+                verify(book).bookTime(15, 201, start, end);
+        }
 
-        verify(book).deleteFreeTime(7);
-    }
+        @Test
+        public void testDeleteBookedTime() throws Exception {
+                mockMvc.perform(delete("/bookedTime/5"))
+                                .andExpect(status().isOk());
+
+                verify(book).deleteBookedTime(5);
+        }
+
+        @Test
+        public void testDeleteFreeTime() throws Exception {
+                mockMvc.perform(delete("/freeTime/7"))
+                                .andExpect(status().isOk());
+
+                verify(book).deleteFreeTime(7);
+        }
 }

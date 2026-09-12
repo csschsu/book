@@ -86,6 +86,7 @@
   font-size: 1rem;
   font-weight: 700;
   color: #1e293b;
+  text-transform: capitalize;
 }
 
 .rbc-header {
@@ -115,13 +116,44 @@
   background-color: #f0f7ff;
 }
 
+/* Free time in the calendar background in a light gray color */
+.rbc-free-time-day {
+  background-color: #f1f5f9 !important; /* light gray (slate-100) */
+}
+
+.rbc-day-bg.rbc-free-time-day.rbc-today {
+  background-color: #e2e8f0 !important; /* distinct light gray for today when free */
+}
+
+.rbc-free-time-slot {
+  background-color: #f8fafc !important; /* light gray */
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.rbc-timeslot-group:nth-child(even) .rbc-free-time-slot {
+  background-color: #f1f5f9 !important; /* subtle alternating light gray */
+}
+
+/* Ensure bookings are displayed prominently in the front */
 .rbc-event {
   cursor: pointer;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+  position: relative;
+  z-index: 5;
+}
+
+.rbc-event.rbc-booked-event {
+  z-index: 10 !important;
+  position: relative !important;
+}
+
+.rbc-event.rbc-selection-event {
+  z-index: 20 !important;
 }
 
 .rbc-event:hover {
-  opacity: 0.9;
+  opacity: 0.95;
+  transform: translateY(-1px);
 }
 
 /* Enhanced Selection Box and Active Selection States */
@@ -132,6 +164,7 @@
   color: #1e3a8a !important;
   font-weight: 600;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  z-index: 15 !important;
 }
 
 .rbc-slot-selecting {
@@ -139,5 +172,6 @@
 }
 
 .rbc-selected-area-cell {
-  background-color: rgba(219, 234, 254, 0.45) !important;
+  background-color: rgba(191, 219, 254, 0.7) !important;
+  z-index: 6;
 }

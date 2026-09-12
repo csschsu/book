@@ -41,13 +41,39 @@ import {
   Info,
   X
 } from 'lucide-react';
-import { Calendar as BigCalendar, momentLocalizer, type View } from 'react-big-calendar';
+import { Calendar as BigCalendar, momentLocalizer, type View, type Messages, type Formats } from 'react-big-calendar';
 import moment from 'moment';
+import 'moment/locale/sv';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import type { Location, Timeslot, User, AssetLocation, Booked } from './types/models';
-import { fetchLocations, fetchAssetLocations, fetchTimeslots, findOrCreateUser, bookTime, fetchBookedByLocation, fetchUsers } from './services/api';
+import type { Location, Timeslot, User, AssetLocation, Booked, Free } from './types/models';
+import { fetchLocations, fetchAssetLocations, fetchTimeslots, findOrCreateUser, bookTime, fetchBookedByLocation, fetchFreeByLocation, fetchUsers } from './services/api';
 
+moment.locale('sv');
 const localizer = momentLocalizer(moment);
+
+const calendarMessages: Messages = {
+  allDay: 'Heldag',
+  previous: 'Föregående',
+  next: 'Nästa',
+  today: 'Idag',
+  month: 'Månad',
+  week: 'Vecka',
+  day: 'Dag',
+  agenda: 'Agenda',
+  date: 'Datum',
+  time: 'Tid',
+  event: 'Bokning',
+  noEventsInRange: 'Inga bokningar under denna tidsperiod.',
+  showMore: (total: number) => `+${total} fler`,
+};
+
+const calendarFormats: Formats = {
+  timeGutterFormat: 'HH:mm',
+  agendaTimeFormat: 'HH:mm',
+  dayFormat: 'ddd DD/MM',
+  dayHeaderFormat: 'dddd D MMMM',
+  agendaDateFormat: 'ddd D MMMM',
+};
 
 // Formatting helper: YYYY-MM-DDTHH:mm
 const formatToLocalISO = (date: Date): string => {
@@ -88,6 +114,7 @@ function App() {
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [bookedList, setBookedList] = useState<Booked[]>([]);
+  const [freeList, setFreeList] = useState<Free[]>([]);
   const [loadingBooked, setLoadingBooked] = useState<boolean>(false);
   const [calendarDate, setCalendarDate] = useState<Date>(new Date());
   const [calendarView, setCalendarView] = useState<View>('month');
@@ -137,27 +164,31 @@ function App() {
     loadData();
   }, []);
 
-  // Fetch booked times whenever selectedLocation changes
+  // Fetch booked and free times whenever selectedLocation changes
   useEffect(() => {
     if (!selectedLocation) return;
     const locationId = selectedLocation.id;
     let isCancelled = false;
-    async function loadBooked() {
+    async function loadCalendarData() {
       setLoadingBooked(true);
       try {
-        const booked = await fetchBookedByLocation(locationId);
+        const [booked, free] = await Promise.all([
+          fetchBookedByLocation(locationId),
+          fetchFreeByLocation(locationId).catch(() => []),
+        ]);
         if (!isCancelled) {
           setBookedList(booked);
+          setFreeList(free);
         }
       } catch (err: unknown) {
-        console.error('Failed to load booked times:', err);
+        console.error('Failed to load calendar data:', err);
       } finally {
         if (!isCancelled) {
           setLoadingBooked(false);
         }
       }
     }
-    loadBooked();
+    loadCalendarData();
     return () => {
       isCancelled = true;
     };
@@ -176,12 +207,13 @@ function App() {
   const formatDateTime = (isoStr: string) => {
     try {
       const d = new Date(isoStr);
-      return d.toLocaleString([], {
+      return d.toLocaleString('sv-SE', {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        hour12: false
       });
     } catch {
       return isoStr;
@@ -191,7 +223,7 @@ function App() {
   const formatTimeOnly = (isoStr: string) => {
     try {
       const d = new Date(isoStr);
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return d.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit', hour12: false });
     } catch {
       return isoStr;
     }
@@ -207,6 +239,7 @@ function App() {
   const handleSelectLocation = (loc: Location) => {
     setSelectedLocation(loc);
     setBookedList([]);
+    setFreeList([]);
     setStep(3); // Step 2 (Select Location) complete. Transition to Step 3 (Enters timeframe)
   };
 
@@ -294,6 +327,8 @@ function App() {
     setUserName('');
     setUser(null);
     setBookedDetails(null);
+    setBookedList([]);
+    setFreeList([]);
     setError(null);
     setStep(1); // Reset to Step 1 (View locations)
   };
@@ -301,7 +336,7 @@ function App() {
   // Map booked times to Big Calendar events
   const bookedEvents = bookedList.map((b) => {
     const bookedUser = users.find((u) => u.id === b.userId);
-    const title = bookedUser ? `Booked: ${bookedUser.name}` : `Booked (User #${b.userId})`;
+    const title = bookedUser ? `Bokad: ${bookedUser.name}` : `Bokad (Användare #${b.userId})`;
     return {
       id: `booked-${b.id}`,
       title,
@@ -325,7 +360,7 @@ function App() {
     ? [
       {
         id: 'selected-search-window',
-        title: `Selected Search Area (${formatTimeOnly(startTime)} - ${formatTimeOnly(endTime)})`,
+        title: `Markerat sökintervall (${formatTimeOnly(startTime)} – ${formatTimeOnly(endTime)})`,
         start: new Date(startTime),
         end: new Date(endTime),
         isSelection: true,
@@ -349,10 +384,10 @@ function App() {
     const remHours = hours % 24;
 
     if (days > 0) {
-      return remHours > 0 ? `${days}d ${remHours}h` : `${days} day${days > 1 ? 's' : ''}`;
+      return remHours > 0 ? `${days} d ${remHours} tim` : `${days} dag${days > 1 ? 'ar' : ''}`;
     }
     if (hours > 0) {
-      return mins > 0 ? `${hours}h ${mins}m` : `${hours} hour${hours > 1 ? 's' : ''}`;
+      return mins > 0 ? `${hours} tim ${mins} min` : `${hours} timm${hours > 1 ? 'ar' : 'e'}`;
     }
     return `${mins} min`;
   };
@@ -419,6 +454,29 @@ function App() {
     setCalendarView(view || 'day');
   };
 
+  // Check if a specific time slot falls within any free block
+  const isTimeInFreeRange = (date: Date) => {
+    if (!freeList || freeList.length === 0) return false;
+    const t = date.getTime();
+    return freeList.some((f) => {
+      const start = new Date(f.startTime).getTime();
+      const end = new Date(f.endTime).getTime();
+      return t >= start && t < end;
+    });
+  };
+
+  // Check if a calendar day cell overlaps with any free block
+  const isDayInFreeRange = (date: Date) => {
+    if (!freeList || freeList.length === 0) return false;
+    const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999).getTime();
+    return freeList.some((f) => {
+      const start = new Date(f.startTime).getTime();
+      const end = new Date(f.endTime).getTime();
+      return start <= dayEnd && end >= dayStart;
+    });
+  };
+
   const slotPropGetter = (date: Date) => {
     if (hasValidSelection) {
       const s = new Date(startTime);
@@ -428,6 +486,11 @@ function App() {
           className: 'rbc-selected-area-cell',
         };
       }
+    }
+    if (isTimeInFreeRange(date)) {
+      return {
+        className: 'rbc-free-time-slot',
+      };
     }
     return {};
   };
@@ -444,12 +507,18 @@ function App() {
         };
       }
     }
+    if (isDayInFreeRange(date)) {
+      return {
+        className: 'rbc-free-time-day',
+      };
+    }
     return {};
   };
 
   const eventPropGetter = (event: CalendarEvent) => {
     if (event.isSelection) {
       return {
+        className: 'rbc-selection-event',
         style: {
           backgroundColor: '#2563eb',
           borderColor: '#1d4ed8',
@@ -460,11 +529,12 @@ function App() {
           fontWeight: 600,
           border: '2px solid #1d4ed8',
           boxShadow: '0 4px 10px rgba(37, 99, 235, 0.35)',
-          zIndex: 10,
+          zIndex: 20,
         },
       };
     }
     return {
+      className: 'rbc-booked-event',
       style: {
         backgroundColor: '#ef4444',
         borderColor: '#dc2626',
@@ -472,7 +542,9 @@ function App() {
         borderRadius: '6px',
         padding: '2px 6px',
         fontSize: '0.75rem',
-        fontWeight: 500,
+        fontWeight: 600,
+        zIndex: 10,
+        boxShadow: '0 2px 5px rgba(220, 38, 38, 0.3)',
       },
     };
   };
@@ -672,16 +744,20 @@ function App() {
                     <div>
                       <h3 className="font-bold text-base md:text-lg text-slate-800 flex items-center gap-2">
                         <Calendar className="w-5 h-5 text-blue-600" />
-                        Calendar Overview - Booked Times
+                        Kalenderöversikt – Bokade och lediga tider
                       </h3>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Existing bookings for <span className="font-semibold text-slate-700">{selectedLocation.name}</span>. Red blocks indicate booked periods. Click or drag to pre-fill search times below.
+                        Befintliga tider för <span className="font-semibold text-slate-700">{selectedLocation.name}</span>. Ljusgrå bakgrund anger ledig tid och röda fält i förgrunden anger bokade tider. Markera eller klicka för att välja sökintervall.
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-300">
+                        <span className="w-2.5 h-2.5 rounded-sm bg-slate-300 border border-slate-400"></span>
+                        Ledig tid ({freeList.length > 0 ? 'aktiv' : '0'})
+                      </span>
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
                         <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                        Booked ({calendarEvents.length})
+                        Bokade ({bookedList.length})
                       </span>
                       {loadingBooked && (
                         <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
@@ -692,6 +768,9 @@ function App() {
                   <div className="h-[520px]">
                     <BigCalendar
                       localizer={localizer}
+                      culture="sv"
+                      messages={calendarMessages}
+                      formats={calendarFormats}
                       events={calendarEvents}
                       startAccessor="start"
                       endAccessor="end"
@@ -722,11 +801,11 @@ function App() {
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs font-bold uppercase tracking-wider text-blue-800">
-                            Selected Area in Calendar
+                            Markerat tidsintervall i kalendern
                           </span>
                           {getDurationDescription(startTime, endTime) && (
                             <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-200/60 text-blue-900 border border-blue-300/60">
-                              Duration: {getDurationDescription(startTime, endTime)}
+                              Varaktighet: {getDurationDescription(startTime, endTime)}
                             </span>
                           )}
                         </div>
@@ -736,7 +815,7 @@ function App() {
                           <span>{formatDateTime(endTime)}</span>
                         </div>
                         <p className="text-xs text-slate-500 mt-1">
-                          Highlighted in blue on the calendar. Drag another area or adjust the inputs below anytime.
+                          Markerat i blått i kalendern. Markera ett annat intervall eller justera fälten nedan när som helst.
                         </p>
                       </div>
                     </div>
@@ -748,7 +827,7 @@ function App() {
                           onClick={() => setCalendarView('week')}
                           className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors shadow-sm"
                         >
-                          Switch to Week (Hours)
+                          Växla till vecka (timmar)
                         </button>
                       ) : (
                         <button
@@ -756,17 +835,17 @@ function App() {
                           onClick={() => setCalendarView('month')}
                           className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors shadow-sm"
                         >
-                          Switch to Month
+                          Växla till månad
                         </button>
                       )}
                       <button
                         type="button"
                         onClick={handleClearSelection}
                         className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1 shadow-sm"
-                        title="Clear selection"
+                        title="Rensa markering"
                       >
                         <X className="w-3.5 h-3.5" />
-                        Clear
+                        Rensa
                       </button>
                     </div>
                   </div>
@@ -774,9 +853,9 @@ function App() {
                   <div className="bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-4 mb-6 flex items-center gap-3 text-slate-600 text-sm">
                     <Info className="w-5 h-5 text-blue-600 flex-shrink-0" />
                     <div>
-                      <p className="font-semibold text-slate-700">Select an area in the calendar above</p>
+                      <p className="font-semibold text-slate-700">Markera ett intervall i kalendern ovan</p>
                       <p className="text-xs text-slate-500">
-                        Drag across time slots or days in the calendar to automatically define your start and end time.
+                        Dra över tidsluckor eller dagar i kalendern för att automatiskt välja start- och sluttid.
                       </p>
                     </div>
                   </div>
@@ -814,20 +893,20 @@ function App() {
 
                   <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-200">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500 font-medium">Quick Presets:</span>
+                      <span className="text-xs text-slate-500 font-medium">Snabbval:</span>
                       <button
                         type="button"
                         onClick={() => handleSetPreset('today')}
                         className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 transition-colors"
                       >
-                        Today (9-17)
+                        Idag (09:00–17:00)
                       </button>
                       <button
                         type="button"
                         onClick={() => handleSetPreset('next24h')}
                         className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 transition-colors"
                       >
-                        Next 24h
+                        Kommande 24h
                       </button>
                     </div>
 
@@ -889,14 +968,14 @@ function App() {
                                 Slot #{slot.freeid}
                               </div>
                               <div className="font-bold text-sm text-slate-800 group-hover:text-blue-900 transition-colors">
-                                {new Date(slot.startTime).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                                {new Date(slot.startTime).toLocaleDateString('sv-SE', { month: 'short', day: 'numeric' })}
                               </div>
                               <div className="text-xs font-semibold text-blue-600 group-hover:text-blue-800 mt-1 border-t border-slate-100 pt-1">
                                 {assetName}
                               </div>
                             </div>
                             <div className="text-xs text-slate-500 group-hover:text-blue-700 mt-2 font-medium">
-                              {formatTimeOnly(slot.startTime)} - {formatTimeOnly(slot.endTime)}
+                              {formatTimeOnly(slot.startTime)} – {formatTimeOnly(slot.endTime)}
                             </div>
                           </button>
                         );
@@ -930,8 +1009,8 @@ function App() {
                     <div><strong>Space Location:</strong> {selectedLocation.name}</div>
                     <div><strong>Resource / Asset:</strong> {getAssetLocationName(selectedTimeslot.assetId)}</div>
                     <div><strong>Timeslot ID:</strong> {selectedTimeslot.freeid}</div>
-                    <div><strong>Date:</strong> {new Date(selectedTimeslot.startTime).toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
-                    <div><strong>Selected Time:</strong> {formatTimeOnly(selectedTimeslot.startTime)} - {formatTimeOnly(selectedTimeslot.endTime)}</div>
+                    <div><strong>Date:</strong> {new Date(selectedTimeslot.startTime).toLocaleDateString('sv-SE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                    <div><strong>Selected Time:</strong> {formatTimeOnly(selectedTimeslot.startTime)} – {formatTimeOnly(selectedTimeslot.endTime)}</div>
                   </div>
                 </div>
 

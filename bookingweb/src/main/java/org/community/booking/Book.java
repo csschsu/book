@@ -170,6 +170,14 @@ public class Book {
                 + "WHERE l.location_id = :location "
                 + "ORDER BY b.start_time ASC")
         List<Models.Booked> getBookedBlocksByLocation(@Bind("location") int location);
+
+        @SqlQuery("SELECT f.id, f.asset_id AS assetId, f.start_time AS startTime, f.end_time AS endTime "
+                + "FROM free f "
+                + "JOIN asset a ON f.asset_id = a.id "
+                + "JOIN asset_location l ON l.asset_id = a.id "
+                + "WHERE l.location_id = :location "
+                + "ORDER BY f.start_time ASC")
+        List<Models.Free> getFreeBlocksByLocation(@Bind("location") int location);
     }
 
     // --- Exponerade JSON-metoder ---
@@ -202,6 +210,11 @@ public class Book {
     public List<Models.Booked> getBookedBlocksByLocation(int locationId) {
         logger.debug("Getting booked blocks for locationId: {}", locationId);
         return jdbi.withExtension(BookingDao.class, dao -> dao.getBookedBlocksByLocation(locationId));
+    }
+
+    public List<Models.Free> getFreeBlocksByLocation(int locationId) {
+        logger.debug("Getting free blocks for locationId: {}", locationId);
+        return jdbi.withExtension(BookingDao.class, dao -> dao.getFreeBlocksByLocation(locationId));
     }
 
     public Models.User findOrCreateUser(String name) {
