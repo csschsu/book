@@ -129,8 +129,10 @@ public class BookControllerTest {
         public void testAddUser() throws Exception {
                 Models.User user = new Models.User();
                 user.id = 201;
-                user.code = 1234;
-                user.name = "Jane Doe";
+                user.code = 0;
+                user.email = "jane@example.com";
+                user.password = "password123";
+                user.role = "BOOKUSER";
 
                 mockMvc.perform(post("/user")
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -144,16 +146,19 @@ public class BookControllerTest {
         public void testGetUser() throws Exception {
                 Models.User user = new Models.User();
                 user.id = 201;
-                user.code = 1234;
-                user.name = "Jane Doe";
+                user.code = 0;
+                user.email = "jane@example.com";
+                user.password = "password123";
+                user.role = "BOOKUSER";
 
                 when(book.getUser(201)).thenReturn(user);
 
                 mockMvc.perform(get("/user/201"))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.id").value(201))
-                                .andExpect(jsonPath("$.code").value(1234))
-                                .andExpect(jsonPath("$.name").value("Jane Doe"));
+                                .andExpect(jsonPath("$.code").value(0))
+                                .andExpect(jsonPath("$.email").value("jane@example.com"))
+                                .andExpect(jsonPath("$.role").value("BOOKUSER"));
         }
 
         @Test
@@ -216,5 +221,16 @@ public class BookControllerTest {
                                 .andExpect(status().isOk());
 
                 verify(book).deleteFreeTime(7);
+        }
+
+        @Test
+        public void testAddFreeTime() throws Exception {
+                mockMvc.perform(post("/freeTime")
+                                .param("assetId", "3")
+                                .param("startTime", "2026-07-15T09:00:00")
+                                .param("endTime", "2026-07-15T17:00:00"))
+                                .andExpect(status().isOk());
+
+                verify(book).addFreeTime(eq(3), any(LocalDateTime.class), any(LocalDateTime.class));
         }
 }

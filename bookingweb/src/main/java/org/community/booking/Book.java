@@ -23,6 +23,7 @@ package org.community.booking;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.community.booking.Models.Timeslot;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.argument.AbstractArgumentFactory;
 import org.jdbi.v3.core.argument.Argument;
@@ -97,10 +98,10 @@ public class Book {
 
         // --- JSON / Entitetshantering ---
 
-        @SqlUpdate("INSERT INTO user (code, name, address) VALUES (:code, :name, :address)")
+        @SqlUpdate("INSERT INTO user (email, password, code, createtime, role, address) VALUES (:email, :password, :code, :createtime, :role, :address)")
         void insertUser(@BindFields Models.User user);
 
-        @SqlQuery("SELECT id, code, name, address FROM user WHERE id = :id")
+        @SqlQuery("SELECT id, email, password, code, createtime, role, address FROM user WHERE id = :id")
         Models.User getUserById(@Bind("id") int id);
 
         @SqlQuery("SELECT id, name, latitude, longitude, address FROM location")
@@ -109,14 +110,11 @@ public class Book {
         @SqlQuery("SELECT id, location_id, asset_id, name FROM asset_location")
         List<Models.AssetLocation> getAssetLocations();
 
-        @SqlQuery("SELECT id, code, name, address FROM user WHERE name = :name")
-        Models.User getUserByName(@Bind("name") String name);
+        @SqlQuery("SELECT id, email, password, code, createtime, role, address FROM user WHERE email = :email")
+        Models.User getUserByEmail(@Bind("email") String email);
 
-        @SqlQuery("SELECT id, code, name, address FROM user")
+        @SqlQuery("SELECT id, email, password, code, createtime, role, address FROM user")
         List<Models.User> getUsers();
-
-        @SqlUpdate("INSERT INTO user (code, name, address) VALUES (:code, :name, :address)")
-        void insertUser(@Bind("code") int code, @Bind("name") String name, @Bind("address") Models.Address address);
 
         // --- Bokningsfunktioner ---
 
@@ -149,6 +147,10 @@ public class Book {
         @SqlUpdate("DELETE FROM free WHERE id = :freeId")
         void deleteFreeTime(@Bind("freeId") int freeId);
 
+        @SqlUpdate("INSERT INTO free (asset_id, start_time, end_time) VALUES (:assetId, :startTime, :endTime)")
+        void addFreeTime(@Bind("assetId") int assetId, @Bind("startTime") LocalDateTime startTime,
+                @Bind("endTime") LocalDateTime endTime);
+
         @SqlQuery("SELECT f.id, f.asset_id AS assetId, f.start_time AS startTime, f.end_time AS endTime " +
                 "FROM free f " +
                 "WHERE f.asset_id = :assetId " +
@@ -180,16 +182,37 @@ public class Book {
         List<Models.Free> getFreeBlocksByLocation(@Bind("location") int location);
     }
 
+    private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
+
     // --- Exponerade JSON-metoder ---
 
     public void addUser(Models.User user) {
-        logger.debug("Adding user: name={}, id={}", user.name, user.id);
+        logger.debug("Adding user: email={}, id={}", user.email, user.id);
+        if (user.password != null && !user.password.isEmpty()) {
+            if (!user.password.startsWith("$2a$") && !user.password.startsWith("$2b$")) {
+                if (user.password.length() < 6) {
+                    throw new IllegalArgumentException("Password must be at least 6 characters long");
+                }
+                user.password = PASSWORD_ENCODER.encode(user.password);
+            }
+        }
+        if (user.createtime == null || user.createtime.isEmpty()) {
+            user.createtime = LocalDateTime.now().format(FORMATTER);
+        }
+        if (user.role == null || user.role.isEmpty()) {
+            user.role = "BOOKUSER";
+        }
         jdbi.useExtension(BookingDao.class, dao -> dao.insertUser(user));
     }
 
     public Models.User getUser(int id) {
         logger.debug("Getting user by id: {}", id);
         return jdbi.withExtension(BookingDao.class, dao -> dao.getUserById(id));
+    }
+
+    public Models.User getUserByEmail(String email) {
+        logger.debug("Getting user by email: {}", email);
+        return jdbi.withExtension(BookingDao.class, dao -> dao.getUserByEmail(email));
     }
 
     public List<Models.Location> getLocations() {
@@ -217,20 +240,28 @@ public class Book {
         return jdbi.withExtension(BookingDao.class, dao -> dao.getFreeBlocksByLocation(locationId));
     }
 
-    public Models.User findOrCreateUser(String name) {
-        logger.debug("findOrCreateUser called with name: {}", name);
+    public Models.User findOrCreateUser(String identifier) {
+        logger.debug("findOrCreateUser called with identifier: {}", identifier);
+        String email = identifier.contains("@") ? identifier
+                : (identifier.toLowerCase().replaceAll("[^a-zA-Z0-9]", "") + "@example.com");
         return jdbi.withExtension(BookingDao.class, dao -> {
-            Models.User user = dao.getUserByName(name);
+            Models.User user = dao.getUserByEmail(email);
             if (user == null) {
-                logger.debug("User '{}' not found, creating new user record", name);
+                logger.debug("User '{}' not found, creating new user record", email);
                 Models.Address addr = new Models.Address();
-                addr.email = name.toLowerCase().replaceAll("[^a-zA-Z0-9]", "") + "@example.com";
+                addr.email = email;
                 addr.phone = "070-0000000";
-                int code = Math.abs(name.hashCode() % 100000);
-                dao.insertUser(code, name, addr);
-                user = dao.getUserByName(name);
+                user = new Models.User();
+                user.email = email;
+                user.password = "";
+                user.code = 0;
+                user.createtime = LocalDateTime.now().format(FORMATTER);
+                user.role = "BOOKUSER";
+                user.address = addr;
+                dao.insertUser(user);
+                user = dao.getUserByEmail(email);
             } else {
-                logger.debug("Found existing user: id={}, name={}", user.id, user.name);
+                logger.debug("Found existing user: id={}, email={}", user.id, user.email);
             }
             return user;
         });
@@ -395,6 +426,11 @@ public class Book {
     public void deleteFreeTime(int freeId) {
         logger.debug("deleteFreeTime called: freeId={}", freeId);
         jdbi.useExtension(BookingDao.class, dao -> dao.deleteFreeTime(freeId));
+    }
+
+    public void addFreeTime(int assetId, LocalDateTime startTime, LocalDateTime endTime) {
+        logger.debug("addFreeTime called: assetId={}, startTime={}, endTime={}", assetId, startTime, endTime);
+        jdbi.useExtension(BookingDao.class, dao -> dao.addFreeTime(assetId, startTime, endTime));
     }
 
 }

@@ -38,14 +38,37 @@ import {
   AlertCircle,
   Check,
   MousePointer,
-  X
+  X,
+  LogIn,
+  LogOut,
+  Shield,
+  Users,
+  Plus,
+  Trash2,
+  Lock,
+  KeyRound
 } from 'lucide-react';
 import { Calendar as BigCalendar, momentLocalizer, type View, type Messages, type Formats } from 'react-big-calendar';
 import moment from 'moment';
 import 'moment/locale/sv';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import type { Location, Timeslot, User, AssetLocation, Booked, Free } from './types/models';
-import { fetchLocations, fetchAssetLocations, fetchTimeslots, findOrCreateUser, bookTime, fetchBookedByLocation, fetchFreeByLocation, fetchUsers } from './services/api';
+import type { Location, Timeslot, User, AssetLocation, Booked, Free, AuthSession } from './types/models';
+import {
+  fetchLocations,
+  fetchAssetLocations,
+  fetchTimeslots,
+  bookTime,
+  fetchBookedByLocation,
+  fetchFreeByLocation,
+  fetchUsers,
+  getAuthSession,
+  login as apiLogin,
+  logout as apiLogout,
+  fetchFreeByLocationIdAdmin,
+  addFreeTime,
+  deleteFreeTime,
+  addUser
+} from './services/api';
 
 moment.locale('sv');
 const localizer = momentLocalizer(moment);
@@ -101,17 +124,31 @@ interface CalendarEvent {
   resource?: Booked;
 }
 
+type AppTab = 'booking' | 'admin-free' | 'admin-users';
+
 function App() {
-  // Navigation & Step State (Aligned to 8 distinct steps)
+  // Navigation tab state
+  const [activeTab, setActiveTab] = useState<AppTab>('booking');
+
+  // Authentication State (a41, a42)
+  const [session, setSession] = useState<AuthSession | null>(() => getAuthSession());
+  const [loginModalOpen, setLoginModalOpen] = useState<boolean>(false);
+  const [loginEmail, setLoginEmail] = useState<string>('user@example.com');
+  const [loginPassword, setLoginPassword] = useState<string>('user123');
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginLoading, setLoginLoading] = useState<boolean>(false);
+  const [pendingBookingSlot, setPendingBookingSlot] = useState<Timeslot | null>(null);
+
+  // Booking Flow Steps (a31-a34)
   const [step, setStep] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
 
   // Data State
   const [locations, setLocations] = useState<Location[]>([]);
   const [assetLocations, setAssetLocations] = useState<AssetLocation[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
   const [bookedList, setBookedList] = useState<Booked[]>([]);
   const [freeList, setFreeList] = useState<Free[]>([]);
   const [loadingBooked, setLoadingBooked] = useState<boolean>(false);
@@ -126,36 +163,57 @@ function App() {
   const [timeslots, setTimeslots] = useState<Timeslot[]>([]);
   const [selectedTimeslot, setSelectedTimeslot] = useState<Timeslot | null>(null);
 
-  // User State (Step 6)
-  const [userName, setUserName] = useState<string>('');
-  const [user, setUser] = useState<User | null>(null);
-
-  // Booking result (Step 8)
+  // Booking result (Step 8 / a34.4)
   const [bookedDetails, setBookedDetails] = useState<{
     locationName: string;
     assetLocationName: string;
     startTime: string;
     endTime: string;
-    userName: string;
+    userEmail: string;
   } | null>(null);
 
-  // Fetch locations, asset locations, and users on mount
+  // Admin Free Timeslots State (a51)
+  const [adminFreeLocationId, setAdminFreeLocationId] = useState<number>(1);
+  const [adminFreeList, setAdminFreeList] = useState<Free[]>([]);
+  const [adminFreeLoading, setAdminFreeLoading] = useState<boolean>(false);
+  const [newFreeAssetId, setNewFreeAssetId] = useState<number>(1);
+  const [newFreeStartTime, setNewFreeStartTime] = useState<string>(getDefaultStartTime);
+  const [newFreeEndTime, setNewFreeEndTime] = useState<string>(getDefaultEndTime);
+
+  // Admin Users State (a61, a62)
+  const [adminUsersList, setAdminUsersList] = useState<User[]>([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState<boolean>(false);
+  const [newUserEmail, setNewUserEmail] = useState<string>('');
+  const [newUserPassword, setNewUserPassword] = useState<string>('');
+  const [newUserRoles, setNewUserRoles] = useState<string[]>(['BOOKUSER']);
+  const [newUserPhone, setNewUserPhone] = useState<string>('');
+
+  // Role Checks
+  const isBookAdmin = Boolean(session?.role?.includes('BOOKADMIN'));
+  const isBookUser = Boolean(session?.role?.includes('BOOKUSER'));
+  const canBook = isBookAdmin || isBookUser;
+
+  // Load locations and asset locations on mount
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       setError(null);
       try {
-        const [locs, assets, userList] = await Promise.all([
+        const [locs, assets] = await Promise.all([
           fetchLocations(),
           fetchAssetLocations(),
-          fetchUsers().catch(() => [])
         ]);
         setLocations(locs);
         setAssetLocations(assets);
-        setUsers(userList);
+        if (locs.length > 0) {
+          setAdminFreeLocationId(locs[0].id);
+        }
+        if (assets.length > 0) {
+          setNewFreeAssetId(assets[0].assetId);
+        }
       } catch (err: unknown) {
         console.error(err);
-        setError('Failed to fetch available spaces. Make sure the Spring Boot backend is running.');
+        setError('Kunde inte hämta platser från servern. Kontrollera att backend körs.');
       } finally {
         setLoading(false);
       }
@@ -180,7 +238,7 @@ function App() {
           setFreeList(free);
         }
       } catch (err: unknown) {
-        console.error('Failed to load calendar data:', err);
+        console.error('Kunde inte läsa in kalenderdata:', err);
       } finally {
         if (!isCancelled) {
           setLoadingBooked(false);
@@ -193,7 +251,57 @@ function App() {
     };
   }, [selectedLocation]);
 
-  // Convert local datetime-local value (YYYY-MM-DDTHH:mm) to backend ISO format (YYYY-MM-DDTHH:mm:ss) without timezone shifts
+  // Admin Data Reload triggers
+  const [adminFreeReloadKey, setAdminFreeReloadKey] = useState<number>(0);
+  const [adminUsersReloadKey, setAdminUsersReloadKey] = useState<number>(0);
+
+  // Load Admin Free Timeslots (a51)
+  useEffect(() => {
+    if (activeTab !== 'admin-free' || !isBookAdmin) return;
+    let isCancelled = false;
+    async function loadFree() {
+      setAdminFreeLoading(true);
+      setError(null);
+      try {
+        const data = await fetchFreeByLocationIdAdmin(adminFreeLocationId);
+        if (!isCancelled) setAdminFreeList(data);
+      } catch (err: unknown) {
+        console.error(err);
+        if (!isCancelled) setError('Kunde inte hämta lediga tider för admin.');
+      } finally {
+        if (!isCancelled) setAdminFreeLoading(false);
+      }
+    }
+    loadFree();
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeTab, adminFreeLocationId, isBookAdmin, adminFreeReloadKey]);
+
+  // Load Admin Users (a62)
+  useEffect(() => {
+    if (activeTab !== 'admin-users' || !isBookAdmin) return;
+    let isCancelled = false;
+    async function loadUsers() {
+      setAdminUsersLoading(true);
+      setError(null);
+      try {
+        const data = await fetchUsers();
+        if (!isCancelled) setAdminUsersList(data);
+      } catch (err: unknown) {
+        console.error(err);
+        if (!isCancelled) setError('Kunde inte hämta användarlistan.');
+      } finally {
+        if (!isCancelled) setAdminUsersLoading(false);
+      }
+    }
+    loadUsers();
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeTab, isBookAdmin, adminUsersReloadKey]);
+
+  // Convert local datetime-local value (YYYY-MM-DDTHH:mm) to backend ISO format
   const getBackendLocalISO = (dateTimeStr: string): string => {
     if (!dateTimeStr) return '';
     if (dateTimeStr.length === 16) {
@@ -202,7 +310,6 @@ function App() {
     return dateTimeStr.slice(0, 19);
   };
 
-  // Format Helper for display
   const formatDateTime = (isoStr: string) => {
     try {
       const d = new Date(isoStr);
@@ -228,125 +335,264 @@ function App() {
     }
   };
 
-  // Helper to map assetId to asset name
   const getAssetLocationName = (assetId: number) => {
     const match = assetLocations.find(al => al.assetId === assetId);
-    return match ? match.name : `Resource #${assetId}`;
+    return match ? match.name : `Resurs #${assetId}`;
   };
 
-  // Actions
+  // Login handler (a41)
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginLoading(true);
+    setLoginError(null);
+    try {
+      const newSession = await apiLogin(loginEmail.trim(), loginPassword);
+      setSession(newSession);
+      setLoginModalOpen(false);
+      setSuccessToast(`Inloggad som ${newSession.email}`);
+
+      // a34.2 -> a34.3: If user initiated booking before logging in, execute booking directly!
+      if (pendingBookingSlot) {
+        const slot = pendingBookingSlot;
+        setPendingBookingSlot(null);
+        await executeBooking(slot, newSession);
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setLoginError(err.message);
+      } else {
+        setLoginError('Felaktig e-post eller lösenord.');
+      }
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  // Quick preset login helper
+  const handleQuickLogin = (email: string, pass: string) => {
+    setLoginEmail(email);
+    setLoginPassword(pass);
+  };
+
+  // Logout handler (a42)
+  const handleLogout = async () => {
+    try {
+      await apiLogout();
+    } finally {
+      setSession(null);
+      setActiveTab('booking');
+      setSuccessToast('Du har loggats ut.');
+    }
+  };
+
+  // Step 1 -> 2: Select Location (a31)
   const handleSelectLocation = (loc: Location) => {
     setSelectedLocation(loc);
     setBookedList([]);
     setFreeList([]);
-    setStep(3); // Step 2 (Select Location) complete. Transition to Step 3 (Enters timeframe)
+    setStep(3);
   };
 
+  // Step 3 -> 4: Search Timeslots (a32, a33)
   const handleSearchTimeslots = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedLocation) return;
     if (!startTime || !endTime) {
-      setError('Please select both start and end time.');
+      setError('Vänligen välj både start- och sluttid.');
       return;
     }
     if (new Date(startTime) >= new Date(endTime)) {
-      setError('Start time must be before end time.');
+      setError('Starttid måste vara före sluttid.');
       return;
     }
 
     setLoading(true);
     setError(null);
     try {
-      // Backend findTimeslot takes location in request body and startTime parameter
       const searchStart = getBackendLocalISO(startTime);
       const searchEnd = getBackendLocalISO(endTime);
       const data = await fetchTimeslots(selectedLocation, searchStart, searchEnd);
-
       setTimeslots(data);
       setSelectedTimeslot(null);
-      setStep(4); // Transition to Step 4 (Display free timeslots)
+      setStep(4);
     } catch (err: unknown) {
       console.error(err);
-      setError('Error fetching timeslots for this location.');
+      setError('Ett fel uppstod vid sökning av lediga tider.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Step 5: Select Timeslot (a33) -> Go to confirmation / review step 6
   const handleSelectTimeslot = (slot: Timeslot) => {
     setSelectedTimeslot(slot);
-    setStep(6); // Step 5 (Select timeslot) complete. Transition to Step 6 (Enter User Name)
+    setStep(6);
   };
 
-  const handleConfirmBooking = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedLocation || !selectedTimeslot || !userName.trim()) {
-      setError('User name is required.');
-      return;
-    }
-
+  // Execute Booking API call (a34.1, a34.3)
+  const executeBooking = async (slot: Timeslot, currentSession: AuthSession) => {
+    if (!selectedLocation) return;
     setLoading(true);
     setError(null);
     try {
-      const cleanName = userName.trim();
+      const sTime = getBackendLocalISO(startTime);
+      const eTime = getBackendLocalISO(endTime);
+      await bookTime(slot.freeid, currentSession.id, sTime, eTime);
 
-      // 1. Find or create the user using @PostMapping("/user/findOrCreate") (Step 6)
-      const userDetails = await findOrCreateUser(cleanName);
-      setUser(userDetails);
-
-      // 2. Book the timeslot using @PostMapping("/bookTime") (Step 7)
-      await bookTime(
-        selectedTimeslot.freeid,
-        userDetails.id,
-        getBackendLocalISO(startTime),
-        getBackendLocalISO(endTime)
-      );
-
-      // 3. Set confirmation details
       setBookedDetails({
         locationName: selectedLocation.name,
-        assetLocationName: getAssetLocationName(selectedTimeslot.assetId),
-        startTime: getBackendLocalISO(startTime),
-        endTime: getBackendLocalISO(endTime),
-        userName: userDetails.name,
+        assetLocationName: getAssetLocationName(slot.assetId),
+        startTime: sTime,
+        endTime: eTime,
+        userEmail: currentSession.email,
       });
 
-      setStep(8); // Transition to Step 8 (Display details & status)
+      setStep(8); // Step 8: Receipt (a34.4)
     } catch (err: unknown) {
       console.error(err);
-      setError('Booking failed. The selected timeslot might have been booked or another error occurred.');
+      setError('Bokningen misslyckades. Tiden kan redan vara bokad av en annan användare.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Booking action button click (a34.1, a34.2)
+  const handleInitiateBooking = async () => {
+    if (!selectedTimeslot) return;
+
+    if (!session) {
+      // a34.2: User not logged in, prompt login workflow (a41)
+      setPendingBookingSlot(selectedTimeslot);
+      setLoginError('Vänligen logga in som BOOKUSER eller BOOKADMIN för att slutföra bokningen.');
+      setLoginModalOpen(true);
+      return;
+    }
+
+    if (!canBook) {
+      setError('Ditt konto har inte behörighet att boka. Kräver rollen BOOKUSER eller BOOKADMIN.');
+      return;
+    }
+
+    await executeBooking(selectedTimeslot, session);
+  };
+
+  // a34.4: Return to locations
   const handleReset = () => {
     setSelectedLocation(null);
     setSelectedTimeslot(null);
-    setUserName('');
-    setUser(null);
     setBookedDetails(null);
     setBookedList([]);
     setFreeList([]);
     setError(null);
-    setStep(1); // Reset to Step 1 (View locations)
+    setPendingBookingSlot(null);
+    setStep(1);
+  };
+
+  // Admin Free: Add Free Time (a51)
+  const handleAddFreeTime = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFreeStartTime || !newFreeEndTime) {
+      setError('Välj både start- och sluttid.');
+      return;
+    }
+    setAdminFreeLoading(true);
+    setError(null);
+    try {
+      await addFreeTime(
+        newFreeAssetId,
+        getBackendLocalISO(newFreeStartTime),
+        getBackendLocalISO(newFreeEndTime)
+      );
+      setSuccessToast('Ny ledig tid skapad!');
+      setAdminFreeReloadKey((k) => k + 1);
+    } catch (err: unknown) {
+      console.error(err);
+      setError('Misslyckades med att skapa ledig tid.');
+    } finally {
+      setAdminFreeLoading(false);
+    }
+  };
+
+  // Admin Free: Delete Free Time (a51)
+  const handleDeleteFreeTime = async (freeId: number) => {
+    if (!window.confirm(`Vill du ta bort ledig tidslucka #${freeId}?`)) return;
+    setAdminFreeLoading(true);
+    try {
+      await deleteFreeTime(freeId);
+      setSuccessToast(`Ledig tidslucka #${freeId} togs bort.`);
+      setAdminFreeReloadKey((k) => k + 1);
+    } catch (err: unknown) {
+      console.error(err);
+      setError('Kunde inte ta bort ledig tid.');
+    } finally {
+      setAdminFreeLoading(false);
+    }
+  };
+
+  // Admin User: Add User (a61)
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserEmail.trim() || !newUserPassword.trim()) {
+      setError('E-post och lösenord krävs.');
+      return;
+    }
+    if (newUserPassword.length < 6) {
+      setError('Lösenordet måste vara minst 6 tecken.');
+      return;
+    }
+    if (newUserRoles.length === 0) {
+      setError('Välj minst en roll.');
+      return;
+    }
+
+    setAdminUsersLoading(true);
+    setError(null);
+    try {
+      const email = newUserEmail.trim();
+      await addUser({
+        email,
+        password: newUserPassword,
+        role: newUserRoles.join(','),
+        code: 0,
+        address: {
+          email,
+          phone: newUserPhone.trim() || '',
+        }
+      });
+      setSuccessToast(`Användaren ${email} har skapats!`);
+      setNewUserEmail('');
+      setNewUserPassword('');
+      setNewUserPhone('');
+      setAdminUsersReloadKey((k) => k + 1);
+    } catch (err: unknown) {
+      console.error(err);
+      setError('Misslyckades med att skapa användare. E-posten kan redan vara registrerad.');
+    } finally {
+      setAdminUsersLoading(false);
+    }
+  };
+
+  // Toggle role in Add User form
+  const toggleRole = (roleToToggle: string) => {
+    if (newUserRoles.includes(roleToToggle)) {
+      if (newUserRoles.length > 1) {
+        setNewUserRoles(newUserRoles.filter(r => r !== roleToToggle));
+      }
+    } else {
+      setNewUserRoles([...newUserRoles, roleToToggle]);
+    }
   };
 
   // Map booked times to Big Calendar events
-  const bookedEvents = bookedList.map((b) => {
-    const bookedUser = users.find((u) => u.id === b.userId);
-    const title = bookedUser ? `Bokad: ${bookedUser.name}` : `Bokad (Användare #${b.userId})`;
-    return {
-      id: `booked-${b.id}`,
-      title,
-      start: new Date(b.startTime),
-      end: new Date(b.endTime),
-      isSelection: false,
-      resource: b,
-    };
-  });
+  const bookedEvents = bookedList.map((b) => ({
+    id: `booked-${b.id}`,
+    title: `Bokad (Bokning #${b.id})`,
+    start: new Date(b.startTime),
+    end: new Date(b.endTime),
+    isSelection: false,
+    resource: b,
+  }));
 
-  // Selected area event shown visually on the calendar
   const hasValidSelection = Boolean(
     startTime &&
     endTime &&
@@ -402,7 +648,6 @@ function App() {
 
     if (calendarView === 'month') {
       if (slotInfo.slots && slotInfo.slots.length > 1) {
-        // Multi-day area selection in Month view
         const firstDay = new Date(slotInfo.slots[0]);
         firstDay.setHours(9, 0, 0, 0);
         const lastDay = new Date(slotInfo.slots[slotInfo.slots.length - 1]);
@@ -410,13 +655,11 @@ function App() {
         start = firstDay;
         end = lastDay;
       } else {
-        // Single day clicked or selected in Month view
         start.setHours(9, 0, 0, 0);
         end = new Date(start);
         end.setHours(17, 0, 0, 0);
       }
     } else {
-      // In Week or Day view
       const isAllDay =
         start.getHours() === 0 &&
         start.getMinutes() === 0 &&
@@ -438,7 +681,6 @@ function App() {
           end.setHours(17, 0, 0, 0);
         }
       } else if (slotInfo.action === 'click' && start.getTime() === end.getTime()) {
-        // Single slot click: default to 1 hour
         end = new Date(start.getTime() + 60 * 60 * 1000);
       }
     }
@@ -453,7 +695,6 @@ function App() {
     setCalendarView(view || 'day');
   };
 
-  // Check if a specific time slot falls within any free block
   const isTimeInFreeRange = (date: Date) => {
     if (!freeList || freeList.length === 0) return false;
     const t = date.getTime();
@@ -464,7 +705,6 @@ function App() {
     });
   };
 
-  // Check if a calendar day cell overlaps with any free block
   const isDayInFreeRange = (date: Date) => {
     if (!freeList || freeList.length === 0) return false;
     const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
@@ -481,15 +721,11 @@ function App() {
       const s = new Date(startTime);
       const e = new Date(endTime);
       if (date >= s && date < e) {
-        return {
-          className: 'rbc-selected-area-cell',
-        };
+        return { className: 'rbc-selected-area-cell' };
       }
     }
     if (isTimeInFreeRange(date)) {
-      return {
-        className: 'rbc-free-time-slot',
-      };
+      return { className: 'rbc-free-time-slot' };
     }
     return {};
   };
@@ -501,15 +737,11 @@ function App() {
       const sDay = new Date(s.getFullYear(), s.getMonth(), s.getDate());
       const eDay = new Date(e.getFullYear(), e.getMonth(), e.getDate(), 23, 59, 59);
       if (date >= sDay && date <= eDay) {
-        return {
-          className: 'rbc-selected-area-cell',
-        };
+        return { className: 'rbc-selected-area-cell' };
       }
     }
     if (isDayInFreeRange(date)) {
-      return {
-        className: 'rbc-free-time-day',
-      };
+      return { className: 'rbc-free-time-day' };
     }
     return {};
   };
@@ -574,197 +806,283 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6 lg:px-8 flex flex-col justify-start items-center relative overflow-hidden">
       {/* Background Graphic Accents */}
       <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-br from-blue-100 to-transparent pointer-events-none -z-10" />
       <div className="absolute bottom-0 right-0 w-full h-96 bg-gradient-to-tl from-indigo-100 to-transparent pointer-events-none -z-10" />
 
       {/* Main Container Card */}
-      <div className="w-full max-w-4xl bg-white text-black p-6 shadow-md rounded-3xl border border-slate-200 transition-all duration-300">
+      <div className="w-full max-w-5xl bg-white text-black p-6 shadow-md rounded-3xl border border-slate-200 transition-all duration-300 mb-8">
 
-        {/* Header */}
-        <header className="mb-8 text-center md:text-left md:flex md:justify-between md:items-center border-b border-slate-200 pb-6">
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-blue-800 flex items-center justify-center md:justify-start gap-2">
-              <Calendar className="w-8 h-8 text-blue-600" />
-              Community Resource Booking
-            </h1>
-            <p className="text-slate-600 mt-1">Book shared facilities and spaces in real-time</p>
+        {/* Header Bar with Auth Session & Tabs */}
+        <header className="mb-6 border-b border-slate-200 pb-5">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-blue-800 flex items-center gap-2">
+                <Calendar className="w-8 h-8 text-blue-600 flex-shrink-0" />
+                Community Resource Booking
+              </h1>
+              <p className="text-slate-600 text-sm mt-0.5">
+                Boka lokaler och resurser enkelt och säkert
+              </p>
+            </div>
+
+            {/* Auth Controls (a41, a42) */}
+            <div className="flex items-center gap-2.5 self-start md:self-center flex-wrap">
+              {session ? (
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl p-1.5 pr-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-xs">
+                    <UserIcon className="w-4 h-4" />
+                  </div>
+                  <div className="text-left leading-tight">
+                    <div className="text-xs font-bold text-slate-800">{session.email}</div>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      {session.role.split(',').map((r) => (
+                        <span
+                          key={r}
+                          className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md ${r === 'BOOKADMIN'
+                              ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                              : 'bg-blue-100 text-blue-800 border border-blue-200'
+                            }`}
+                        >
+                          {r}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="ml-2 text-xs font-semibold text-slate-600 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-xl transition-colors border border-transparent hover:border-red-200 flex items-center gap-1"
+                    title="Logga ut (a42)"
+                  >
+                    <LogOut className="w-4 h-4 text-slate-500 hover:text-red-600" />
+                    <span className="hidden sm:inline">Logga ut</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setLoginError(null);
+                    setPendingBookingSlot(null);
+                    setLoginModalOpen(true);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl text-sm shadow-sm hover:shadow transition-all flex items-center gap-1.5"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Logga in
+                </button>
+              )}
+            </div>
           </div>
-          {step > 1 && step < 8 && (
+
+          {/* Navigation Tabs (Booking flow + Admin Tabs for BOOKADMIN) */}
+          <div className="flex items-center gap-2 mt-5 border-t border-slate-100 pt-4 overflow-x-auto">
             <button
-              onClick={handleReset}
-              className="mt-4 md:mt-0 text-sm font-semibold text-slate-600 hover:text-blue-800 hover:bg-blue-50 flex items-center justify-center gap-1 border border-slate-300 hover:border-slate-400 rounded-xl px-4 py-2 transition-all"
+              onClick={() => setActiveTab('booking')}
+              className={`text-sm font-semibold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === 'booking'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-blue-800 hover:bg-blue-50'
+                }`}
             >
-              Start Over
+              <Calendar className="w-4 h-4" />
+              Bokning
             </button>
-          )}
+
+            {isBookAdmin && (
+              <>
+                <button
+                  onClick={() => setActiveTab('admin-free')}
+                  className={`text-sm font-semibold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === 'admin-free'
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'text-purple-800 hover:bg-purple-50 border border-purple-200'
+                    }`}
+                >
+                  <Shield className="w-4 h-4" />
+                  Lediga tider (Admin a51)
+                </button>
+                <button
+                  onClick={() => setActiveTab('admin-users')}
+                  className={`text-sm font-semibold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === 'admin-users'
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'text-purple-800 hover:bg-purple-50 border border-purple-200'
+                    }`}
+                >
+                  <Users className="w-4 h-4" />
+                  Användare (Admin a61/a62)
+                </button>
+              </>
+            )}
+          </div>
         </header>
 
-        {/* Wizard Progress Bar aligned to 8 distinct steps */}
-        <nav aria-label="Progress" className="mb-10">
-          <ol className="flex flex-wrap items-center justify-center gap-2 md:gap-4 text-xs md:text-sm font-medium">
-            <li className={`flex items-center gap-1.5 pb-2 border-b-2 ${step >= 1 ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-400'}`}>
-              <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${step >= 1 ? 'bg-blue-600 text-white font-bold' : 'bg-slate-200 text-slate-500'}`}>1</span>
-              See Locations
-            </li>
-            <ChevronRight className="w-4 h-4 text-slate-400 hidden sm:block" />
-            <li className={`flex items-center gap-1.5 pb-2 border-b-2 ${step >= 3 ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-400'}`}>
-              <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${step >= 3 ? 'bg-blue-600 text-white font-bold' : 'bg-slate-200 text-slate-500'}`}>3</span>
-              Set Times
-            </li>
-            <ChevronRight className="w-4 h-4 text-slate-400 hidden sm:block" />
-            <li className={`flex items-center gap-1.5 pb-2 border-b-2 ${step >= 4 ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-400'}`}>
-              <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${step >= 4 ? 'bg-blue-600 text-white font-bold' : 'bg-slate-200 text-slate-500'}`}>4</span>
-              Timeslots
-            </li>
-            <ChevronRight className="w-4 h-4 text-slate-400 hidden sm:block" />
-            <li className={`flex items-center gap-1.5 pb-2 border-b-2 ${step >= 6 ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-400'}`}>
-              <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${step >= 6 ? 'bg-blue-600 text-white font-bold' : 'bg-slate-200 text-slate-500'}`}>6</span>
-              User Name
-            </li>
-            <ChevronRight className="w-4 h-4 text-slate-400 hidden sm:block" />
-            <li className={`flex items-center gap-1.5 pb-2 border-b-2 ${step >= 8 ? 'border-blue-600 text-blue-800' : 'border-transparent text-slate-400'}`}>
-              <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${step >= 8 ? 'bg-blue-600 text-white font-bold' : 'bg-slate-200 text-slate-500'}`}>8</span>
-              Receipt
-            </li>
-          </ol>
-        </nav>
+        {/* Feedback Messages */}
+        {successToast && (
+          <div className="mb-6 bg-green-50 border border-green-200 text-green-800 rounded-2xl p-3.5 flex items-center justify-between text-sm animate-fadeIn">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+              <span>{successToast}</span>
+            </div>
+            <button onClick={() => setSuccessToast(null)} className="text-green-700 hover:text-green-900">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {error && !loading && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 flex gap-3 text-red-800 animate-fadeIn">
+            <AlertCircle className="w-6 h-6 flex-shrink-0 text-red-600" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-red-800">Ett fel inträffade</h3>
+              <p className="text-sm mt-0.5">{error}</p>
+            </div>
+            <button onClick={() => setError(null)} className="text-red-600 hover:text-red-800">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* Global Loading Spinner */}
         {loading && (
           <div className="flex flex-col items-center justify-center py-12">
             <RefreshCw className="w-10 h-10 text-blue-600 animate-spin" />
-            <p className="mt-4 text-slate-500 font-medium">Communicating with server...</p>
+            <p className="mt-4 text-slate-500 font-medium">Kommunicerar med servern...</p>
           </div>
         )}
 
-        {/* Global Error Display */}
-        {error && !loading && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 flex gap-3 text-red-800">
-            <AlertCircle className="w-6 h-6 flex-shrink-0 text-red-600" />
-            <div>
-              <h3 className="font-semibold text-red-800">An error occurred</h3>
-              <p className="text-sm mt-0.5">{error}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Step Views (When not loading) */}
-        {!loading && (
+        {/* TAB 1: BOOKING WORKFLOW (a31 - a34) */}
+        {!loading && activeTab === 'booking' && (
           <main>
-            {/* STEP 1: View/Select Location */}
+            {/* Step Wizard Progress Header */}
+            <nav aria-label="Progress" className="mb-8">
+              <ol className="flex flex-wrap items-center justify-center gap-2 md:gap-4 text-xs md:text-sm font-medium">
+                <li className={`flex items-center gap-1.5 pb-2 border-b-2 ${step >= 1 ? 'border-blue-600 text-blue-800 font-bold' : 'border-transparent text-slate-400'}`}>
+                  <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>1</span>
+                  1. Platser (OPEN)
+                </li>
+                <ChevronRight className="w-4 h-4 text-slate-400 hidden sm:block" />
+                <li className={`flex items-center gap-1.5 pb-2 border-b-2 ${step >= 3 ? 'border-blue-600 text-blue-800 font-bold' : 'border-transparent text-slate-400'}`}>
+                  <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${step >= 3 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>3</span>
+                  3. Kalender (OPEN)
+                </li>
+                <ChevronRight className="w-4 h-4 text-slate-400 hidden sm:block" />
+                <li className={`flex items-center gap-1.5 pb-2 border-b-2 ${step >= 4 ? 'border-blue-600 text-blue-800 font-bold' : 'border-transparent text-slate-400'}`}>
+                  <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${step >= 4 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>4</span>
+                  4. Välj tid (OPEN)
+                </li>
+                <ChevronRight className="w-4 h-4 text-slate-400 hidden sm:block" />
+                <li className={`flex items-center gap-1.5 pb-2 border-b-2 ${step >= 6 ? 'border-blue-600 text-blue-800 font-bold' : 'border-transparent text-slate-400'}`}>
+                  <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${step >= 6 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>6</span>
+                  6. Boka (Auth)
+                </li>
+                <ChevronRight className="w-4 h-4 text-slate-400 hidden sm:block" />
+                <li className={`flex items-center gap-1.5 pb-2 border-b-2 ${step >= 8 ? 'border-blue-600 text-blue-800 font-bold' : 'border-transparent text-slate-400'}`}>
+                  <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${step >= 8 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>8</span>
+                  8. Bekräftelse
+                </li>
+              </ol>
+            </nav>
+
+            {/* STEP 1: View/Select Location (a31: OPEN) */}
             {step === 1 && (
               <div className="animate-fadeIn">
-                <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-blue-600" />
-                  Step 1 & 2: View and Select a Location
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-blue-600" />
+                    a31. Välj en plats (OPEN)
+                  </h2>
+                  <span className="text-xs font-semibold px-2.5 py-1 bg-green-50 text-green-700 rounded-full border border-green-200">
+                    Öppen för alla
+                  </span>
+                </div>
+                <p className="text-slate-600 text-sm mb-6">
+                  Välj en av de tillgängliga anläggningarna för att visa kalender och lediga tider.
+                </p>
+
                 {locations.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl">
-                    <p className="text-slate-500">No locations available in the system.</p>
+                    <p className="text-slate-500">Inga platser finns tillgängliga i systemet.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {locations.map((location) => {
-                      return (
-                        <button
-                          key={location.id}
-                          onClick={() => handleSelectLocation(location)}
-                          className="text-left bg-white border border-blue-200 hover:bg-blue-50/40 p-5 rounded-2xl transition-all group flex flex-col justify-between h-full hover:shadow-lg hover:border-blue-300"
-                        >
-                          <div className="w-full">
-                            <div className="flex justify-between items-start">
-                              <span className="text-xs font-semibold px-2.5 py-0.5 bg-blue-50 text-blue-800 rounded-full border border-blue-100">
-                                Location ID: {location.id}
-                              </span>
+                    {locations.map((location) => (
+                      <button
+                        key={location.id}
+                        onClick={() => handleSelectLocation(location)}
+                        className="text-left bg-white border border-blue-200 hover:bg-blue-50/50 p-5 rounded-2xl transition-all group flex flex-col justify-between h-full hover:shadow-lg hover:border-blue-300"
+                      >
+                        <div>
+                          <div className="flex justify-between items-start">
+                            <span className="text-xs font-semibold px-2.5 py-0.5 bg-blue-50 text-blue-800 rounded-full border border-blue-100">
+                              Plats #{location.id}
+                            </span>
+                          </div>
+                          <h3 className="font-bold text-lg text-slate-800 mt-2.5 group-hover:text-blue-800 transition-colors">
+                            {location.name}
+                          </h3>
+                          {location.address && (
+                            <div className="text-sm text-slate-600 mt-2.5 space-y-1">
+                              {location.address.email && (
+                                <p className="flex items-center gap-1.5">
+                                  <Mail className="w-3.5 h-3.5 text-slate-400" />
+                                  {location.address.email}
+                                </p>
+                              )}
+                              {location.address.phone && (
+                                <p className="flex items-center gap-1.5">
+                                  <Phone className="w-3.5 h-3.5 text-slate-400" />
+                                  {location.address.phone}
+                                </p>
+                              )}
                             </div>
-                            <h3 className="font-bold text-lg text-slate-800 mt-3 group-hover:text-blue-800 transition-colors">
-                              {location.name}
-                            </h3>
-
-                            {location.address && (
-                              <div className="text-sm text-slate-600 mt-3 space-y-1.5">
-                                {location.address.email && (
-                                  <p className="flex items-center gap-1.5">
-                                    <Mail className="w-3.5 h-3.5 text-slate-400" />
-                                    {location.address.email}
-                                  </p>
-                                )}
-                                {location.address.phone && (
-                                  <p className="flex items-center gap-1.5">
-                                    <Phone className="w-3.5 h-3.5 text-slate-400" />
-                                    {location.address.phone}
-                                  </p>
-                                )}
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="mt-5 pt-3 w-full border-t border-slate-100 flex items-center text-sm font-semibold text-blue-600 group-hover:translate-x-1 transition-transform">
-                            Select Location <ChevronRight className="w-4 h-4 ml-1" />
-                          </div>
-                        </button>
-                      );
-                    })}
+                          )}
+                        </div>
+                        <div className="mt-5 pt-3 w-full border-t border-slate-100 flex items-center text-sm font-semibold text-blue-600 group-hover:translate-x-1 transition-transform">
+                          Välj plats och se kalender <ChevronRight className="w-4 h-4 ml-1" />
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
             )}
 
-            {/* STEP 3: Enter DateTime for Search */}
+            {/* STEP 3: View Calendar & Select Time (a32, a33: OPEN) */}
             {step === 3 && selectedLocation && (
               <div className="animate-fadeIn">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                     <Clock className="w-5 h-5 text-blue-600" />
-                    Step 3: Enter Search Timeframe
+                    a32. Kalender & a33. Tidsintervall (OPEN)
                   </h2>
                   <button
                     onClick={() => setStep(1)}
                     className="text-sm text-slate-500 hover:text-blue-800 flex items-center gap-1 transition-colors"
                   >
-                    <ChevronLeft className="w-4 h-4" /> Back to locations
+                    <ChevronLeft className="w-4 h-4" /> Tillbaka till platser
                   </button>
                 </div>
 
-                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 mb-6">
-                  <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Selected Location</span>
-                  <h3 className="text-lg font-bold text-blue-800 mt-1">{selectedLocation.name}</h3>
-                  <div className="flex flex-wrap gap-4 text-xs text-slate-600 mt-1.5">
-                    {selectedLocation.address?.email && <span>Email: {selectedLocation.address.email}</span>}
-                    {selectedLocation.address?.phone && <span>Phone: {selectedLocation.address.phone}</span>}
+                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 mb-6 flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Vald plats</span>
+                    <h3 className="text-lg font-bold text-blue-800">{selectedLocation.name}</h3>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-semibold bg-slate-100 text-slate-700 border border-slate-300">
+                      <span className="w-2.5 h-2.5 rounded-sm bg-slate-300 border border-slate-400"></span>
+                      Ledig tid ({freeList.length})
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-semibold bg-red-50 text-red-700 border border-red-200">
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                      Bokade ({bookedList.length})
+                    </span>
+                    {loadingBooked && <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />}
                   </div>
                 </div>
 
-                {/* Big Calendar: View booked time for the selected location */}
+                {/* Big Calendar */}
                 <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-md mb-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-4 border-b border-slate-100">
-                    <div>
-                      <h3 className="font-bold text-base md:text-lg text-slate-800 flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-blue-600" />
-                        Kalenderöversikt – Bokade och lediga tider
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Befintliga tider för <span className="font-semibold text-slate-700">{selectedLocation.name}</span>. Ljusgrå bakgrund anger ledig tid och röda fält i förgrunden anger bokade tider. Markera eller klicka för att välja sökintervall.
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-300">
-                        <span className="w-2.5 h-2.5 rounded-sm bg-slate-300 border border-slate-400"></span>
-                        Ledig tid ({freeList.length > 0 ? 'aktiv' : '0'})
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
-                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                        Bokade ({bookedList.length})
-                      </span>
-                      {loadingBooked && (
-                        <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="h-[520px]">
+                  <div className="h-[480px]">
                     <BigCalendar
                       localizer={localizer}
                       culture="sv"
@@ -790,20 +1108,20 @@ function App() {
                   </div>
                 </div>
 
-                {/* Section: Markerat tidsintervall i kalendern */}
+                {/* Time Selection Form */}
                 <form
                   onSubmit={handleSearchTimeslots}
-                  className="bg-white text-black p-6 shadow-md border border-slate-200 rounded-2xl space-y-6 mb-6 animate-fadeIn"
+                  className="bg-white text-black p-6 shadow-md border border-slate-200 rounded-2xl space-y-6"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/20 mt-0.5">
+                      <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/20">
                         <MousePointer className="w-5 h-5" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-base font-bold uppercase tracking-wider text-blue-800">
-                            Markerat tidsintervall i kalendern
+                            Markerat tidsintervall
                           </h3>
                           {getDurationDescription(startTime, endTime) && (
                             <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200">
@@ -812,68 +1130,46 @@ function App() {
                           )}
                         </div>
                         <p className="text-xs text-slate-500 mt-1">
-                          Värdena uppdateras när du markerar i kalendern ovan, eller kan redigeras direkt i fälten nedan.
+                          Klicka i kalendern eller justera tiderna direkt i fälten nedan.
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
-                      {calendarView === 'month' ? (
-                        <button
-                          type="button"
-                          onClick={() => setCalendarView('week')}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors shadow-sm"
-                        >
-                          Växla till vecka (timmar)
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setCalendarView('month')}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors shadow-sm"
-                        >
-                          Växla till månad
-                        </button>
-                      )}
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={handleClearSelection}
                         className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1 shadow-sm"
-                        title="Rensa markering"
                       >
-                        <X className="w-3.5 h-3.5" />
-                        Rensa
+                        <X className="w-3.5 h-3.5" /> Rensa
                       </button>
                     </div>
                   </div>
 
-                  {/* Open fields start_time and end_time for edit */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label htmlFor="start_time" className="block text-sm font-semibold text-slate-700 mb-2">
-                        Starttid (start_time)
+                        Starttid
                       </label>
                       <input
                         id="start_time"
-                        name="start_time"
                         type="datetime-local"
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
-                        className="w-full border border-blue-200 rounded-xl p-3 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 text-base min-h-[48px]"
+                        className="w-full border border-blue-200 rounded-xl p-3 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 text-base"
                         required
                       />
                     </div>
                     <div>
                       <label htmlFor="end_time" className="block text-sm font-semibold text-slate-700 mb-2">
-                        Sluttid (end_time)
+                        Sluttid
                       </label>
                       <input
                         id="end_time"
-                        name="end_time"
                         type="datetime-local"
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
-                        className="w-full border border-blue-200 rounded-xl p-3 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 text-base min-h-[48px]"
+                        className="w-full border border-blue-200 rounded-xl p-3 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 text-base"
                         required
                       />
                     </div>
@@ -902,7 +1198,7 @@ function App() {
                       type="submit"
                       className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl flex items-center gap-2 shadow-md hover:shadow-lg transition-all ml-auto"
                     >
-                      Book time
+                      Sök lediga tider (Step 4)
                       <ChevronRight className="w-5 h-5" />
                     </button>
                   </div>
@@ -910,36 +1206,38 @@ function App() {
               </div>
             )}
 
-            {/* STEP 4 & 5: Display & Select Timeslots */}
+            {/* STEP 4 & 5: Display Timeslots & Select Timeslot (a33: OPEN) */}
             {step === 4 && selectedLocation && (
               <div className="animate-fadeIn">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                     <Clock className="w-5 h-5 text-blue-600" />
-                    Step 4: Display & Select Timeslot
+                    a33. Välj ledig tid (OPEN)
                   </h2>
                   <button
                     onClick={() => setStep(3)}
-                    className="text-sm text-slate-555 hover:text-blue-800 flex items-center gap-1 transition-colors"
+                    className="text-sm text-slate-500 hover:text-blue-800 flex items-center gap-1 transition-colors"
                   >
-                    <ChevronLeft className="w-4 h-4" /> Edit timeframe
+                    <ChevronLeft className="w-4 h-4" /> Ändra tidsintervall
                   </button>
                 </div>
 
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 mb-6 text-sm text-slate-600 flex flex-wrap gap-x-6 gap-y-1.5">
-                  <div><strong>Location:</strong> {selectedLocation.name}</div>
+                  <div><strong>Plats:</strong> {selectedLocation.name}</div>
                   <div><strong>Start:</strong> {formatDateTime(startTime)}</div>
-                  <div><strong>End:</strong> {formatDateTime(endTime)}</div>
+                  <div><strong>Slut:</strong> {formatDateTime(endTime)}</div>
                 </div>
 
                 {timeslots.length === 0 ? (
                   <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl">
-                    <p className="text-slate-555 font-medium">No free timeslots found in the selected timeframe.</p>
-                    <p className="text-sm text-slate-400 mt-1">Try selecting a different date range or location.</p>
+                    <p className="text-slate-600 font-medium">Inga lediga tider hittades i det valda intervallet.</p>
+                    <p className="text-sm text-slate-400 mt-1">Pröva att välja ett annat datum eller intervall i kalendern.</p>
                   </div>
                 ) : (
                   <div>
-                    <p className="text-sm text-slate-600 mb-4">Step 5: Select a free timeslot below to proceed:</p>
+                    <p className="text-sm text-slate-600 mb-4">
+                      Klicka på en ledig tid nedan för att gå vidare till bokning:
+                    </p>
 
                     {/* Grid wrapper component using USER requested class layout */}
                     <div className="flex h-auto flex-wrap flex-cols-3 content-start gap-1 p-4 border border-blue-200 rounded-2xl bg-blue-50/20">
@@ -953,7 +1251,7 @@ function App() {
                           >
                             <div className="w-full">
                               <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
-                                Slot #{slot.freeid}
+                                Tidslucka #{slot.freeid}
                               </div>
                               <div className="font-bold text-sm text-slate-800 group-hover:text-blue-900 transition-colors">
                                 {new Date(slot.startTime).toLocaleDateString('sv-SE', { month: 'short', day: 'numeric' })}
@@ -974,125 +1272,592 @@ function App() {
               </div>
             )}
 
-            {/* STEP 6 & 7: Enter User Name & Book Time */}
+            {/* STEP 6 & 7: Booking Review & Confirmation (a34.1, a34.2, a34.3) */}
             {step === 6 && selectedLocation && selectedTimeslot && (
               <div className="animate-fadeIn">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                    <UserIcon className="w-5 h-5 text-blue-600" />
-                    Step 6: Enter User Details
+                    <CheckCircle className="w-5 h-5 text-blue-600" />
+                    a34.1 Boka tid (Kräver BOOKUSER eller BOOKADMIN)
                   </h2>
                   <button
                     onClick={() => setStep(4)}
-                    className="text-sm text-slate-555 hover:text-blue-800 flex items-center gap-1 transition-colors"
+                    className="text-sm text-slate-500 hover:text-blue-800 flex items-center gap-1 transition-colors"
                   >
-                    <ChevronLeft className="w-4 h-4" /> Back to timeslots
+                    <ChevronLeft className="w-4 h-4" /> Tillbaka till tider
                   </button>
                 </div>
 
                 {/* Booking summary card */}
                 <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-6">
-                  <h3 className="font-bold text-blue-800 mb-3">Booking Summary</h3>
+                  <h3 className="font-bold text-blue-800 mb-3">Sammanfattning av vald tid</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-700">
-                    <div><strong>Space Location:</strong> {selectedLocation.name}</div>
-                    <div><strong>Resource / Asset:</strong> {getAssetLocationName(selectedTimeslot.assetId)}</div>
-                    <div><strong>Timeslot ID:</strong> {selectedTimeslot.freeid}</div>
-                    <div><strong>Date:</strong> {new Date(selectedTimeslot.startTime).toLocaleDateString('sv-SE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
-                    <div><strong>Selected Time:</strong> {formatTimeOnly(selectedTimeslot.startTime)} – {formatTimeOnly(selectedTimeslot.endTime)}</div>
+                    <div><strong>Anläggning / Plats:</strong> {selectedLocation.name}</div>
+                    <div><strong>Resurs:</strong> {getAssetLocationName(selectedTimeslot.assetId)}</div>
+                    <div><strong>Tidslucka ID:</strong> {selectedTimeslot.freeid}</div>
+                    <div><strong>Datum:</strong> {new Date(selectedTimeslot.startTime).toLocaleDateString('sv-SE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                    <div><strong>Tid:</strong> {formatTimeOnly(selectedTimeslot.startTime)} – {formatTimeOnly(selectedTimeslot.endTime)}</div>
                   </div>
                 </div>
 
-                <form onSubmit={handleConfirmBooking} className="bg-white text-black p-6 shadow-md border border-slate-200 rounded-2xl space-y-6">
-                  <div>
-                    <label htmlFor="user-name" className="block text-sm font-semibold text-slate-700 mb-2">
-                      Your Name / User Name
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <UserIcon className="h-5 w-5 text-slate-400" />
+                {/* Authentication Check Card (a34.2 -> a41) */}
+                <div className="bg-white text-black p-6 shadow-md border border-slate-200 rounded-2xl space-y-6">
+                  {session ? (
+                    <div>
+                      <div className="flex items-center justify-between p-4 bg-blue-50/60 rounded-xl border border-blue-200 mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">
+                            <UserIcon className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-800">{session.email}</div>
+                            <div className="text-xs text-slate-500">
+                              Rollar: <span className="font-semibold text-blue-800">{session.role}</span>
+                            </div>
+                          </div>
+                        </div>
+                        {canBook ? (
+                          <span className="text-xs font-bold text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5" /> Behörig att boka
+                          </span>
+                        ) : (
+                          <span className="text-xs font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full flex items-center gap-1">
+                            <AlertCircle className="w-3.5 h-3.5" /> Saknar bokningsroll
+                          </span>
+                        )}
                       </div>
-                      <input
-                        id="user-name"
-                        type="text"
-                        value={userName}
-                        onChange={(e) => setUserName(e.target.value)}
-                        className="w-full border border-blue-200 rounded-xl pl-10 pr-3 py-3 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 text-base min-h-[48px]"
-                        placeholder="Enter user name to store and book"
-                        required
-                        autoComplete="name"
-                      />
-                    </div>
-                  </div>
 
-                  <div className="flex justify-end pt-4 border-t border-slate-200">
-                    <button
-                      type="submit"
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2"
-                    >
-                      Store User & Book (Step 7)
-                      <CheckCircle className="w-5 h-5" />
-                    </button>
-                  </div>
-                </form>
+                      <div className="flex justify-end pt-4 border-t border-slate-200">
+                        <button
+                          type="button"
+                          onClick={handleInitiateBooking}
+                          disabled={!canBook || loading}
+                          className={`font-bold py-3 px-8 rounded-xl shadow-md transition-all flex items-center gap-2 ${canBook
+                              ? 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg'
+                              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                            }`}
+                        >
+                          {loading ? 'Bokar...' : 'Bekräfta och boka tid (a34.3)'}
+                          <CheckCircle className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto mb-3">
+                        <Lock className="w-6 h-6" />
+                      </div>
+                      <h3 className="font-bold text-lg text-slate-800 mb-1">
+                        Inloggning krävs (a34.2)
+                      </h3>
+                      <p className="text-slate-600 text-sm max-w-md mx-auto mb-6">
+                        För att slutföra bokningen måste du vara inloggad som användare med rollen <strong>BOOKUSER</strong> eller <strong>BOOKADMIN</strong>.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleInitiateBooking}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-md hover:shadow-lg transition-all inline-flex items-center gap-2"
+                      >
+                        <LogIn className="w-5 h-5" />
+                        Logga in för att boka tid (a41)
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
-            {/* STEP 8: Booking Confirmation & Return button */}
+            {/* STEP 8: Booking Receipt & Return to Locations (a34.4) */}
             {step === 8 && bookedDetails && (
               <div className="text-center py-8 animate-scaleIn">
-                <div className="w-16 h-16 bg-green-50 border border-green-200 rounded-full flex items-center justify-center mx-auto mb-6">
+                <div className="w-16 h-16 bg-green-50 border border-green-200 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
                   <Check className="w-8 h-8 text-green-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-slate-800 mb-2">Step 8: Booking Details and Status</h2>
-                <p className="text-slate-600 mb-8">Your booking was successful. Below is a receipt of your booked timeslot.</p>
+                <h2 className="text-2xl font-bold text-slate-800 mb-2">Bokning bekräftad!</h2>
+                <p className="text-slate-600 mb-8">Ditt kvitto och bokningsdetaljer visas nedan.</p>
 
                 <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-left max-w-md mx-auto space-y-4 shadow-md mb-8">
                   <div>
-                    <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Space Location</span>
+                    <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Plats</span>
                     <span className="font-bold text-blue-800 text-lg">{bookedDetails.locationName}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Resource / Asset Location</span>
+                    <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Resurs</span>
                     <span className="font-bold text-slate-800">{bookedDetails.assetLocationName}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Start Time</span>
+                      <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Starttid</span>
                       <span className="font-medium text-slate-700">{formatDateTime(bookedDetails.startTime)}</span>
                     </div>
                     <div>
-                      <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">End Time</span>
+                      <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Sluttid</span>
                       <span className="font-medium text-slate-700">{formatDateTime(bookedDetails.endTime)}</span>
                     </div>
                   </div>
                   <div className="border-t border-slate-200 pt-4">
-                    <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Registered User</span>
-                    <span className="font-bold text-slate-900">{bookedDetails.userName}</span>
-                    {user && (
-                      <span className="text-xs text-slate-500 block mt-1">Email: {user.address?.email}</span>
-                    )}
+                    <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Bokad av</span>
+                    <span className="font-bold text-slate-900">{bookedDetails.userEmail}</span>
                   </div>
                   <div className="border-t border-slate-200 pt-4 flex items-center justify-between">
-                    <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Status of Booking</span>
+                    <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Bokningsstatus</span>
                     <span className="text-xs font-bold text-green-700 bg-green-50 px-2.5 py-0.5 rounded-full border border-green-200 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                      Confirmed
+                      Bekräftad
                     </span>
                   </div>
                 </div>
 
-                {/* Return Button */}
+                {/* a34.4: Return to locations */}
                 <button
                   onClick={handleReset}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-md hover:shadow-lg transition-all"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2 mx-auto"
                 >
-                  Return to Start
+                  <ChevronLeft className="w-5 h-5" />
+                  Tillbaka till platser (a34.4)
                 </button>
               </div>
             )}
           </main>
         )}
+
+        {/* TAB 2: ADMIN FREE TIMESLOTS (a51: BOOKADMIN) */}
+        {!loading && activeTab === 'admin-free' && isBookAdmin && (
+          <div className="animate-fadeIn space-y-8">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h2 className="text-xl font-bold text-purple-900 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-purple-600" />
+                  a51. Hantera lediga tider (BOOKADMIN)
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Visa, skapa och ta bort lediga tidsluckor i systemet
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor="admin-loc" className="text-xs font-semibold text-slate-600">
+                  Välj plats:
+                </label>
+                <select
+                  id="admin-loc"
+                  value={adminFreeLocationId}
+                  onChange={(e) => setAdminFreeLocationId(Number(e.target.value))}
+                  className="border border-purple-200 rounded-xl p-2 text-sm bg-purple-50/40 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  {locations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.name} (ID: {loc.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Create Free Timeslot Form */}
+            <form
+              onSubmit={handleAddFreeTime}
+              className="bg-purple-50/40 border border-purple-200 rounded-2xl p-5 space-y-4"
+            >
+              <h3 className="font-bold text-purple-900 text-sm flex items-center gap-1.5">
+                <Plus className="w-4 h-4 text-purple-600" />
+                Skapa ny ledig tidslucka
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Resurs / Asset
+                  </label>
+                  <select
+                    value={newFreeAssetId}
+                    onChange={(e) => setNewFreeAssetId(Number(e.target.value))}
+                    className="w-full border border-purple-200 rounded-xl p-2.5 bg-white text-slate-800"
+                  >
+                    {assetLocations
+                      .filter((al) => al.locationId === adminFreeLocationId || true)
+                      .map((al) => (
+                        <option key={al.assetId} value={al.assetId}>
+                          {al.name} (ID: {al.assetId})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Starttid
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={newFreeStartTime}
+                    onChange={(e) => setNewFreeStartTime(e.target.value)}
+                    className="w-full border border-purple-200 rounded-xl p-2.5 bg-white text-slate-800"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Sluttid
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={newFreeEndTime}
+                    onChange={(e) => setNewFreeEndTime(e.target.value)}
+                    className="w-full border border-purple-200 rounded-xl p-2.5 bg-white text-slate-800"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={adminFreeLoading}
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm shadow-sm hover:shadow transition-all flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  {adminFreeLoading ? 'Sparar...' : 'Lägg till ledig tid'}
+                </button>
+              </div>
+            </form>
+
+            {/* List of Free Timeslots */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-slate-800 text-sm">
+                  Aktuella lediga tider för vald plats ({adminFreeList.length} st)
+                </h3>
+                <button
+                  onClick={() => setAdminFreeReloadKey((k) => k + 1)}
+                  className="text-xs text-purple-700 hover:text-purple-900 flex items-center gap-1"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${adminFreeLoading ? 'animate-spin' : ''}`} />
+                  Uppdatera lista
+                </button>
+              </div>
+
+              {adminFreeList.length === 0 ? (
+                <div className="text-center py-8 border border-dashed border-slate-200 rounded-xl text-slate-500 text-sm">
+                  Inga lediga tider registrerade för denna plats.
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                  <table className="w-full text-left text-sm text-slate-700">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase">
+                      <tr>
+                        <th className="p-3">ID</th>
+                        <th className="p-3">Resurs</th>
+                        <th className="p-3">Starttid</th>
+                        <th className="p-3">Sluttid</th>
+                        <th className="p-3 text-right">Åtgärd</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {adminFreeList.map((free) => (
+                        <tr key={free.id} className="hover:bg-slate-50/60">
+                          <td className="p-3 font-mono text-xs">#{free.id}</td>
+                          <td className="p-3 font-medium text-slate-900">{getAssetLocationName(free.assetId)}</td>
+                          <td className="p-3">{formatDateTime(free.startTime)}</td>
+                          <td className="p-3">{formatDateTime(free.endTime)}</td>
+                          <td className="p-3 text-right">
+                            <button
+                              onClick={() => handleDeleteFreeTime(free.id)}
+                              className="text-red-600 hover:text-red-800 hover:bg-red-50 p-1.5 rounded-lg transition-colors inline-flex items-center gap-1 text-xs font-semibold"
+                              title="Ta bort ledig tid"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Ta bort
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: ADMIN USERS (a61, a62: BOOKADMIN) */}
+        {!loading && activeTab === 'admin-users' && isBookAdmin && (
+          <div className="animate-fadeIn space-y-8">
+            <div className="border-b border-slate-100 pb-4">
+              <h2 className="text-xl font-bold text-purple-900 flex items-center gap-2">
+                <Users className="w-5 h-5 text-purple-600" />
+                a61 & a62. Hantera användare (BOOKADMIN)
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Visa alla registrerade användare och lägg till nya användare med krypterat lösenord
+              </p>
+            </div>
+
+            {/* a61: Add User Form */}
+            <form
+              onSubmit={handleAddUser}
+              className="bg-purple-50/40 border border-purple-200 rounded-2xl p-5 space-y-4"
+            >
+              <h3 className="font-bold text-purple-900 text-sm flex items-center gap-1.5">
+                <Plus className="w-4 h-4 text-purple-600" />
+                a61. Lägg till ny användare
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    E-postadress (a11)
+                  </label>
+                  <input
+                    type="email"
+                    value={newUserEmail}
+                    onChange={(e) => setNewUserEmail(e.target.value)}
+                    placeholder="namn@example.com"
+                    className="w-full border border-purple-200 rounded-xl p-2.5 bg-white text-slate-800"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Lösenord (a12 - minst 6 tecken, sparas krypterat)
+                  </label>
+                  <input
+                    type="password"
+                    value={newUserPassword}
+                    onChange={(e) => setNewUserPassword(e.target.value)}
+                    placeholder="Minst 6 tecken"
+                    className="w-full border border-purple-200 rounded-xl p-2.5 bg-white text-slate-800"
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Telefonnummer (valfritt)
+                  </label>
+                  <input
+                    type="tel"
+                    value={newUserPhone}
+                    onChange={(e) => setNewUserPhone(e.target.value)}
+                    placeholder="070-1234567"
+                    className="w-full border border-purple-200 rounded-xl p-2.5 bg-white text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-2">
+                    Rollar (a15)
+                  </label>
+                  <div className="flex items-center gap-4 pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={newUserRoles.includes('BOOKUSER')}
+                        onChange={() => toggleRole('BOOKUSER')}
+                        className="rounded text-purple-600 focus:ring-purple-500 h-4 w-4"
+                      />
+                      BOOKUSER
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={newUserRoles.includes('BOOKADMIN')}
+                        onChange={() => toggleRole('BOOKADMIN')}
+                        className="rounded text-purple-600 focus:ring-purple-500 h-4 w-4"
+                      />
+                      BOOKADMIN
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={adminUsersLoading}
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm shadow-sm hover:shadow transition-all flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  {adminUsersLoading ? 'Skapar...' : 'Skapa användare (a61)'}
+                </button>
+              </div>
+            </form>
+
+            {/* a62: View Users Table */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-slate-800 text-sm">
+                  a62. Registrerade användare ({adminUsersList.length} st)
+                </h3>
+                <button
+                  onClick={() => setAdminUsersReloadKey((k) => k + 1)}
+                  className="text-xs text-purple-700 hover:text-purple-900 flex items-center gap-1"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${adminUsersLoading ? 'animate-spin' : ''}`} />
+                  Uppdatera
+                </button>
+              </div>
+
+              {adminUsersList.length === 0 ? (
+                <div className="text-center py-8 border border-dashed border-slate-200 rounded-xl text-slate-500 text-sm">
+                  Inga användare hämtade.
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                  <table className="w-full text-left text-sm text-slate-700">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase">
+                      <tr>
+                        <th className="p-3">ID</th>
+                        <th className="p-3">E-post</th>
+                        <th className="p-3">Rollar</th>
+                        <th className="p-3">Kod</th>
+                        <th className="p-3">Skapad</th>
+                        <th className="p-3">Telefon</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {adminUsersList.map((u) => (
+                        <tr key={u.id} className="hover:bg-slate-50/60">
+                          <td className="p-3 font-mono text-xs">#{u.id}</td>
+                          <td className="p-3 font-medium text-slate-900">{u.email}</td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {u.role.split(',').map((r) => (
+                                <span
+                                  key={r}
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${r === 'BOOKADMIN'
+                                      ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    }`}
+                                >
+                                  {r}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="p-3 font-mono text-xs text-slate-500">{u.code}</td>
+                          <td className="p-3 text-xs text-slate-500">{u.createtime ? formatDateTime(u.createtime) : '—'}</td>
+                          <td className="p-3 text-xs text-slate-500">{u.address?.phone || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* LOGIN MODAL DIALOG (a41: OPEN login workflow) */}
+      {loginModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 relative animate-scaleIn">
+            <button
+              onClick={() => {
+                setLoginModalOpen(false);
+                setPendingBookingSlot(null);
+              }}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center mb-4">
+              <KeyRound className="w-6 h-6" />
+            </div>
+
+            <h2 className="text-2xl font-extrabold text-slate-900">
+              Logga in (a41)
+            </h2>
+            <p className="text-sm text-slate-500 mt-1 mb-6">
+              {pendingBookingSlot
+                ? 'Logga in för att slutföra din bokning.'
+                : 'Ange din e-post och lösenord för att autentisera.'}
+            </p>
+
+            {loginError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-500" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            {/* Quick Demo Credentials */}
+            <div className="mb-5 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                Snabbval demo-konton:
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('user@example.com', 'user123')}
+                  className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors"
+                >
+                  user@example.com (BOOKUSER)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('admin@example.com', 'admin123')}
+                  className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-purple-700 hover:bg-purple-50 transition-colors"
+                >
+                  admin@example.com (BOOKADMIN)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('super@example.com', 'super123')}
+                  className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
+                >
+                  super@example.com (Dual)
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  E-post (Användar-ID)
+                </label>
+                <input
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder="din@epost.se"
+                  className="w-full border border-blue-200 rounded-xl p-3 bg-slate-50 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Lösenord
+                </label>
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="Lösenord"
+                  className="w-full border border-blue-200 rounded-xl p-3 bg-slate-50 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loginLoading}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm mt-2"
+              >
+                {loginLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Loggar in...
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    Logga in
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

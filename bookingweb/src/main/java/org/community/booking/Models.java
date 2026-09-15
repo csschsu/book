@@ -11,8 +11,11 @@ public class Models {
 
     public static class User {
         public int id;
+        public String email;
+        public String password;
         public int code;
-        public String name; // Unique
+        public String createtime;
+        public String role;
         public Models.Address address;
     }
 

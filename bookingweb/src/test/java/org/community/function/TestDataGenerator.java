@@ -1,39 +1,9 @@
-/*
-Create  TestDataGenerator.java jdbi in package org.community.booking  to create testdata in tables 
-
-genererate 10 buyers
-CREATE TABLE buyer (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT);
-
-genererate 200 assets using a random existing supplier_id, set price_per_hour 1
-CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, supplier_id INTEGER NOT NULL, description TEXT, price_per_hour REAL NOT NULL, FOREIGN KEY (supplier_id) REFERENCES supplier(id) ON DELETE CASCADE);
-
-genererate 5 locations each with 25 random unique existing assets
-CREATE TABLE location (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT);
-CREATE TABLE asset_location (id INTEGER PRIMARY KEY AUTOINCREMENT, location_id , asset_id INTEGER UNIQUE, name TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE, FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE);
-
-generate 100 free 
-use a random existing asset, set a random start_time between current date - 1 day and current date + 9 days, set end_time 24 hours after start_time 
-CREATE TABLE free (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE);
-
-generate 10 booked
-use a random existing free_id, set a random start_time between free start_time and free end_time    
-CREATE TABLE booked (id INTEGER PRIMARY KEY AUTOINCREMENT, free_id INTEGER NOT NULL, buyer_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE, FOREIGN KEY (buyer_id) REFERENCES buyer(id) ON DELETE CASCADE);
-
-
-create address jdbi address mapper //JSON
-public static class address {
-        public String email;
-        public String phone;    
-        } 
-    } 
-
-*/
-
-package org.community.booking;
+package org.community.function;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.PreparedBatch;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -44,6 +14,7 @@ public class TestDataGenerator {
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
 
     public static class address {
         public String email;
@@ -76,12 +47,8 @@ public class TestDataGenerator {
         System.out.println("Klart! Testdata har genererats framgångsrikt.");
     }
 
-
     public static void generateData(Jdbi jdbi) {
         jdbi.useHandle(handle -> {
-            // Inledande rensning (Motsvarande TRUNCATE i SQLite)
-            // Tabellerna rensas i bakåtvänd ordning för att inte bryta mot FOREIGN
-            // KEY-restriktioner
             handle.execute("DROP TABLE IF EXISTS booked");
             handle.execute("DROP TABLE IF EXISTS free");
             handle.execute("DROP TABLE IF EXISTS asset_location");
@@ -89,12 +56,18 @@ public class TestDataGenerator {
             handle.execute("DROP TABLE IF EXISTS asset");
             handle.execute("DROP TABLE IF EXISTS user");
 
-            // Nollställer AUTOINCREMENT-räknarna i SQLite så att ID börjar om på 1
             handle.execute(
                     "DELETE FROM sqlite_sequence WHERE name IN ('booked', 'free', 'asset_location', 'asset', 'user')");
 
             handle.execute(
-                    "CREATE TABLE user (id INTEGER PRIMARY KEY AUTOINCREMENT, code INTEGER, name TEXT NOT NULL, address TEXT)");
+                    "CREATE TABLE user (" +
+                            "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                            "email TEXT UNIQUE NOT NULL, " +
+                            "password TEXT NOT NULL, " +
+                            "code INTEGER DEFAULT 0, " +
+                            "createtime TEXT NOT NULL, " +
+                            "role TEXT NOT NULL, " +
+                            "address TEXT)");
             handle.execute(
                     "CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, mark TEXT, price_per_hour REAL NOT NULL, blob BLOB, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
             handle.execute(
@@ -106,11 +79,23 @@ public class TestDataGenerator {
             handle.execute(
                     "CREATE TABLE booked (id INTEGER PRIMARY KEY AUTOINCREMENT, free_id INTEGER NOT NULL, user_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
 
-            // 2. Generera 10 köpare (users)
-            PreparedBatch userBatch = handle.prepareBatch("INSERT INTO user (code, name, address) VALUES (?, ?, ?)");
+            // 2. Generera 10 användare (users) med roller och krypterat lösenord
+            String now = LocalDateTime.now().format(FORMATTER);
+            String hashedPassword = PASSWORD_ENCODER.encode("password123");
+
+            PreparedBatch userBatch = handle.prepareBatch(
+                    "INSERT INTO user (email, password, code, createtime, role, address) VALUES (?, ?, ?, ?, ?, ?)");
             for (int i = 1; i <= 10; i++) {
-                String jsonAddress = toJson("user" + i + "@example.com", "070-22222" + String.format("%02d", i));
-                userBatch.bind(0, 1000 + i).bind(1, "User " + i).bind(2, jsonAddress).add();
+                String email = "user" + i + "@example.com";
+                String jsonAddress = toJson(email, "070-22222" + String.format("%02d", i));
+                String role = (i == 1) ? "BOOKADMIN" : ((i == 2) ? "BOOKUSER,BOOKADMIN" : "BOOKUSER");
+                userBatch.bind(0, email)
+                        .bind(1, hashedPassword)
+                        .bind(2, 0)
+                        .bind(3, now)
+                        .bind(4, role)
+                        .bind(5, jsonAddress)
+                        .add();
             }
             userBatch.execute();
             List<Long> userIds = handle.createQuery("SELECT id FROM user").mapTo(Long.class).list();
@@ -166,9 +151,9 @@ public class TestDataGenerator {
             PreparedBatch freeBatch = handle
                     .prepareBatch("INSERT INTO free (asset_id, start_time, end_time) VALUES (?, ?, ?)");
 
-            LocalDateTime now = LocalDateTime.now();
-            LocalDateTime startRange = now.minusDays(1);
-            LocalDateTime endRange = now.plusDays(9);
+            LocalDateTime nowDate = LocalDateTime.now();
+            LocalDateTime startRange = nowDate.minusDays(1);
+            LocalDateTime endRange = nowDate.plusDays(9);
             long minEpochSecond = startRange.toEpochSecond(java.time.ZoneOffset.UTC);
             long maxEpochSecond = endRange.toEpochSecond(java.time.ZoneOffset.UTC);
 
@@ -192,8 +177,6 @@ public class TestDataGenerator {
             for (int i = 0; i < freeIds.size(); i++) {
                 freeSlots.get(i).setId(freeIds.get(i));
             }
-
-            // 6. Generera 10 bokade tider (booked)
         });
     }
 

@@ -5,9 +5,20 @@ export interface Address {
 
 export interface User {
   id: number;
+  email: string;
+  password?: string;
   code: number;
-  name: string;
-  address: Address;
+  createtime?: string;
+  role: string;
+  address?: Address;
+}
+
+export interface AuthSession {
+  token: string;
+  type: string;
+  id: number;
+  email: string;
+  role: string;
 }
 
 export interface Asset {
