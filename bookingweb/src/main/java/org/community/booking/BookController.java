@@ -44,7 +44,7 @@ public class BookController {
     return "Greetings from Spring Boot!";
   }
 
-  @GetMapping("/assetlocations")
+  @GetMapping("/assetlocations") 
   public List<Models.AssetLocation> getAssetLocations() {
     return book.getAssetLocations();
   }

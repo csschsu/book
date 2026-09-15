@@ -38,7 +38,6 @@ import {
   AlertCircle,
   Check,
   MousePointer,
-  Info,
   X
 } from 'lucide-react';
 import { Calendar as BigCalendar, momentLocalizer, type View, type Messages, type Formats } from 'react-big-calendar';
@@ -791,36 +790,34 @@ function App() {
                   </div>
                 </div>
 
-                {/* Active Selection Feedback Banner */}
-                {hasValidSelection ? (
-                  <div className="bg-blue-50/80 border border-blue-200 rounded-2xl p-4 sm:p-5 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fadeIn">
+                {/* Section: Markerat tidsintervall i kalendern */}
+                <form
+                  onSubmit={handleSearchTimeslots}
+                  className="bg-white text-black p-6 shadow-md border border-slate-200 rounded-2xl space-y-6 mb-6 animate-fadeIn"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/20 mt-0.5">
                         <MousePointer className="w-5 h-5" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-bold uppercase tracking-wider text-blue-800">
+                          <h3 className="text-base font-bold uppercase tracking-wider text-blue-800">
                             Markerat tidsintervall i kalendern
-                          </span>
+                          </h3>
                           {getDurationDescription(startTime, endTime) && (
-                            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-200/60 text-blue-900 border border-blue-300/60">
+                            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200">
                               Varaktighet: {getDurationDescription(startTime, endTime)}
                             </span>
                           )}
                         </div>
-                        <div className="mt-1 text-slate-800 font-bold text-base flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span>{formatDateTime(startTime)}</span>
-                          <span className="text-blue-500">→</span>
-                          <span>{formatDateTime(endTime)}</span>
-                        </div>
                         <p className="text-xs text-slate-500 mt-1">
-                          Markerat i blått i kalendern. Markera ett annat intervall eller justera fälten nedan när som helst.
+                          Värdena uppdateras när du markerar i kalendern ovan, eller kan redigeras direkt i fälten nedan.
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 self-end md:self-center flex-shrink-0">
+                    <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
                       {calendarView === 'month' ? (
                         <button
                           type="button"
@@ -849,26 +846,16 @@ function App() {
                       </button>
                     </div>
                   </div>
-                ) : (
-                  <div className="bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-4 mb-6 flex items-center gap-3 text-slate-600 text-sm">
-                    <Info className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                    <div>
-                      <p className="font-semibold text-slate-700">Markera ett intervall i kalendern ovan</p>
-                      <p className="text-xs text-slate-500">
-                        Dra över tidsluckor eller dagar i kalendern för att automatiskt välja start- och sluttid.
-                      </p>
-                    </div>
-                  </div>
-                )}
 
-                <form onSubmit={handleSearchTimeslots} className="bg-white text-black p-6 shadow-md border border-slate-200 rounded-2xl space-y-6">
+                  {/* Open fields start_time and end_time for edit */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label htmlFor="start-time" className="block text-sm font-semibold text-slate-700 mb-2">
-                        Start Search From
+                      <label htmlFor="start_time" className="block text-sm font-semibold text-slate-700 mb-2">
+                        Starttid (start_time)
                       </label>
                       <input
-                        id="start-time"
+                        id="start_time"
+                        name="start_time"
                         type="datetime-local"
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
@@ -877,11 +864,12 @@ function App() {
                       />
                     </div>
                     <div>
-                      <label htmlFor="end-time" className="block text-sm font-semibold text-slate-700 mb-2">
-                        Search Limit To
+                      <label htmlFor="end_time" className="block text-sm font-semibold text-slate-700 mb-2">
+                        Sluttid (end_time)
                       </label>
                       <input
-                        id="end-time"
+                        id="end_time"
+                        name="end_time"
                         type="datetime-local"
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
@@ -914,7 +902,7 @@ function App() {
                       type="submit"
                       className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl flex items-center gap-2 shadow-md hover:shadow-lg transition-all ml-auto"
                     >
-                      Find Free Timeslots
+                      Book time
                       <ChevronRight className="w-5 h-5" />
                     </button>
                   </div>
