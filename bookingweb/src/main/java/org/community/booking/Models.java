@@ -46,6 +46,7 @@ public class Models {
         public int id;
         public int freeId;
         public int userId;
+        public String userEmail;
         public LocalDateTime startTime;
         public LocalDateTime endTime;
     }

@@ -126,14 +126,14 @@ public class Book {
                 "  AND f.end_time > :startTime")
         List<Models.Free> getFreeBlocks(@Bind("location") int location, @Bind("startTime") LocalDateTime startTime);
 
-        @SqlQuery("SELECT b.id, b.free_id AS freeId, b.user_id AS userId, b.start_time AS startTime, b.end_time AS endTime "
-                +
-                "FROM booked b " +
-                "JOIN free f ON b.free_id = f.id " +
-                "JOIN asset a ON f.asset_id = a.id " +
-                "JOIN asset_location l ON l.asset_id = a.id " +
-                "WHERE l.location_id = :location " +
-                "  AND f.end_time > :startTime")
+        @SqlQuery("SELECT b.id, b.free_id AS freeId, b.user_id AS userId, u.email AS userEmail, b.start_time AS startTime, b.end_time AS endTime "
+                + "FROM booked b "
+                + "JOIN free f ON b.free_id = f.id "
+                + "JOIN asset a ON f.asset_id = a.id "
+                + "JOIN asset_location l ON l.asset_id = a.id "
+                + "LEFT JOIN user u ON b.user_id = u.id "
+                + "WHERE l.location_id = :location "
+                + "  AND f.end_time > :startTime")
         List<Models.Booked> getBookedBlocks(@Bind("location") int location, @Bind("startTime") LocalDateTime startTime);
 
         @SqlUpdate("INSERT INTO booked (free_id, user_id, start_time, end_time) " +
@@ -158,17 +158,18 @@ public class Book {
         List<Models.Free> getFreeBlocksByAsset(@Bind("assetId") int assetId,
                 @Bind("startTime") LocalDateTime startTime);
 
-        @SqlQuery("SELECT b.id, b.free_id AS freeId, b.user_id AS userId, b.start_time AS startTime, b.end_time AS endTime "
-                +
-                "FROM booked b " +
-                "WHERE b.free_id = :freeId")
+        @SqlQuery("SELECT b.id, b.free_id AS freeId, b.user_id AS userId, u.email AS userEmail, b.start_time AS startTime, b.end_time AS endTime "
+                + "FROM booked b "
+                + "LEFT JOIN user u ON b.user_id = u.id "
+                + "WHERE b.free_id = :freeId")
         List<Models.Booked> getBookedBlocksByFreeId(@Bind("freeId") int freeId);
 
-        @SqlQuery("SELECT b.id, b.free_id AS freeId, b.user_id AS userId, b.start_time AS startTime, b.end_time AS endTime "
+        @SqlQuery("SELECT b.id, b.free_id AS freeId, b.user_id AS userId, u.email AS userEmail, b.start_time AS startTime, b.end_time AS endTime "
                 + "FROM booked b "
                 + "JOIN free f ON b.free_id = f.id "
                 + "JOIN asset a ON f.asset_id = a.id "
                 + "JOIN asset_location l ON l.asset_id = a.id "
+                + "LEFT JOIN user u ON b.user_id = u.id "
                 + "WHERE l.location_id = :location "
                 + "ORDER BY b.start_time ASC")
         List<Models.Booked> getBookedBlocksByLocation(@Bind("location") int location);
@@ -217,17 +218,17 @@ public class Book {
 
     public List<Models.Location> getLocations() {
         logger.debug("Getting all locations");
-        return jdbi.withExtension(BookingDao.class, BookingDao::getLocations);
+        return jdbi.withExtension(BookingDao.class, dao -> dao.getLocations());
     }
 
     public List<Models.AssetLocation> getAssetLocations() {
         logger.debug("Getting all asset locations");
-        return jdbi.withExtension(BookingDao.class, BookingDao::getAssetLocations);
+        return jdbi.withExtension(BookingDao.class, dao -> dao.getAssetLocations());
     }
 
     public List<Models.User> getUsers() {
         logger.debug("Getting all users");
-        return jdbi.withExtension(BookingDao.class, BookingDao::getUsers);
+        return jdbi.withExtension(BookingDao.class, dao -> dao.getUsers());
     }
 
     public List<Models.Booked> getBookedBlocksByLocation(int locationId) {
@@ -271,12 +272,15 @@ public class Book {
 
     public List<Models.Timeslot> findTimeslot(Models.Location location, LocalDateTime wantedStartTime,
             LocalDateTime wantedEndTime) {
+        if (location == null) {
+            logger.warn("findTimeslot (Location) called with null location");
+            return new ArrayList<>();
+        }
         logger.debug("findTimeslot (Location) called: locationId={}, wantedStartTime={}, wantedEndTime={}",
-                location != null ? location.id : "null", wantedStartTime, wantedEndTime);
+                location.id, wantedStartTime, wantedEndTime);
         List<Models.Free> freeBlocks = jdbi.withExtension(BookingDao.class,
                 dao -> dao.getFreeBlocks(location.id, wantedStartTime));
-        logger.debug("Fetched {} free blocks for locationId={}", freeBlocks.size(),
-                location != null ? location.id : "null");
+        logger.debug("Fetched {} free blocks for locationId={}", freeBlocks.size(), location.id);
 
         List<Models.Timeslot> timeslots = new ArrayList<>();
         // start to create timeslots for each record in free
@@ -337,14 +341,16 @@ public class Book {
 
     public List<Models.Timeslot> findTimeslot(Models.AssetLocation assetLocation, LocalDateTime wantedStartTime,
             LocalDateTime wantedEndTime) {
+        if (assetLocation == null) {
+            logger.warn("findTimeslot (AssetLocation) called with null assetLocation");
+            return new ArrayList<>();
+        }
         logger.debug(
                 "findTimeslot (AssetLocation) called: assetId={}, locationId={}, wantedStartTime={}, wantedEndTime={}",
-                assetLocation != null ? assetLocation.assetId : "null",
-                assetLocation != null ? assetLocation.locationId : "null", wantedStartTime, wantedEndTime);
+                assetLocation.assetId, assetLocation.locationId, wantedStartTime, wantedEndTime);
         List<Models.Free> freeBlocks = jdbi.withExtension(BookingDao.class,
                 dao -> dao.getFreeBlocksByAsset(assetLocation.assetId, wantedStartTime));
-        logger.debug("Fetched {} free blocks for assetId={}", freeBlocks.size(),
-                assetLocation != null ? assetLocation.assetId : "null");
+        logger.debug("Fetched {} free blocks for assetId={}", freeBlocks.size(), assetLocation.assetId);
 
         List<Models.Timeslot> timeslots = new ArrayList<>();
         // start to create timeslots for each record in free

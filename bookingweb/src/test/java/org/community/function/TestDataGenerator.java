@@ -147,7 +147,6 @@ public class TestDataGenerator {
             assetLocationBatch.execute();
 
             // 5. Generera 100 lediga tider (free)
-            List<FreeTimeSlot> freeSlots = new ArrayList<>();
             PreparedBatch freeBatch = handle
                     .prepareBatch("INSERT INTO free (asset_id, start_time, end_time) VALUES (?, ?, ?)");
 
@@ -168,42 +167,8 @@ public class TestDataGenerator {
                         .bind(1, startTime.format(FORMATTER))
                         .bind(2, endTime.format(FORMATTER))
                         .add();
-
-                freeSlots.add(new FreeTimeSlot(startTime, endTime));
             }
             freeBatch.execute();
-
-            List<Long> freeIds = handle.createQuery("SELECT id FROM free ORDER BY id ASC").mapTo(Long.class).list();
-            for (int i = 0; i < freeIds.size(); i++) {
-                freeSlots.get(i).setId(freeIds.get(i));
-            }
         });
-    }
-
-    private static class FreeTimeSlot {
-        private long id;
-        private final LocalDateTime start;
-        private final LocalDateTime end;
-
-        public FreeTimeSlot(LocalDateTime start, LocalDateTime end) {
-            this.start = start;
-            this.end = end;
-        }
-
-        public long getId() {
-            return id;
-        }
-
-        public void setId(long id) {
-            this.id = id;
-        }
-
-        public LocalDateTime getStart() {
-            return start;
-        }
-
-        public LocalDateTime getEnd() {
-            return end;
-        }
     }
 }

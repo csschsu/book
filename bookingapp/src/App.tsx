@@ -1,27 +1,3 @@
-/* create a booking app in react typescript using tailwind styling and API calls. 
-Update number step 6  App prompts user to enter user name and stores it using @PostMapping("/user/findOrCreate"))
-and use tailwind styles for coloring "bg-white text-black p-6 shadow-md" 
- 
-Booking is done in steps
-
-1. User see locations in api @GetMapping("/locations") 
-2. User select one location 
-3. User enters starttime and endtime
-4. Display a list of free timeslots in the selected location id using @PostMapping("/timeslot")
-5. User select a free timeslot.
-6. App prompts user to enter user name and stores it using @PostMapping("/user/findOrCreate"))
-7. Book time using @PostMapping("/bookTime")
-8. Display booking details and status of booking
-8. User press return button to go to start 
-
-
-Create necessary main page and required forms, use tailwind styles for coloring "bg-white text-black p-6 shadow-md", "text-blue-800", "hover:bg-blue-50", and "border-blue-200" and  grid component with "flex h-auto flex-wrap flex-cols-3 content-start gap-1 p-4"
-
-Create API functions calling spring boot interface BookController.java
-Create typescript data definitions using Models.java 
-
-Keep this information as a comment in the generated main component.
-*/
 
 import { useState, useEffect } from 'react';
 import {
@@ -95,6 +71,11 @@ const calendarFormats: Formats = {
   dayFormat: 'ddd DD/MM',
   dayHeaderFormat: 'dddd D MMMM',
   agendaDateFormat: 'ddd D MMMM',
+  eventTimeRangeFormat: ({ start, end }) => `${moment(start).format('HH:mm')} – ${moment(end).format('HH:mm')}`,
+  eventTimeRangeStartFormat: ({ start }) => `${moment(start).format('HH:mm')} – `,
+  eventTimeRangeEndFormat: ({ end }) => ` – ${moment(end).format('HH:mm')}`,
+  selectRangeFormat: ({ start, end }) => `${moment(start).format('HH:mm')} – ${moment(end).format('HH:mm')}`,
+  agendaTimeRangeFormat: ({ start, end }) => `${moment(start).format('HH:mm')} – ${moment(end).format('HH:mm')}`,
 };
 
 // Formatting helper: YYYY-MM-DDTHH:mm
@@ -115,6 +96,12 @@ const getDefaultEndTime = (): string => {
   return formatToLocalISO(new Date(now.getTime() + 25 * 60 * 60 * 1000));
 };
 
+const getCalendarMinTime = (): Date => {
+  const d = new Date();
+  d.setHours(9, 0, 0, 0);
+  return d;
+};
+
 interface CalendarEvent {
   id: string | number;
   title: string;
@@ -123,6 +110,37 @@ interface CalendarEvent {
   isSelection?: boolean;
   resource?: Booked;
 }
+
+const CalendarEventComponent = ({ event }: { event: CalendarEvent }) => {
+  if (event.isSelection) {
+    return (
+      <div className="flex items-center gap-1 font-semibold text-xs leading-tight truncate">
+        <MousePointer className="w-3 h-3 flex-shrink-0" />
+        <span className="truncate">{event.title}</span>
+      </div>
+    );
+  }
+
+  const b = event.resource;
+  const userStr = b?.userEmail || (b?.userId ? `Användare #${b.userId}` : 'Bokad');
+  const timeStr = `${moment(event.start).format('HH:mm')} – ${moment(event.end).format('HH:mm')}`;
+
+  return (
+    <div
+      className="flex flex-col text-xs leading-tight py-0.5 px-0.5 truncate overflow-hidden"
+      title={`Bokning #${b?.id || ''}: ${timeStr} | Bokad av: ${userStr}`}
+    >
+      <div className="font-bold flex items-center gap-1 truncate text-white">
+        <Clock className="w-3 h-3 flex-shrink-0" />
+        <span className="truncate">{timeStr}</span>
+      </div>
+      <div className="text-[11px] font-medium opacity-95 truncate flex items-center gap-1 text-white/90">
+        <UserIcon className="w-3 h-3 flex-shrink-0" />
+        <span className="truncate">{userStr}</span>
+      </div>
+    </div>
+  );
+};
 
 type AppTab = 'booking' | 'admin-free' | 'admin-users';
 
@@ -153,14 +171,12 @@ function App() {
   const [freeList, setFreeList] = useState<Free[]>([]);
   const [loadingBooked, setLoadingBooked] = useState<boolean>(false);
   const [calendarDate, setCalendarDate] = useState<Date>(new Date());
-  const [calendarView, setCalendarView] = useState<View>('month');
+  const [calendarView, setCalendarView] = useState<View>('week');
+  const [calendarMinTime] = useState<Date>(getCalendarMinTime);
 
-  // Search Range State (Step 3)
-  const [startTime, setStartTime] = useState<string>(getDefaultStartTime);
-  const [endTime, setEndTime] = useState<string>(getDefaultEndTime);
-
-  // Timeslots State (Step 4 & 5)
-  const [timeslots, setTimeslots] = useState<Timeslot[]>([]);
+  // Selected Time Range in Calendar (Step 3)
+  const [startTime, setStartTime] = useState<string>('');
+  const [endTime, setEndTime] = useState<string>('');
   const [selectedTimeslot, setSelectedTimeslot] = useState<Timeslot | null>(null);
 
   // Booking result (Step 8 / a34.4)
@@ -385,20 +401,22 @@ function App() {
     }
   };
 
-  // Step 1 -> 2: Select Location (a31)
+  // Step 1 -> 3: Select Location (a31)
   const handleSelectLocation = (loc: Location) => {
     setSelectedLocation(loc);
     setBookedList([]);
     setFreeList([]);
+    setStartTime('');
+    setEndTime('');
+    setError(null);
     setStep(3);
   };
 
-  // Step 3 -> 4: Search Timeslots (a32, a33)
-  const handleSearchTimeslots = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Step 3 -> 6: Proceed directly to Step 6 (Boka) using selected calendar time
+  const handleProceedToBooking = async () => {
     if (!selectedLocation) return;
     if (!startTime || !endTime) {
-      setError('Vänligen välj både start- och sluttid.');
+      setError('Vänligen markera en tid i kalendern först.');
       return;
     }
     if (new Date(startTime) >= new Date(endTime)) {
@@ -411,22 +429,19 @@ function App() {
     try {
       const searchStart = getBackendLocalISO(startTime);
       const searchEnd = getBackendLocalISO(endTime);
-      const data = await fetchTimeslots(selectedLocation, searchStart, searchEnd);
-      setTimeslots(data);
-      setSelectedTimeslot(null);
-      setStep(4);
+      const slots = await fetchTimeslots(selectedLocation, searchStart, searchEnd);
+      if (!slots || slots.length === 0) {
+        setError('Det finns ingen ledig tid som täcker det markerade intervallet, eller så är tiden redan bokad.');
+        return;
+      }
+      setSelectedTimeslot(slots[0]);
+      setStep(6);
     } catch (err: unknown) {
       console.error(err);
-      setError('Ett fel uppstod vid sökning av lediga tider.');
+      setError('Ett fel uppstod vid kontroll av ledig tid.');
     } finally {
       setLoading(false);
     }
-  };
-
-  // Step 5: Select Timeslot (a33) -> Go to confirmation / review step 6
-  const handleSelectTimeslot = (slot: Timeslot) => {
-    setSelectedTimeslot(slot);
-    setStep(6);
   };
 
   // Execute Booking API call (a34.1, a34.3)
@@ -483,6 +498,8 @@ function App() {
     setBookedDetails(null);
     setBookedList([]);
     setFreeList([]);
+    setStartTime('');
+    setEndTime('');
     setError(null);
     setPendingBookingSlot(null);
     setStep(1);
@@ -584,14 +601,18 @@ function App() {
   };
 
   // Map booked times to Big Calendar events
-  const bookedEvents = bookedList.map((b) => ({
-    id: `booked-${b.id}`,
-    title: `Bokad (Bokning #${b.id})`,
-    start: new Date(b.startTime),
-    end: new Date(b.endTime),
-    isSelection: false,
-    resource: b,
-  }));
+  const bookedEvents = bookedList.map((b) => {
+    const userStr = b.userEmail || (b.userId ? `Användare #${b.userId}` : 'Bokad');
+    const timeStr = `${moment(b.startTime).format('HH:mm')} – ${moment(b.endTime).format('HH:mm')}`;
+    return {
+      id: `booked-${b.id}`,
+      title: `${timeStr} Bokad (${userStr})`,
+      start: new Date(b.startTime),
+      end: new Date(b.endTime),
+      isSelection: false,
+      resource: b,
+    };
+  });
 
   const hasValidSelection = Boolean(
     startTime &&
@@ -785,26 +806,6 @@ function App() {
     setEndTime('');
   };
 
-  const handleSetPreset = (preset: 'today' | 'next24h') => {
-    const now = new Date();
-    if (preset === 'today') {
-      const s = new Date(now);
-      s.setHours(9, 0, 0, 0);
-      const e = new Date(now);
-      e.setHours(17, 0, 0, 0);
-      setStartTime(formatToLocalISO(s));
-      setEndTime(formatToLocalISO(e));
-      setCalendarDate(s);
-    } else if (preset === 'next24h') {
-      const s = new Date(now.getTime() + 60 * 60 * 1000);
-      s.setMinutes(0, 0, 0);
-      const e = new Date(s.getTime() + 24 * 60 * 60 * 1000);
-      setStartTime(formatToLocalISO(s));
-      setEndTime(formatToLocalISO(e));
-      setCalendarDate(s);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6 lg:px-8 flex flex-col justify-start items-center relative overflow-hidden">
       {/* Background Graphic Accents */}
@@ -841,8 +842,8 @@ function App() {
                         <span
                           key={r}
                           className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md ${r === 'BOOKADMIN'
-                              ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                              : 'bg-blue-100 text-blue-800 border border-blue-200'
+                            ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                            : 'bg-blue-100 text-blue-800 border border-blue-200'
                             }`}
                         >
                           {r}
@@ -880,8 +881,8 @@ function App() {
             <button
               onClick={() => setActiveTab('booking')}
               className={`text-sm font-semibold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === 'booking'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-blue-800 hover:bg-blue-50'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-blue-800 hover:bg-blue-50'
                 }`}
             >
               <Calendar className="w-4 h-4" />
@@ -893,8 +894,8 @@ function App() {
                 <button
                   onClick={() => setActiveTab('admin-free')}
                   className={`text-sm font-semibold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === 'admin-free'
-                      ? 'bg-purple-600 text-white shadow-sm'
-                      : 'text-purple-800 hover:bg-purple-50 border border-purple-200'
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'text-purple-800 hover:bg-purple-50 border border-purple-200'
                     }`}
                 >
                   <Shield className="w-4 h-4" />
@@ -903,8 +904,8 @@ function App() {
                 <button
                   onClick={() => setActiveTab('admin-users')}
                   className={`text-sm font-semibold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === 'admin-users'
-                      ? 'bg-purple-600 text-white shadow-sm'
-                      : 'text-purple-800 hover:bg-purple-50 border border-purple-200'
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'text-purple-800 hover:bg-purple-50 border border-purple-200'
                     }`}
                 >
                   <Users className="w-4 h-4" />
@@ -963,11 +964,6 @@ function App() {
                 <li className={`flex items-center gap-1.5 pb-2 border-b-2 ${step >= 3 ? 'border-blue-600 text-blue-800 font-bold' : 'border-transparent text-slate-400'}`}>
                   <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${step >= 3 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>3</span>
                   3. Kalender (OPEN)
-                </li>
-                <ChevronRight className="w-4 h-4 text-slate-400 hidden sm:block" />
-                <li className={`flex items-center gap-1.5 pb-2 border-b-2 ${step >= 4 ? 'border-blue-600 text-blue-800 font-bold' : 'border-transparent text-slate-400'}`}>
-                  <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${step >= 4 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>4</span>
-                  4. Välj tid (OPEN)
                 </li>
                 <ChevronRight className="w-4 h-4 text-slate-400 hidden sm:block" />
                 <li className={`flex items-center gap-1.5 pb-2 border-b-2 ${step >= 6 ? 'border-blue-600 text-blue-800 font-bold' : 'border-transparent text-slate-400'}`}>
@@ -1093,7 +1089,9 @@ function App() {
                       endAccessor="end"
                       titleAccessor="title"
                       views={['month', 'week', 'day', 'agenda']}
-                      defaultView="month"
+                      defaultView="week"
+                      min={calendarMinTime}
+                      scrollToTime={calendarMinTime}
                       date={calendarDate}
                       onNavigate={(newDate) => setCalendarDate(newDate)}
                       onView={(newView) => setCalendarView(newView)}
@@ -1104,171 +1102,77 @@ function App() {
                       eventPropGetter={eventPropGetter}
                       slotPropGetter={slotPropGetter}
                       dayPropGetter={dayPropGetter}
+                      components={{
+                        event: CalendarEventComponent,
+                      }}
                     />
                   </div>
                 </div>
 
-                {/* Time Selection Form */}
-                <form
-                  onSubmit={handleSearchTimeslots}
-                  className="bg-white text-black p-6 shadow-md border border-slate-200 rounded-2xl space-y-6"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/20">
-                        <MousePointer className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-base font-bold uppercase tracking-wider text-blue-800">
-                            Markerat tidsintervall
-                          </h3>
-                          {getDurationDescription(startTime, endTime) && (
-                            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200">
-                              Varaktighet: {getDurationDescription(startTime, endTime)}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-500 mt-1">
-                          Klicka i kalendern eller justera tiderna direkt i fälten nedan.
-                        </p>
-                      </div>
+                {/* Tidsintervall action card */}
+                <div className="bg-white text-black p-5 shadow-md border border-slate-200 rounded-2xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/20">
+                      <Clock className="w-5 h-5" />
                     </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-base font-bold text-blue-900">
+                          Tidsintervall
+                        </h3>
+                        {hasValidSelection && getDurationDescription(startTime, endTime) && (
+                          <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200">
+                            Varaktighet: {getDurationDescription(startTime, endTime)}
+                          </span>
+                        )}
+                      </div>
+                      {hasValidSelection ? (
+                        <p className="text-sm font-semibold text-slate-700 mt-0.5">
+                          {new Date(startTime).toLocaleDateString('sv-SE', {
+                            weekday: 'short',
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                          })}{' '}
+                          <span className="text-blue-700 font-bold">
+                            {formatTimeOnly(startTime)} – {formatTimeOnly(endTime)}
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Markera önskad tid i kalendern ovan för att boka.
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 justify-end">
+                    {hasValidSelection && (
                       <button
                         type="button"
                         onClick={handleClearSelection}
-                        className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1 shadow-sm"
+                        className="text-xs font-semibold px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1 shadow-sm"
                       >
                         <X className="w-3.5 h-3.5" /> Rensa
                       </button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="start_time" className="block text-sm font-semibold text-slate-700 mb-2">
-                        Starttid
-                      </label>
-                      <input
-                        id="start_time"
-                        type="datetime-local"
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        className="w-full border border-blue-200 rounded-xl p-3 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 text-base"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="end_time" className="block text-sm font-semibold text-slate-700 mb-2">
-                        Sluttid
-                      </label>
-                      <input
-                        id="end_time"
-                        type="datetime-local"
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
-                        className="w-full border border-blue-200 rounded-xl p-3 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 text-base"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-200">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500 font-medium">Snabbval:</span>
-                      <button
-                        type="button"
-                        onClick={() => handleSetPreset('today')}
-                        className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 transition-colors"
-                      >
-                        Idag (09:00–17:00)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSetPreset('next24h')}
-                        className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 transition-colors"
-                      >
-                        Kommande 24h
-                      </button>
-                    </div>
-
+                    )}
                     <button
-                      type="submit"
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl flex items-center gap-2 shadow-md hover:shadow-lg transition-all ml-auto"
+                      type="button"
+                      onClick={handleProceedToBooking}
+                      disabled={!hasValidSelection || loading}
+                      className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2.5 px-6 rounded-xl flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
                     >
-                      Sök lediga tider (Step 4)
-                      <ChevronRight className="w-5 h-5" />
+                      {loading ? (
+                        <RefreshCw className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <>
+                          Gå till Boka (Step 6)
+                          <ChevronRight className="w-5 h-5" />
+                        </>
+                      )}
                     </button>
                   </div>
-                </form>
-              </div>
-            )}
-
-            {/* STEP 4 & 5: Display Timeslots & Select Timeslot (a33: OPEN) */}
-            {step === 4 && selectedLocation && (
-              <div className="animate-fadeIn">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-blue-600" />
-                    a33. Välj ledig tid (OPEN)
-                  </h2>
-                  <button
-                    onClick={() => setStep(3)}
-                    className="text-sm text-slate-500 hover:text-blue-800 flex items-center gap-1 transition-colors"
-                  >
-                    <ChevronLeft className="w-4 h-4" /> Ändra tidsintervall
-                  </button>
                 </div>
-
-                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 mb-6 text-sm text-slate-600 flex flex-wrap gap-x-6 gap-y-1.5">
-                  <div><strong>Plats:</strong> {selectedLocation.name}</div>
-                  <div><strong>Start:</strong> {formatDateTime(startTime)}</div>
-                  <div><strong>Slut:</strong> {formatDateTime(endTime)}</div>
-                </div>
-
-                {timeslots.length === 0 ? (
-                  <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl">
-                    <p className="text-slate-600 font-medium">Inga lediga tider hittades i det valda intervallet.</p>
-                    <p className="text-sm text-slate-400 mt-1">Pröva att välja ett annat datum eller intervall i kalendern.</p>
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-sm text-slate-600 mb-4">
-                      Klicka på en ledig tid nedan för att gå vidare till bokning:
-                    </p>
-
-                    {/* Grid wrapper component using USER requested class layout */}
-                    <div className="flex h-auto flex-wrap flex-cols-3 content-start gap-1 p-4 border border-blue-200 rounded-2xl bg-blue-50/20">
-                      {timeslots.map((slot, index) => {
-                        const assetName = getAssetLocationName(slot.assetId);
-                        return (
-                          <button
-                            key={`${slot.freeid}-${index}`}
-                            onClick={() => handleSelectTimeslot(slot)}
-                            className="bg-white border border-blue-200 text-blue-800 hover:bg-blue-50 text-left p-3 rounded-xl transition-all flex flex-col justify-between outline-none focus:ring-2 focus:ring-blue-500/50 group shadow-sm"
-                          >
-                            <div className="w-full">
-                              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
-                                Tidslucka #{slot.freeid}
-                              </div>
-                              <div className="font-bold text-sm text-slate-800 group-hover:text-blue-900 transition-colors">
-                                {new Date(slot.startTime).toLocaleDateString('sv-SE', { month: 'short', day: 'numeric' })}
-                              </div>
-                              <div className="text-xs font-semibold text-blue-600 group-hover:text-blue-800 mt-1 border-t border-slate-100 pt-1">
-                                {assetName}
-                              </div>
-                            </div>
-                            <div className="text-xs text-slate-500 group-hover:text-blue-700 mt-2 font-medium">
-                              {formatTimeOnly(slot.startTime)} – {formatTimeOnly(slot.endTime)}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
@@ -1281,10 +1185,10 @@ function App() {
                     a34.1 Boka tid (Kräver BOOKUSER eller BOOKADMIN)
                   </h2>
                   <button
-                    onClick={() => setStep(4)}
+                    onClick={() => setStep(3)}
                     className="text-sm text-slate-500 hover:text-blue-800 flex items-center gap-1 transition-colors"
                   >
-                    <ChevronLeft className="w-4 h-4" /> Tillbaka till tider
+                    <ChevronLeft className="w-4 h-4" /> Tillbaka till kalender
                   </button>
                 </div>
 
@@ -1295,8 +1199,8 @@ function App() {
                     <div><strong>Anläggning / Plats:</strong> {selectedLocation.name}</div>
                     <div><strong>Resurs:</strong> {getAssetLocationName(selectedTimeslot.assetId)}</div>
                     <div><strong>Tidslucka ID:</strong> {selectedTimeslot.freeid}</div>
-                    <div><strong>Datum:</strong> {new Date(selectedTimeslot.startTime).toLocaleDateString('sv-SE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
-                    <div><strong>Tid:</strong> {formatTimeOnly(selectedTimeslot.startTime)} – {formatTimeOnly(selectedTimeslot.endTime)}</div>
+                    <div><strong>Datum:</strong> {new Date(startTime || selectedTimeslot.startTime).toLocaleDateString('sv-SE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                    <div><strong>Tid:</strong> {formatTimeOnly(startTime || selectedTimeslot.startTime)} – {formatTimeOnly(endTime || selectedTimeslot.endTime)}</div>
                   </div>
                 </div>
 
@@ -1333,8 +1237,8 @@ function App() {
                           onClick={handleInitiateBooking}
                           disabled={!canBook || loading}
                           className={`font-bold py-3 px-8 rounded-xl shadow-md transition-all flex items-center gap-2 ${canBook
-                              ? 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg'
-                              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg'
+                            : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                             }`}
                         >
                           {loading ? 'Bokar...' : 'Bekräfta och boka tid (a34.3)'}
@@ -1720,8 +1624,8 @@ function App() {
                                 <span
                                   key={r}
                                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${r === 'BOOKADMIN'
-                                      ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                     }`}
                                 >
                                   {r}

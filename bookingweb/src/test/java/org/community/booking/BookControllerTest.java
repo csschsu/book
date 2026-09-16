@@ -90,6 +90,7 @@ public class BookControllerTest {
                 booked.id = 1;
                 booked.freeId = 10;
                 booked.userId = 201;
+                booked.userEmail = "user201@example.com";
                 booked.startTime = LocalDateTime.of(2026, 7, 14, 18, 0);
                 booked.endTime = LocalDateTime.of(2026, 7, 14, 20, 0);
                 bookedList.add(booked);
@@ -101,6 +102,7 @@ public class BookControllerTest {
                                 .andExpect(jsonPath("$[0].id").value(1))
                                 .andExpect(jsonPath("$[0].freeId").value(10))
                                 .andExpect(jsonPath("$[0].userId").value(201))
+                                .andExpect(jsonPath("$[0].userEmail").value("user201@example.com"))
                                 .andExpect(jsonPath("$[0].startTime").value("2026-07-14T18:00:00"))
                                 .andExpect(jsonPath("$[0].endTime").value("2026-07-14T20:00:00"));
         }

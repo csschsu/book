@@ -47,6 +47,7 @@ export interface Booked {
   id: number;
   freeId: number;
   userId: number;
+  userEmail?: string;
   startTime: string; // ISO-8601 String
   endTime: string;   // ISO-8601 String
 }

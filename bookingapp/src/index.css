@@ -118,20 +118,24 @@
 
 /* Free time in the calendar background in a light gray color */
 .rbc-free-time-day {
-  background-color: #f1f5f9 !important; /* light gray (slate-100) */
+  background-color: #f1f5f9 !important;
+  /* light gray (slate-100) */
 }
 
 .rbc-day-bg.rbc-free-time-day.rbc-today {
-  background-color: #e2e8f0 !important; /* distinct light gray for today when free */
+  background-color: #e2e8f0 !important;
+  /* distinct light gray for today when free */
 }
 
 .rbc-free-time-slot {
-  background-color: #f8fafc !important; /* light gray */
+  background-color: #f8fafc !important;
+  /* light gray */
   border-bottom: 1px solid #e2e8f0;
 }
 
 .rbc-timeslot-group:nth-child(even) .rbc-free-time-slot {
-  background-color: #f1f5f9 !important; /* subtle alternating light gray */
+  background-color: #f1f5f9 !important;
+  /* subtle alternating light gray */
 }
 
 /* Ensure bookings are displayed prominently in the front */
@@ -174,4 +178,22 @@
 .rbc-selected-area-cell {
   background-color: rgba(191, 219, 254, 0.7) !important;
   z-index: 6;
+}
+
+/* Custom booked event styling in month and time views */
+.rbc-month-row .rbc-event {
+  min-height: 26px;
+  padding: 2px 4px !important;
+}
+
+.rbc-event-content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rbc-event-label {
+  font-size: 0.725rem !important;
+  font-weight: 700 !important;
+  opacity: 0.95;
 }

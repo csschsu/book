@@ -53,8 +53,8 @@ import org.community.booking.Models;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.PreparedBatch;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
-import java.io.File;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -68,6 +68,7 @@ public class GenerateFreeYearTest {
 
         private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
         private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+        private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
 
         public static String getDbUrl() {
                 return "jdbc:sqlite:booking_system.db?foreign_keys=true";
@@ -109,7 +110,7 @@ public class GenerateFreeYearTest {
                         }
 
                         handle.execute(
-                                        "CREATE TABLE user (" +
+                                        "CREATE TABLE IF NOT EXISTS user (" +
                                                         "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                                                         "email TEXT UNIQUE NOT NULL, " +
                                                         "password TEXT NOT NULL, " +
@@ -128,26 +129,27 @@ public class GenerateFreeYearTest {
                         handle.execute(
                                         "CREATE TABLE booked (id INTEGER PRIMARY KEY AUTOINCREMENT, free_id INTEGER NOT NULL, user_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
 
-                        // 2. Generera 10 köpare (users)
+                        // 2. Generera användare (user)
                         String createtime = currentTimestamp.format(FORMATTER);
-                        PreparedBatch userBatch = handle.prepareBatch(
-                                        "INSERT INTO user (email, password, code, createtime, role, address) VALUES (?, ?, ?, ?, ?, ?)");
-                        for (int i = 1; i <= 10; i++) {
-                                String email = "user" + i + "@example.com";
-                                String jsonAddress = toJson(email, "070-22222" + String.format("%02d", i));
-                                userBatch.bind(0, email)
-                                                .bind(1, "password123")
-                                                .bind(2, 0)
-                                                .bind(3, createtime)
-                                                .bind(4, "BOOKUSER")
-                                                .bind(5, jsonAddress)
-                                                .add();
-                        }
-                        userBatch.execute();
-                        List<Long> userIds = handle.createQuery("SELECT id FROM user ORDER BY id ASC").mapTo(Long.class)
+                        String email = "testing@test.se";
+                        String hashedPassword = PASSWORD_ENCODER.encode("password");
+                        String jsonAddress = toJson(email, "070-1234567");
+
+                        handle.createUpdate(
+                                        "INSERT INTO user (email, password, code, createtime, role, address) VALUES (:email, :password, :code, :createtime, :role, :address)")
+                                        .bind("email", email)
+                                        .bind("password", hashedPassword)
+                                        .bind("code", 0)
+                                        .bind("createtime", createtime)
+                                        .bind("role", "BOOKUSER,BOOKADMIN")
+                                        .bind("address", jsonAddress)
+                                        .execute();
+
+                        List<Long> userIds = handle.createQuery("SELECT id FROM user WHERE email = '" + email + "'")
+                                        .mapTo(Long.class)
                                         .list();
                         long user1Id = userIds.get(0);
-                        long user2Id = userIds.get(1);
+                        long user2Id = user1Id;
 
                         // 3. Generera 1 tillgång (asset)
                         handle.execute("INSERT INTO asset (user_id, mark, price_per_hour, blob) VALUES (?, ?, ?, ?)",
@@ -230,17 +232,19 @@ public class GenerateFreeYearTest {
                 generateData(jdbi, now);
 
                 jdbi.useHandle(handle -> {
-                        // 2. Kontrollera 10 köpare (users)
+                        // 2. Kontrollera användare (user)
                         int userCount = handle.createQuery("SELECT COUNT(*) FROM user").mapTo(Integer.class).one();
-                        assertEquals(10, userCount, "Det ska finnas 10 användare");
+                        assertEquals(1, userCount, "Det ska finnas 1 användare");
 
-                        // Kontrollera att user_1 och user_2 finns
+                        // Kontrollera att testing@test.se finns och att lösenordet är krypterat
                         String user1Email = handle.createQuery("SELECT email FROM user WHERE id = 1")
                                         .mapTo(String.class).one();
-                        assertEquals("user1@example.com", user1Email);
-                        String user2Email = handle.createQuery("SELECT email FROM user WHERE id = 2")
+                        assertEquals("testing@test.se", user1Email);
+
+                        String user1Password = handle.createQuery("SELECT password FROM user WHERE id = 1")
                                         .mapTo(String.class).one();
-                        assertEquals("user2@example.com", user2Email);
+                        assertTrue(PASSWORD_ENCODER.matches("password", user1Password),
+                                        "Lösenordet ska vara krypterat och matcha 'password'");
 
                         // 3. Kontrollera 1 tillgång (asset)
                         int assetCount = handle.createQuery("SELECT COUNT(*) FROM asset").mapTo(Integer.class).one();
@@ -272,7 +276,8 @@ public class GenerateFreeYearTest {
                         assertTrue(bookedCount >= 100,
                                         "Det bör finnas cirka 104 bokningar (52 tisdagar + 52 torsdagar)");
 
-                        // 6a. Kontrollera alla bokningar för user_1 (alla ska vara tisdagar kl 18-20)
+                        // 6. Kontrollera alla bokningar för user 1 (både tisdagar och torsdagar kl
+                        // 18-20)
                         List<Models.Booked> user1Bookings = handle.createQuery(
                                         "SELECT id, free_id AS freeId, user_id AS userId, start_time AS startTime, end_time AS endTime "
                                                         +
@@ -288,9 +293,17 @@ public class GenerateFreeYearTest {
                                         }).list();
 
                         assertFalse(user1Bookings.isEmpty(), "User 1 ska ha bokningar");
+                        int tuesdayCount = 0;
+                        int thursdayCount = 0;
                         for (Models.Booked b : user1Bookings) {
-                                assertEquals(DayOfWeek.TUESDAY, b.startTime.getDayOfWeek(),
-                                                "Bokning för user_1 ska vara en tisdag");
+                                assertTrue(b.startTime.getDayOfWeek() == DayOfWeek.TUESDAY
+                                                || b.startTime.getDayOfWeek() == DayOfWeek.THURSDAY,
+                                                "Bokning ska vara en tisdag eller torsdag");
+                                if (b.startTime.getDayOfWeek() == DayOfWeek.TUESDAY) {
+                                        tuesdayCount++;
+                                } else if (b.startTime.getDayOfWeek() == DayOfWeek.THURSDAY) {
+                                        thursdayCount++;
+                                }
                                 assertEquals(18, b.startTime.getHour(), "Starttid ska vara 18:00");
                                 assertEquals(0, b.startTime.getMinute(), "Startminut ska vara 00");
                                 assertEquals(20, b.endTime.getHour(), "Sluttid ska vara 20:00");
@@ -300,35 +313,8 @@ public class GenerateFreeYearTest {
                                 assertTrue(!b.endTime.isAfter(now.plusYears(1)),
                                                 "Bokning ska inte sluta efter current timestamp + 1 år");
                         }
-
-                        // 6b. Kontrollera alla bokningar för user_2 (alla ska vara torsdagar kl 18-20)
-                        List<Models.Booked> user2Bookings = handle.createQuery(
-                                        "SELECT id, free_id AS freeId, user_id AS userId, start_time AS startTime, end_time AS endTime "
-                                                        +
-                                                        "FROM booked WHERE user_id = 2")
-                                        .map((rs, ctx) -> {
-                                                Models.Booked b = new Models.Booked();
-                                                b.id = rs.getInt("id");
-                                                b.freeId = rs.getInt("freeId");
-                                                b.userId = rs.getInt("userId");
-                                                b.startTime = LocalDateTime.parse(rs.getString("startTime"), FORMATTER);
-                                                b.endTime = LocalDateTime.parse(rs.getString("endTime"), FORMATTER);
-                                                return b;
-                                        }).list();
-
-                        assertFalse(user2Bookings.isEmpty(), "User 2 ska ha bokningar");
-                        for (Models.Booked b : user2Bookings) {
-                                assertEquals(DayOfWeek.THURSDAY, b.startTime.getDayOfWeek(),
-                                                "Bokning för user_2 ska vara en torsdag");
-                                assertEquals(18, b.startTime.getHour(), "Starttid ska vara 18:00");
-                                assertEquals(0, b.startTime.getMinute(), "Startminut ska vara 00");
-                                assertEquals(20, b.endTime.getHour(), "Sluttid ska vara 20:00");
-                                assertEquals(0, b.endTime.getMinute(), "Slutminut ska vara 00");
-                                assertTrue(!b.startTime.isBefore(now),
-                                                "Bokning ska inte starta före current timestamp");
-                                assertTrue(!b.endTime.isAfter(now.plusYears(1)),
-                                                "Bokning ska inte sluta efter current timestamp + 1 år");
-                        }
+                        assertTrue(tuesdayCount >= 50, "Det ska finnas tisdagsbokningar");
+                        assertTrue(thursdayCount >= 50, "Det ska finnas torsdagsbokningar");
                 });
 
                 // Verifiera integration mot Book-tjänsten
@@ -338,7 +324,8 @@ public class GenerateFreeYearTest {
                 assertEquals("Location 1", locations.get(0).name);
 
                 List<Models.User> users = book.getUsers();
-                assertEquals(10, users.size());
+                assertEquals(1, users.size());
+                assertEquals("testing@test.se", users.get(0).email);
 
                 List<Models.AssetLocation> assetLocations = book.getAssetLocations();
                 assertEquals(1, assetLocations.size());

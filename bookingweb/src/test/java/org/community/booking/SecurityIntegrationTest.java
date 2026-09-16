@@ -2,6 +2,8 @@ package org.community.booking;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.community.booking.security.AuthDtos;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +31,65 @@ public class SecurityIntegrationTest {
         @BeforeAll
         public static void setupDatabase() {
                 // Ensure database tables and initial test users exist
-                App.main(new String[0]);
+                Jdbi jdbi = Jdbi.create("jdbc:sqlite:booking_system.db?foreign_keys=true");
+                jdbi.installPlugin(new SqlObjectPlugin());
+                CreateInitialUser.initializeDatabase(jdbi);
+
+                jdbi.useHandle(handle -> {
+                        handle.execute("CREATE TABLE IF NOT EXISTS asset (" +
+                                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                                        "user_id INTEGER NOT NULL, " +
+                                        "mark TEXT, " +
+                                        "price_per_hour REAL NOT NULL, " +
+                                        "blob BLOB, " +
+                                        "FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
+                        handle.execute("CREATE TABLE IF NOT EXISTS location (" +
+                                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                                        "name TEXT NOT NULL, " +
+                                        "latitude REAL, " +
+                                        "longitude REAL, " +
+                                        "address TEXT)");
+                        handle.execute("CREATE TABLE IF NOT EXISTS asset_location (" +
+                                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                                        "location_id INTEGER, " +
+                                        "asset_id INTEGER UNIQUE, " +
+                                        "name TEXT NOT NULL, " +
+                                        "FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE, " +
+                                        "FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE)");
+                        handle.execute("CREATE TABLE IF NOT EXISTS free (" +
+                                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                                        "asset_id INTEGER NOT NULL, " +
+                                        "start_time TEXT NOT NULL, " +
+                                        "end_time TEXT NOT NULL, " +
+                                        "FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE)");
+                        handle.execute("CREATE TABLE IF NOT EXISTS booked (" +
+                                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                                        "free_id INTEGER NOT NULL, " +
+                                        "user_id INTEGER NOT NULL, " +
+                                        "start_time TEXT NOT NULL, " +
+                                        "end_time TEXT NOT NULL, " +
+                                        "FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE, " +
+                                        "FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
+                });
+
+                CreateInitialUser.insertUser(jdbi, "admin@example.com", "admin123", "BOOKADMIN");
+                CreateInitialUser.insertUser(jdbi, "user@example.com", "user123", "BOOKUSER");
+                CreateInitialUser.insertUser(jdbi, "super@example.com", "super123", "BOOKUSER,BOOKADMIN");
+
+                jdbi.useHandle(handle -> {
+                        Integer count = handle.createQuery("SELECT count(*) FROM asset WHERE id = 1")
+                                        .mapTo(Integer.class).one();
+                        if (count == 0) {
+                                Integer adminId = handle
+                                                .createQuery("SELECT id FROM user WHERE email = 'admin@example.com'")
+                                                .mapTo(Integer.class).one();
+                                handle.execute("INSERT OR IGNORE INTO location (id, name, latitude, longitude, address) VALUES (1, 'Location 1', 59.3293, 18.0686, '{}')");
+                                handle.execute("INSERT OR IGNORE INTO asset (id, user_id, mark, price_per_hour, blob) VALUES (1, ?, 'Asset 1', 10.0, NULL)",
+                                                adminId);
+                                handle.execute("INSERT OR IGNORE INTO asset_location (id, location_id, asset_id, name) VALUES (1, 1, 1, 'Asset Location 1')");
+                                handle.execute("INSERT OR IGNORE INTO free (id, asset_id, start_time, end_time) VALUES (1, 1, '2026-07-04T00:00:00', '2026-07-05T00:00:00')");
+                        }
+                });
         }
 
         private String obtainToken(String email, String password) throws Exception {

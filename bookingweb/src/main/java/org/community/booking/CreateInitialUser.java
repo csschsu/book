@@ -7,6 +7,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Scanner;
 
 /**
  * a18. Java program to enter initial user and password into the SQLite
@@ -14,7 +15,7 @@ import java.time.format.DateTimeFormatter;
  * Also ensures database tables are initialized with the updated schema
  * (a11-a17).
  */
-public class App {
+public class CreateInitialUser {
 
     private static final String DB_URL = "jdbc:sqlite:booking_system.db?foreign_keys=true";
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
@@ -28,16 +29,29 @@ public class App {
 
         initializeDatabase(jdbi);
 
+        String email = null;
+        String password = null;
+
         if (args != null && args.length >= 2) {
-            String email = args[0];
-            String password = args[1];
-            String role = (args.length >= 3) ? args[2] : "BOOKUSER";
-            insertUser(jdbi, email, password, role);
+            email = args[0];
+            password = args[1];
         } else {
-            System.out.println("Inserting initial default users into database...");
-            insertUser(jdbi, "admin@example.com", "admin123", "BOOKADMIN");
-            insertUser(jdbi, "user@example.com", "user123", "BOOKUSER");
-            insertUser(jdbi, "super@example.com", "super123", "BOOKUSER,BOOKADMIN");
+            Scanner scanner = new Scanner(System.in);
+            System.out.print("Enter email: ");
+            if (scanner.hasNextLine()) {
+                email = scanner.nextLine().trim();
+            }
+            System.out.print("Enter password: ");
+            if (scanner.hasNextLine()) {
+                password = scanner.nextLine().trim();
+            }
+            scanner.close();
+        }
+
+        if (email != null && !email.isEmpty() && password != null && !password.isEmpty()) {
+            insertUser(jdbi, email, password, "BOOKADMIN");
+        } else {
+            System.out.println("Email or password not provided.");
         }
 
         System.out.println("User initialization complete.");
@@ -45,7 +59,7 @@ public class App {
 
     public static void initializeDatabase(Jdbi jdbi) {
         jdbi.useHandle(handle -> {
-            System.out.println("Ensuring operational database tables exist...");
+            System.out.println("Ensuring user database table exists...");
             // Check if user table exists and whether it needs migration (a17)
             boolean userTableExists = handle.createQuery(
                     "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='user'")
@@ -70,45 +84,7 @@ public class App {
                     "createtime TEXT NOT NULL, " +
                     "role TEXT NOT NULL, " +
                     "address TEXT)");
-
-            handle.execute("CREATE TABLE IF NOT EXISTS asset (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    "user_id INTEGER NOT NULL, " +
-                    "mark TEXT, " +
-                    "price_per_hour REAL NOT NULL, " +
-                    "blob BLOB, " +
-                    "FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
-
-            handle.execute("CREATE TABLE IF NOT EXISTS location (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    "name TEXT NOT NULL, " +
-                    "latitude REAL, " +
-                    "longitude REAL, " +
-                    "address TEXT)");
-
-            handle.execute("CREATE TABLE IF NOT EXISTS asset_location (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    "location_id INTEGER, " +
-                    "asset_id INTEGER UNIQUE, " +
-                    "name TEXT NOT NULL, " +
-                    "FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE, " +
-                    "FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE)");
-
-            handle.execute("CREATE TABLE IF NOT EXISTS free (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    "asset_id INTEGER NOT NULL, " +
-                    "start_time TEXT NOT NULL, " +
-                    "end_time TEXT NOT NULL, " +
-                    "FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE)");
-
-            handle.execute("CREATE TABLE IF NOT EXISTS booked (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    "free_id INTEGER NOT NULL, " +
-                    "user_id INTEGER NOT NULL, " +
-                    "start_time TEXT NOT NULL, " +
-                    "end_time TEXT NOT NULL, " +
-                    "FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE, " +
-                    "FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
+            handle.execute("CREATE VIEW IF NOT EXISTS users AS SELECT * FROM user");
         });
     }
 
