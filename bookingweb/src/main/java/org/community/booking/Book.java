@@ -158,6 +158,11 @@ public class Book {
         List<Models.Free> getFreeBlocksByAsset(@Bind("assetId") int assetId,
                 @Bind("startTime") LocalDateTime startTime);
 
+        @SqlQuery("SELECT f.id, f.asset_id AS assetId, f.start_time AS startTime, f.end_time AS endTime " +
+                "FROM free f " +
+                "WHERE f.asset_id = :assetId")
+        List<Models.Free> getAllFreeBlocksByAsset(@Bind("assetId") int assetId);
+
         @SqlQuery("SELECT b.id, b.free_id AS freeId, b.user_id AS userId, u.email AS userEmail, b.start_time AS startTime, b.end_time AS endTime "
                 + "FROM booked b "
                 + "LEFT JOIN user u ON b.user_id = u.id "
@@ -434,8 +439,38 @@ public class Book {
         jdbi.useExtension(BookingDao.class, dao -> dao.deleteFreeTime(freeId));
     }
 
-    public void addFreeTime(int assetId, LocalDateTime startTime, LocalDateTime endTime) {
+    public void addFreeTime(int assetId, LocalDateTime startTime, LocalDateTime endTime) throws BookException {
         logger.debug("addFreeTime called: assetId={}, startTime={}, endTime={}", assetId, startTime, endTime);
+
+        // rule b. Registration of free start_time must be bigger than current time
+        LocalDateTime now = LocalDateTime.now();
+        if (startTime == null || !startTime.isAfter(now)) {
+            throw new BookException("Registration of free start_time must be bigger than current time");
+        }
+
+        // rule c. Registration of free end_time must be bigger than start_time
+        if (endTime == null || !endTime.isAfter(startTime)) {
+            throw new BookException("Registration of free end_time must be bigger than start_time");
+        }
+
+        // rule a. Registration of new free time must not overlapap another free for the
+        // asset
+        boolean hasOverlap = jdbi.withExtension(BookingDao.class, dao -> {
+            List<Models.Free> existingBlocks = dao.getAllFreeBlocksByAsset(assetId);
+            for (Models.Free existing : existingBlocks) {
+                if (existing.startTime != null && existing.endTime != null) {
+                    if (existing.startTime.isBefore(endTime) && existing.endTime.isAfter(startTime)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        });
+
+        if (hasOverlap) {
+            throw new BookException("Registration of new free time must not overlapap another free for the asset");
+        }
+
         jdbi.useExtension(BookingDao.class, dao -> dao.addFreeTime(assetId, startTime, endTime));
     }
 

@@ -1,0 +1,6 @@
+Please add verification in book.addFreeTime 
+rule a. message="Registration of new free time must not overlapap another free for the asset" 
+rule b. message="Registration of free start_time must be bigger than current time"
+rule c. message="Registration of free end_time must be bigger than start_time"
+if Registration does not meet rule a. or rule b. or rule c. book.addFreeTime return BookException with message 
+Show Exception message on page Lediga tider

@@ -1,40 +1,8 @@
 /*
  * Create Test in GenerateFreeYearTest.java in package org.community.function and use
  * JDBI create testdata in tables and generate data into the tables.
- * 
- * // Tabellerna rensas i bakåtvänd ordning för att inte bryta mot FOREIGN
- * // KEY-restriktioner
- * handle.execute("DROP TABLE IF EXISTS booked");
- * handle.execute("DROP TABLE IF EXISTS free");
- * handle.execute("DROP TABLE IF EXISTS asset_location");
- * handle.execute("DROP TABLE IF EXISTS location");
- * handle.execute("DROP TABLE IF EXISTS asset");
- * handle.execute("DROP TABLE IF EXISTS user");
- * 
- * // Nollställer AUTOINCREMENT-räknarna i SQLite så att ID börjar om på 1
- * handle.execute(
- * "DELETE FROM sqlite_sequence WHERE name IN ('booked', 'free', 'asset_location', 'asset', 'user')"
- * );
- * 
- * handle.execute(
- * "CREATE TABLE user (id INTEGER PRIMARY KEY AUTOINCREMENT, code INTEGER, name TEXT NOT NULL, address TEXT)"
- * );
- * handle.execute(
- * "CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, mark TEXT, price_per_hour REAL NOT NULL, blob BLOB, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)"
- * );
- * handle.execute(
- * "CREATE TABLE location (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, latitude REAL, longitude REAL, address TEXT)"
- * );
- * handle.execute(
- * "CREATE TABLE asset_location (id INTEGER PRIMARY KEY AUTOINCREMENT, location_id INTEGER, asset_id INTEGER UNIQUE, name TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE, FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE)"
- * );
- * handle.execute(
- * "CREATE TABLE free (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE)"
- * );
- * handle.execute(
- * "CREATE TABLE booked (id INTEGER PRIMARY KEY AUTOINCREMENT, free_id INTEGER NOT NULL, user_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)"
- * );
- * 2. Generera 10 köpare (users)
+ * 1. test@test.se
+ * 2. 
  * 3. Generera 1 tillgång (asset)
  * 4. Generera 1 plats (locations)
  * 5. Generera 1 lediga tider (free) under ÅRET som startar current timestamp
@@ -71,7 +39,7 @@ public class GenerateFreeYearTest {
         private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
 
         public static String getDbUrl() {
-                return "jdbc:sqlite:booking_system.db?foreign_keys=true";
+                return org.community.booking.config.DbConfig.getDbUrl();
         }
 
         private static String toJson(String email, String phone) {
@@ -131,7 +99,7 @@ public class GenerateFreeYearTest {
 
                         // 2. Generera användare (user)
                         String createtime = currentTimestamp.format(FORMATTER);
-                        String email = "testing@test.se";
+                        String email = "test@test.se";
                         String hashedPassword = PASSWORD_ENCODER.encode("password");
                         String jsonAddress = toJson(email, "070-1234567");
 
@@ -236,10 +204,10 @@ public class GenerateFreeYearTest {
                         int userCount = handle.createQuery("SELECT COUNT(*) FROM user").mapTo(Integer.class).one();
                         assertEquals(1, userCount, "Det ska finnas 1 användare");
 
-                        // Kontrollera att testing@test.se finns och att lösenordet är krypterat
+                        // Kontrollera att test@test.se finns och att lösenordet är krypterat
                         String user1Email = handle.createQuery("SELECT email FROM user WHERE id = 1")
                                         .mapTo(String.class).one();
-                        assertEquals("testing@test.se", user1Email);
+                        assertEquals("test@test.se", user1Email);
 
                         String user1Password = handle.createQuery("SELECT password FROM user WHERE id = 1")
                                         .mapTo(String.class).one();
@@ -325,7 +293,7 @@ public class GenerateFreeYearTest {
 
                 List<Models.User> users = book.getUsers();
                 assertEquals(1, users.size());
-                assertEquals("testing@test.se", users.get(0).email);
+                assertEquals("test@test.se", users.get(0).email);
 
                 List<Models.AssetLocation> assetLocations = book.getAssetLocations();
                 assertEquals(1, assetLocations.size());

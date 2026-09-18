@@ -17,15 +17,14 @@ import java.util.Scanner;
  */
 public class CreateInitialUser {
 
-    private static final String DB_URL = "jdbc:sqlite:booking_system.db?foreign_keys=true";
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
 
     public static void main(String[] args) {
-        System.out.println("Connecting to database: " + DB_URL);
-        Jdbi jdbi = Jdbi.create(DB_URL);
-        jdbi.installPlugin(new SqlObjectPlugin());
+        String dbUrl = org.community.booking.config.DbConfig.getDbUrl();
+        System.out.println("Connecting to database: " + dbUrl);
+        Jdbi jdbi = org.community.booking.config.DbConfig.createJdbi();
 
         initializeDatabase(jdbi);
 

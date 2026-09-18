@@ -71,9 +71,9 @@ const calendarFormats: Formats = {
   dayFormat: 'ddd DD/MM',
   dayHeaderFormat: 'dddd D MMMM',
   agendaDateFormat: 'ddd D MMMM',
-  eventTimeRangeFormat: ({ start, end }) => `${moment(start).format('HH:mm')} – ${moment(end).format('HH:mm')}`,
-  eventTimeRangeStartFormat: ({ start }) => `${moment(start).format('HH:mm')} – `,
-  eventTimeRangeEndFormat: ({ end }) => ` – ${moment(end).format('HH:mm')}`,
+  eventTimeRangeFormat: () => '',
+  eventTimeRangeStartFormat: () => '',
+  eventTimeRangeEndFormat: () => '',
   selectRangeFormat: ({ start, end }) => `${moment(start).format('HH:mm')} – ${moment(end).format('HH:mm')}`,
   agendaTimeRangeFormat: ({ start, end }) => `${moment(start).format('HH:mm')} – ${moment(end).format('HH:mm')}`,
 };
@@ -524,7 +524,11 @@ function App() {
       setAdminFreeReloadKey((k) => k + 1);
     } catch (err: unknown) {
       console.error(err);
-      setError('Misslyckades med att skapa ledig tid.');
+      if (err instanceof Error && err.message) {
+        setError(err.message);
+      } else {
+        setError('Misslyckades med att skapa ledig tid.');
+      }
     } finally {
       setAdminFreeLoading(false);
     }
@@ -534,13 +538,18 @@ function App() {
   const handleDeleteFreeTime = async (freeId: number) => {
     if (!window.confirm(`Vill du ta bort ledig tidslucka #${freeId}?`)) return;
     setAdminFreeLoading(true);
+    setError(null);
     try {
       await deleteFreeTime(freeId);
       setSuccessToast(`Ledig tidslucka #${freeId} togs bort.`);
       setAdminFreeReloadKey((k) => k + 1);
     } catch (err: unknown) {
       console.error(err);
-      setError('Kunde inte ta bort ledig tid.');
+      if (err instanceof Error && err.message) {
+        setError(err.message);
+      } else {
+        setError('Kunde inte ta bort ledig tid.');
+      }
     } finally {
       setAdminFreeLoading(false);
     }
@@ -1356,6 +1365,26 @@ function App() {
                 </select>
               </div>
             </div>
+
+            {/* Show Exception message on page Lediga tider */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-800 rounded-2xl p-4 flex items-center justify-between animate-fadeIn">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-bold text-red-800 text-sm">Felmeddelande</h4>
+                    <p className="text-sm mt-0.5">{error}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  className="text-red-600 hover:text-red-800 p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
 
             {/* Create Free Timeslot Form */}
             <form

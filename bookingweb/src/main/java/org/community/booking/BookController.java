@@ -17,6 +17,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,12 +31,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class BookController {
 
-  private static final String DB_URL = "jdbc:sqlite:booking_system.db?foreign_keys=true";
   private final Book book;
 
   public BookController() {
-    Jdbi jdbi = Jdbi.create(DB_URL);
-    jdbi.installPlugin(new SqlObjectPlugin());
+    Jdbi jdbi = org.community.booking.config.DbConfig.createJdbi();
     this.book = new Book(jdbi);
   }
 
@@ -154,11 +156,23 @@ public class BookController {
 
   @PreAuthorize("hasRole('BOOKADMIN')")
   @PostMapping("/freeTime")
-  public void addFreeTime(
+  public ResponseEntity<?> addFreeTime(
       @RequestParam("assetId") int assetId,
       @RequestParam("startTime") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
       @RequestParam("endTime") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) {
-    book.addFreeTime(assetId, startTime, endTime);
+    try {
+      book.addFreeTime(assetId, startTime, endTime);
+      return ResponseEntity.ok().build();
+    } catch (BookException e) {
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+          .body(Map.of("error", e.getMessage()));
+    }
+  }
+
+  @ExceptionHandler(BookException.class)
+  public ResponseEntity<?> handleBookException(BookException e) {
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        .body(Map.of("error", e.getMessage()));
   }
 
 }

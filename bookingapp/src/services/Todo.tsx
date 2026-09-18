@@ -19,12 +19,8 @@ API update:
 Logged in user and future booking ?
 */
 /*
-Calendar view shows 2 free, table has one
-API update: 
-?
-*/
-/*
-Calendar view shows booked time repeated two times 
+Calendar view show a booking with booked time repeated two times  18:00  - 20:00,  
+keep the time starting with clock symbol 18:00  - 20:00
 API update: 
 ?
 */

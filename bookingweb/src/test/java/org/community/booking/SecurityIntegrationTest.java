@@ -1,6 +1,7 @@
 package org.community.booking;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDateTime;
 import org.community.booking.security.AuthDtos;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
@@ -31,8 +32,7 @@ public class SecurityIntegrationTest {
         @BeforeAll
         public static void setupDatabase() {
                 // Ensure database tables and initial test users exist
-                Jdbi jdbi = Jdbi.create("jdbc:sqlite:booking_system.db?foreign_keys=true");
-                jdbi.installPlugin(new SqlObjectPlugin());
+                Jdbi jdbi = org.community.booking.config.DbConfig.createJdbi();
                 CreateInitialUser.initializeDatabase(jdbi);
 
                 jdbi.useHandle(handle -> {
@@ -201,25 +201,33 @@ public class SecurityIntegrationTest {
                                 .andExpect(status().isOk());
 
                 // POST /freeTime unauthenticated -> 401
+                LocalDateTime futureStart = LocalDateTime.now().plusYears(2).withHour(9).withMinute(0).withSecond(0);
+                LocalDateTime futureEnd = futureStart.plusHours(8);
+                String startTimeStr = futureStart.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                String endTimeStr = futureEnd.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+
+                Jdbi jdbi = org.community.booking.config.DbConfig.createJdbi();
+                jdbi.useHandle(h -> h.execute("DELETE FROM free WHERE asset_id = 1 AND start_time = ?", startTimeStr));
+
                 mockMvc.perform(post("/freeTime")
                                 .param("assetId", "1")
-                                .param("startTime", "2026-07-15T09:00:00")
-                                .param("endTime", "2026-07-15T17:00:00"))
+                                .param("startTime", startTimeStr)
+                                .param("endTime", endTimeStr))
                                 .andExpect(status().isUnauthorized());
 
                 // POST /freeTime with BOOKUSER -> 403
                 mockMvc.perform(post("/freeTime")
                                 .param("assetId", "1")
-                                .param("startTime", "2026-07-15T09:00:00")
-                                .param("endTime", "2026-07-15T17:00:00")
+                                .param("startTime", startTimeStr)
+                                .param("endTime", endTimeStr)
                                 .header("Authorization", "Bearer " + userToken))
                                 .andExpect(status().isForbidden());
 
                 // POST /freeTime with BOOKADMIN -> 200
                 mockMvc.perform(post("/freeTime")
                                 .param("assetId", "1")
-                                .param("startTime", "2026-07-15T09:00:00")
-                                .param("endTime", "2026-07-15T17:00:00")
+                                .param("startTime", startTimeStr)
+                                .param("endTime", endTimeStr)
                                 .header("Authorization", "Bearer " + adminToken))
                                 .andExpect(status().isOk());
         }

@@ -190,8 +190,8 @@
   white-space: nowrap;
 }
 
+/* Hide default time label from react-big-calendar to prevent duplicate time display,
+   keeping our custom event component which starts with the clock icon */
 .rbc-event-label {
-  font-size: 0.725rem !important;
-  font-weight: 700 !important;
-  opacity: 0.95;
+  display: none !important;
 }
