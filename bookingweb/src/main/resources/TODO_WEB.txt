@@ -1,4 +1,15 @@
-Please add verification in book.addFreeTime 
+2026-09-19
+1. Split APP.tsx into folders and files
+src/book/BookPage.tsx
+src/free/FreePage.tsx
+src/login/LoginPage.tsx
+1. App.tsx : a. Registration on Free receiving an error from the API shows   two error boxes with the same contents. Please remove one of them.
+App.tsx : b.  Do not show result text from previous request when error from current request is displayed 
+
+
+
+
+2026-09-18 Please add verification in book.addFreeTime 
 rule a. message="Registration of new free time must not overlapap another free for the asset" 
 rule b. message="Registration of free start_time must be bigger than current time"
 rule c. message="Registration of free end_time must be bigger than start_time"

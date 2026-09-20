@@ -409,6 +409,7 @@ function App() {
     setStartTime('');
     setEndTime('');
     setError(null);
+    setSuccessToast(null);
     setStep(3);
   };
 
@@ -417,21 +418,25 @@ function App() {
     if (!selectedLocation) return;
     if (!startTime || !endTime) {
       setError('Vänligen markera en tid i kalendern först.');
+      setSuccessToast(null);
       return;
     }
     if (new Date(startTime) >= new Date(endTime)) {
       setError('Starttid måste vara före sluttid.');
+      setSuccessToast(null);
       return;
     }
 
     setLoading(true);
     setError(null);
+    setSuccessToast(null);
     try {
       const searchStart = getBackendLocalISO(startTime);
       const searchEnd = getBackendLocalISO(endTime);
       const slots = await fetchTimeslots(selectedLocation, searchStart, searchEnd);
       if (!slots || slots.length === 0) {
         setError('Det finns ingen ledig tid som täcker det markerade intervallet, eller så är tiden redan bokad.');
+        setSuccessToast(null);
         return;
       }
       setSelectedTimeslot(slots[0]);
@@ -439,6 +444,7 @@ function App() {
     } catch (err: unknown) {
       console.error(err);
       setError('Ett fel uppstod vid kontroll av ledig tid.');
+      setSuccessToast(null);
     } finally {
       setLoading(false);
     }
@@ -449,6 +455,7 @@ function App() {
     if (!selectedLocation) return;
     setLoading(true);
     setError(null);
+    setSuccessToast(null);
     try {
       const sTime = getBackendLocalISO(startTime);
       const eTime = getBackendLocalISO(endTime);
@@ -466,6 +473,7 @@ function App() {
     } catch (err: unknown) {
       console.error(err);
       setError('Bokningen misslyckades. Tiden kan redan vara bokad av en annan användare.');
+      setSuccessToast(null);
     } finally {
       setLoading(false);
     }
@@ -501,6 +509,7 @@ function App() {
     setStartTime('');
     setEndTime('');
     setError(null);
+    setSuccessToast(null);
     setPendingBookingSlot(null);
     setStep(1);
   };
@@ -510,20 +519,24 @@ function App() {
     e.preventDefault();
     if (!newFreeStartTime || !newFreeEndTime) {
       setError('Välj både start- och sluttid.');
+      setSuccessToast(null);
       return;
     }
     setAdminFreeLoading(true);
     setError(null);
+    setSuccessToast(null);
     try {
       await addFreeTime(
         newFreeAssetId,
         getBackendLocalISO(newFreeStartTime),
         getBackendLocalISO(newFreeEndTime)
       );
+      setError(null);
       setSuccessToast('Ny ledig tid skapad!');
       setAdminFreeReloadKey((k) => k + 1);
     } catch (err: unknown) {
       console.error(err);
+      setSuccessToast(null);
       if (err instanceof Error && err.message) {
         setError(err.message);
       } else {
@@ -539,12 +552,15 @@ function App() {
     if (!window.confirm(`Vill du ta bort ledig tidslucka #${freeId}?`)) return;
     setAdminFreeLoading(true);
     setError(null);
+    setSuccessToast(null);
     try {
       await deleteFreeTime(freeId);
+      setError(null);
       setSuccessToast(`Ledig tidslucka #${freeId} togs bort.`);
       setAdminFreeReloadKey((k) => k + 1);
     } catch (err: unknown) {
       console.error(err);
+      setSuccessToast(null);
       if (err instanceof Error && err.message) {
         setError(err.message);
       } else {
@@ -560,19 +576,23 @@ function App() {
     e.preventDefault();
     if (!newUserEmail.trim() || !newUserPassword.trim()) {
       setError('E-post och lösenord krävs.');
+      setSuccessToast(null);
       return;
     }
     if (newUserPassword.length < 6) {
       setError('Lösenordet måste vara minst 6 tecken.');
+      setSuccessToast(null);
       return;
     }
     if (newUserRoles.length === 0) {
       setError('Välj minst en roll.');
+      setSuccessToast(null);
       return;
     }
 
     setAdminUsersLoading(true);
     setError(null);
+    setSuccessToast(null);
     try {
       const email = newUserEmail.trim();
       await addUser({
@@ -585,6 +605,7 @@ function App() {
           phone: newUserPhone.trim() || '',
         }
       });
+      setError(null);
       setSuccessToast(`Användaren ${email} har skapats!`);
       setNewUserEmail('');
       setNewUserPassword('');
@@ -592,6 +613,7 @@ function App() {
       setAdminUsersReloadKey((k) => k + 1);
     } catch (err: unknown) {
       console.error(err);
+      setSuccessToast(null);
       setError('Misslyckades med att skapa användare. E-posten kan redan vara registrerad.');
     } finally {
       setAdminUsersLoading(false);
@@ -888,7 +910,11 @@ function App() {
           {/* Navigation Tabs (Booking flow + Admin Tabs for BOOKADMIN) */}
           <div className="flex items-center gap-2 mt-5 border-t border-slate-100 pt-4 overflow-x-auto">
             <button
-              onClick={() => setActiveTab('booking')}
+              onClick={() => {
+                setActiveTab('booking');
+                setError(null);
+                setSuccessToast(null);
+              }}
               className={`text-sm font-semibold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === 'booking'
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'text-slate-600 hover:text-blue-800 hover:bg-blue-50'
@@ -901,7 +927,11 @@ function App() {
             {isBookAdmin && (
               <>
                 <button
-                  onClick={() => setActiveTab('admin-free')}
+                  onClick={() => {
+                    setActiveTab('admin-free');
+                    setError(null);
+                    setSuccessToast(null);
+                  }}
                   className={`text-sm font-semibold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === 'admin-free'
                     ? 'bg-purple-600 text-white shadow-sm'
                     : 'text-purple-800 hover:bg-purple-50 border border-purple-200'
@@ -911,7 +941,11 @@ function App() {
                   Lediga tider (Admin a51)
                 </button>
                 <button
-                  onClick={() => setActiveTab('admin-users')}
+                  onClick={() => {
+                    setActiveTab('admin-users');
+                    setError(null);
+                    setSuccessToast(null);
+                  }}
                   className={`text-sm font-semibold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === 'admin-users'
                     ? 'bg-purple-600 text-white shadow-sm'
                     : 'text-purple-800 hover:bg-purple-50 border border-purple-200'
@@ -926,7 +960,7 @@ function App() {
         </header>
 
         {/* Feedback Messages */}
-        {successToast && (
+        {successToast && !error && (
           <div className="mb-6 bg-green-50 border border-green-200 text-green-800 rounded-2xl p-3.5 flex items-center justify-between text-sm animate-fadeIn">
             <div className="flex items-center gap-2">
               <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
@@ -1365,26 +1399,6 @@ function App() {
                 </select>
               </div>
             </div>
-
-            {/* Show Exception message on page Lediga tider */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-800 rounded-2xl p-4 flex items-center justify-between animate-fadeIn">
-                <div className="flex items-center gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-bold text-red-800 text-sm">Felmeddelande</h4>
-                    <p className="text-sm mt-0.5">{error}</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setError(null)}
-                  className="text-red-600 hover:text-red-800 p-1"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
 
             {/* Create Free Timeslot Form */}
             <form
