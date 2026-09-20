@@ -1,0 +1,18 @@
+{
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "java.jdt.ls.vmargs": "-XX:+UseParallelGC",
+    "java.debug.settings.vmArgs": "--enable-native-access=ALL-UNNAMED",
+    "java.test.defaultConfig": "default",
+    "java.test.config": [
+        {
+            "name": "default",
+            "vmArgs": [
+                "--enable-native-access=ALL-UNNAMED"
+            ]
+        }
+    ],
+    "terminal.integrated.env.linux": {
+        "JDK_JAVA_OPTIONS": "--enable-native-access=ALL-UNNAMED"
+    }
+}
