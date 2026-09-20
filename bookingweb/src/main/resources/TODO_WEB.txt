@@ -12,6 +12,8 @@ src/login/UserPage.tsx
    grid of assets on the location. User select one asset by clicking on it and 
    continue to "3. Kalender"
 
+3. Change GenerateFreeYearTest.java to generate 2 locations, first location with one asset, second location with two assets
+
 2026-09-19
 -- 2. App.tsx : a. Registration on Free receiving an error from the API shows   two error boxes with the same contents. Please remove one of them.
 App.tsx : b.  Do not show result text from previous request when error from current request is displayed 

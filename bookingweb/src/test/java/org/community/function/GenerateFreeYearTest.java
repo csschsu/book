@@ -3,9 +3,9 @@
  * JDBI create testdata in tables and generate data into the tables.
  * 1. test@test.se
  * 2. 
- * 3. Generera 1 tillgång (asset)
- * 4. Generera 1 plats (locations)
- * 5. Generera 1 lediga tider (free) under ÅRET som startar current timestamp
+ * 3. Generera tillgångar (assets)
+ * 4. Generera 2 platser (locations), första platsen med en tillgång, andra platsen med två tillgångar
+ * 5. Generera lediga tider (free) under ÅRET som startar current timestamp
  *    och slutar current timestamp + 1 år.
  * 6. Generera bokningar (booked)
  *    a. En tid från kl 18 - 20 för user_1 varje tisdag under ÅRET.
@@ -119,32 +119,63 @@ public class GenerateFreeYearTest {
                         long user1Id = userIds.get(0);
                         long user2Id = user1Id;
 
-                        // 3. Generera 1 tillgång (asset)
+                        // 3. Generera 3 tillgångar (assets)
+                        // Första platsen med 1 tillgång, andra platsen med 2 tillgångar
                         handle.execute("INSERT INTO asset (user_id, mark, price_per_hour, blob) VALUES (?, ?, ?, ?)",
                                         user1Id, "Asset 1", 10.0, null);
-                        long assetId = handle.createQuery("SELECT id FROM asset ORDER BY id ASC LIMIT 1")
-                                        .mapTo(Long.class).one();
+                        handle.execute("INSERT INTO asset (user_id, mark, price_per_hour, blob) VALUES (?, ?, ?, ?)",
+                                        user1Id, "Asset 2", 15.0, null);
+                        handle.execute("INSERT INTO asset (user_id, mark, price_per_hour, blob) VALUES (?, ?, ?, ?)",
+                                        user1Id, "Asset 3", 20.0, null);
 
-                        // 4. Generera 1 plats (locations)
-                        String locationAddress = toJson("location1@example.com", "070-333331");
+                        List<Long> assetIds = handle.createQuery("SELECT id FROM asset ORDER BY id ASC")
+                                        .mapTo(Long.class).list();
+                        long asset1Id = assetIds.get(0);
+                        long asset2Id = assetIds.get(1);
+                        long asset3Id = assetIds.get(2);
+
+                        // 4. Generera 2 platser (locations)
+                        // Första platsen med en tillgång, andra platsen med två tillgångar
+                        String location1Address = toJson("location1@example.com", "070-333331");
                         handle.execute("INSERT INTO location (name, latitude, longitude, address) VALUES (?, ?, ?, ?)",
-                                        "Location 1", 59.3293, 18.0686, locationAddress);
-                        long locationId = handle.createQuery("SELECT id FROM location ORDER BY id ASC LIMIT 1")
-                                        .mapTo(Long.class)
-                                        .one();
+                                        "Location 1", 59.3293, 18.0686, location1Address);
 
+                        String location2Address = toJson("location2@example.com", "070-333332");
+                        handle.execute("INSERT INTO location (name, latitude, longitude, address) VALUES (?, ?, ?, ?)",
+                                        "Location 2", 57.7089, 11.9746, location2Address);
+
+                        List<Long> locationIds = handle.createQuery("SELECT id FROM location ORDER BY id ASC")
+                                        .mapTo(Long.class).list();
+                        long location1Id = locationIds.get(0);
+                        long location2Id = locationIds.get(1);
+
+                        // Koppla tillgångar till platser i asset_location
+                        // Första platsen med 1 tillgång:
                         handle.execute("INSERT INTO asset_location (location_id, asset_id, name) VALUES (?, ?, ?)",
-                                        locationId, assetId, "Asset Location 1");
+                                        location1Id, asset1Id, "Asset Location 1");
 
-                        // 5. Generera 1 lediga tider (free) under ÅRET som startar current timestamp
+                        // Andra platsen med 2 tillgångar:
+                        handle.execute("INSERT INTO asset_location (location_id, asset_id, name) VALUES (?, ?, ?)",
+                                        location2Id, asset2Id, "Asset Location 2");
+                        handle.execute("INSERT INTO asset_location (location_id, asset_id, name) VALUES (?, ?, ?)",
+                                        location2Id, asset3Id, "Asset Location 2");
+
+                        // 5. Generera lediga tider (free) under ÅRET som startar current timestamp
                         // och slutar current timestamp + 1 år.
                         LocalDateTime start = currentTimestamp;
                         LocalDateTime end = currentTimestamp.plusYears(1);
 
                         handle.execute("INSERT INTO free (asset_id, start_time, end_time) VALUES (?, ?, ?)",
-                                        assetId, start.format(FORMATTER), end.format(FORMATTER));
-                        long freeId = handle.createQuery("SELECT id FROM free ORDER BY id ASC LIMIT 1")
+                                        asset1Id, start.format(FORMATTER), end.format(FORMATTER));
+                        long freeId = handle
+                                        .createQuery("SELECT id FROM free WHERE asset_id = " + asset1Id
+                                                        + " ORDER BY id ASC LIMIT 1")
                                         .mapTo(Long.class).one();
+
+                        handle.execute("INSERT INTO free (asset_id, start_time, end_time) VALUES (?, ?, ?)",
+                                        asset2Id, start.format(FORMATTER), end.format(FORMATTER));
+                        handle.execute("INSERT INTO free (asset_id, start_time, end_time) VALUES (?, ?, ?)",
+                                        asset3Id, start.format(FORMATTER), end.format(FORMATTER));
 
                         // 6. Generera bokningar (booked)
                         // a. En tid från kl 18 - 20 för user_1 varje tisdag under ÅRET.
@@ -187,7 +218,7 @@ public class GenerateFreeYearTest {
                 System.out.println("Ansluter till databasen: " + dbUrl);
                 Jdbi jdbi = Jdbi.create(dbUrl);
 
-                System.out.println("Genererar testdata för ett helt år...");
+                System.out.println("Genererar testdata för ett helt år med 2 platser...");
                 generateData(jdbi);
                 System.out.println("Klart! Testdata har genererats framgångsrikt.");
         }
@@ -214,38 +245,50 @@ public class GenerateFreeYearTest {
                         assertTrue(PASSWORD_ENCODER.matches("password", user1Password),
                                         "Lösenordet ska vara krypterat och matcha 'password'");
 
-                        // 3. Kontrollera 1 tillgång (asset)
+                        // 3. Kontrollera 3 tillgångar (assets)
                         int assetCount = handle.createQuery("SELECT COUNT(*) FROM asset").mapTo(Integer.class).one();
-                        assertEquals(1, assetCount, "Det ska finnas 1 tillgång");
+                        assertEquals(3, assetCount, "Det ska finnas 3 tillgångar");
 
-                        // 4. Kontrollera 1 plats (locations) och koppling
+                        // 4. Kontrollera 2 platser (locations) och kopplingar
                         int locationCount = handle.createQuery("SELECT COUNT(*) FROM location").mapTo(Integer.class)
                                         .one();
-                        assertEquals(1, locationCount, "Det ska finnas 1 plats");
+                        assertEquals(2, locationCount, "Det ska finnas 2 platser");
 
                         int assetLocationCount = handle.createQuery("SELECT COUNT(*) FROM asset_location")
                                         .mapTo(Integer.class)
                                         .one();
-                        assertEquals(1, assetLocationCount, "Det ska finnas 1 asset_location koppling");
+                        assertEquals(3, assetLocationCount, "Det ska finnas 3 asset_location kopplingar");
 
-                        // 5. Kontrollera 1 ledig tid (free)
+                        // Kontrollera att Location 1 har 1 tillgång och Location 2 har 2 tillgångar
+                        int loc1Assets = handle.createQuery("SELECT COUNT(*) FROM asset_location WHERE location_id = 1")
+                                        .mapTo(Integer.class).one();
+                        assertEquals(1, loc1Assets, "Location 1 ska ha 1 tillgång");
+
+                        int loc2Assets = handle.createQuery("SELECT COUNT(*) FROM asset_location WHERE location_id = 2")
+                                        .mapTo(Integer.class).one();
+                        assertEquals(2, loc2Assets, "Location 2 ska ha 2 tillgångar");
+
+                        // 5. Kontrollera lediga tider (free)
                         int freeCount = handle.createQuery("SELECT COUNT(*) FROM free").mapTo(Integer.class).one();
-                        assertEquals(1, freeCount, "Det ska finnas 1 ledig tidsperiod");
+                        assertEquals(3, freeCount, "Det ska finnas 3 lediga tidsperioder");
 
-                        String freeStartTime = handle.createQuery("SELECT start_time FROM free LIMIT 1")
-                                        .mapTo(String.class).one();
-                        String freeEndTime = handle.createQuery("SELECT end_time FROM free LIMIT 1").mapTo(String.class)
-                                        .one();
-                        assertEquals(now.format(FORMATTER), freeStartTime);
-                        assertEquals(now.plusYears(1).format(FORMATTER), freeEndTime);
+                        List<String> freeStartTimes = handle.createQuery("SELECT start_time FROM free ORDER BY id ASC")
+                                        .mapTo(String.class).list();
+                        List<String> freeEndTimes = handle.createQuery("SELECT end_time FROM free ORDER BY id ASC")
+                                        .mapTo(String.class).list();
+                        for (String fStart : freeStartTimes) {
+                                assertEquals(now.format(FORMATTER), fStart);
+                        }
+                        for (String fEnd : freeEndTimes) {
+                                assertEquals(now.plusYears(1).format(FORMATTER), fEnd);
+                        }
 
                         // 6. Kontrollera bokningar (booked)
                         int bookedCount = handle.createQuery("SELECT COUNT(*) FROM booked").mapTo(Integer.class).one();
                         assertTrue(bookedCount >= 100,
                                         "Det bör finnas cirka 104 bokningar (52 tisdagar + 52 torsdagar)");
 
-                        // 6. Kontrollera alla bokningar för user 1 (både tisdagar och torsdagar kl
-                        // 18-20)
+                        // Kontrollera alla bokningar för user 1 (både tisdagar och torsdagar kl 18-20)
                         List<Models.Booked> user1Bookings = handle.createQuery(
                                         "SELECT id, free_id AS freeId, user_id AS userId, start_time AS startTime, end_time AS endTime "
                                                         +
@@ -288,14 +331,15 @@ public class GenerateFreeYearTest {
                 // Verifiera integration mot Book-tjänsten
                 Book book = new Book(jdbi);
                 List<Models.Location> locations = book.getLocations();
-                assertEquals(1, locations.size());
+                assertEquals(2, locations.size());
                 assertEquals("Location 1", locations.get(0).name);
+                assertEquals("Location 2", locations.get(1).name);
 
                 List<Models.User> users = book.getUsers();
                 assertEquals(1, users.size());
                 assertEquals("test@test.se", users.get(0).email);
 
                 List<Models.AssetLocation> assetLocations = book.getAssetLocations();
-                assertEquals(1, assetLocations.size());
+                assertEquals(3, assetLocations.size());
         }
 }
