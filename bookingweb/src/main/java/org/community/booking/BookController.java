@@ -10,7 +10,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 import org.community.booking.security.UserPrincipal;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -78,6 +77,12 @@ public class BookController {
   @GetMapping("/free/{locationId}")
   public List<Models.Free> getFreeByLocationId(@PathVariable("locationId") int locationId) {
     return book.getFreeBlocksByLocation(locationId);
+  }
+
+  @PreAuthorize("hasRole('BOOKADMIN')")
+  @GetMapping("/free/asset/{assetId}")
+  public List<Models.Free> getFreeByAssetId(@PathVariable("assetId") int assetId) {
+    return book.getAllFreeBlocksByAsset(assetId);
   }
 
   @PreAuthorize("hasRole('BOOKADMIN')")

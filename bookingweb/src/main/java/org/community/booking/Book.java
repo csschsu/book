@@ -160,7 +160,8 @@ public class Book {
 
         @SqlQuery("SELECT f.id, f.asset_id AS assetId, f.start_time AS startTime, f.end_time AS endTime " +
                 "FROM free f " +
-                "WHERE f.asset_id = :assetId")
+                "WHERE f.asset_id = :assetId " +
+                "ORDER BY f.start_time ASC")
         List<Models.Free> getAllFreeBlocksByAsset(@Bind("assetId") int assetId);
 
         @SqlQuery("SELECT b.id, b.free_id AS freeId, b.user_id AS userId, u.email AS userEmail, b.start_time AS startTime, b.end_time AS endTime "
@@ -244,6 +245,11 @@ public class Book {
     public List<Models.Free> getFreeBlocksByLocation(int locationId) {
         logger.debug("Getting free blocks for locationId: {}", locationId);
         return jdbi.withExtension(BookingDao.class, dao -> dao.getFreeBlocksByLocation(locationId));
+    }
+
+    public List<Models.Free> getAllFreeBlocksByAsset(int assetId) {
+        logger.debug("Getting all free blocks for assetId: {}", assetId);
+        return jdbi.withExtension(BookingDao.class, dao -> dao.getAllFreeBlocksByAsset(assetId));
     }
 
     public Models.User findOrCreateUser(String identifier) {

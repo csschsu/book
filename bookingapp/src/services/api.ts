@@ -220,6 +220,16 @@ export async function fetchFreeByLocationIdAdmin(locationId: number): Promise<Fr
   return response.json();
 }
 
+export async function fetchFreeByAssetIdAdmin(assetId: number): Promise<Free[]> {
+  const response = await apiFetch(`${API_BASE}/free/asset/${assetId}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch admin free blocks for asset: ${response.statusText}`);
+  }
+  return response.json();
+}
+
 export async function createFreeTimeslot(location: Location): Promise<string> {
   const response = await apiFetch(`${API_BASE}/free`, {
     method: 'POST',

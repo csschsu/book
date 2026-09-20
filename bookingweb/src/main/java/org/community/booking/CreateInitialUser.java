@@ -82,7 +82,8 @@ public class CreateInitialUser {
                     "createtime TEXT NOT NULL, " +
                     "role TEXT NOT NULL, " +
                     "address TEXT)");
-            handle.execute("CREATE VIEW IF NOT EXISTS users AS SELECT * FROM user");
+            // TODO: handle.execute("CREATE VIEW IF NOT EXISTS users AS SELECT * FROM
+            // user");
         });
     }
 

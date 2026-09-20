@@ -143,8 +143,8 @@ export default function StartPage() {
       const d = new Date(isoStr);
       return d.toLocaleString('sv-SE', {
         year: 'numeric',
-        month: 'short',
-        day: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
         hour12: false,
@@ -370,8 +370,8 @@ export default function StartPage() {
                         <span
                           key={r}
                           className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md ${r === 'BOOKADMIN'
-                              ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                              : 'bg-blue-100 text-blue-800 border border-blue-200'
+                            ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                            : 'bg-blue-100 text-blue-800 border border-blue-200'
                             }`}
                         >
                           {r}
@@ -413,8 +413,8 @@ export default function StartPage() {
                 setSuccessToast(null);
               }}
               className={`text-sm font-semibold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === 'booking'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-blue-800 hover:bg-blue-50'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-blue-800 hover:bg-blue-50'
                 }`}
             >
               <Calendar className="w-4 h-4" />
@@ -430,8 +430,8 @@ export default function StartPage() {
                     setSuccessToast(null);
                   }}
                   className={`text-sm font-semibold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === 'admin-free'
-                      ? 'bg-purple-600 text-white shadow-sm'
-                      : 'text-purple-800 hover:bg-purple-50 border border-purple-200'
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'text-purple-800 hover:bg-purple-50 border border-purple-200'
                     }`}
                 >
                   <Shield className="w-4 h-4" />
@@ -444,8 +444,8 @@ export default function StartPage() {
                     setSuccessToast(null);
                   }}
                   className={`text-sm font-semibold px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${activeTab === 'admin-users'
-                      ? 'bg-purple-600 text-white shadow-sm'
-                      : 'text-purple-800 hover:bg-purple-50 border border-purple-200'
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'text-purple-800 hover:bg-purple-50 border border-purple-200'
                     }`}
                 >
                   <Users className="w-4 h-4" />

@@ -10,6 +10,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
+/**
+ * Delegator / alias for backwards-compatibility.
+ * Main implementation is at org.community.booking.TestDataGenerator.
+ */
 public class TestDataGenerator {
 
         private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;

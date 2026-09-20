@@ -92,10 +92,10 @@
 .rbc-header {
   padding: 0.5rem 0.25rem;
   font-weight: 600;
-  color: #475569;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: #334155;
+  font-size: 0.8125rem;
+  text-transform: none;
+  letter-spacing: 0.01em;
   border-bottom-color: #e2e8f0;
 }
 

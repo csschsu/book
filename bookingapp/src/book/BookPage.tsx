@@ -15,12 +15,13 @@ import {
 } from 'lucide-react';
 import { Calendar as BigCalendar, momentLocalizer, type View, type Messages, type Formats } from 'react-big-calendar';
 import moment from 'moment';
-import 'moment/locale/sv';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { SWEDISH_WEEKDAYS, SWEDISH_MONTHS, setupSwedishLocale } from '../services/momentSv';
 import type { Location, Timeslot, AssetLocation, Booked, Free, AuthSession } from '../types/models';
 
-moment.locale('sv');
+setupSwedishLocale();
 const localizer = momentLocalizer(moment);
+localizer.startOfWeek = () => 1;
 
 const calendarMessages: Messages = {
   allDay: 'Heldag',
@@ -38,12 +39,38 @@ const calendarMessages: Messages = {
   showMore: (total: number) => `+${total} fler`,
 };
 
+const capitalize = (str: string) => (str ? str.charAt(0).toUpperCase() + str.slice(1) : '');
+
 const calendarFormats: Formats = {
   timeGutterFormat: 'HH:mm',
   agendaTimeFormat: 'HH:mm',
-  dayFormat: 'ddd DD/MM',
-  dayHeaderFormat: 'dddd D MMMM',
-  agendaDateFormat: 'ddd D MMMM',
+  weekdayFormat: (date: Date) => SWEDISH_WEEKDAYS[date.getDay()],
+  dayFormat: (date: Date) => {
+    const day = SWEDISH_WEEKDAYS[date.getDay()];
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${day} ${pad(date.getDate())}/${pad(date.getMonth() + 1)}`;
+  },
+  dayHeaderFormat: (date: Date) => {
+    const day = SWEDISH_WEEKDAYS[date.getDay()];
+    const month = SWEDISH_MONTHS[date.getMonth()].toLowerCase();
+    return `${day} ${date.getDate()} ${month} ${date.getFullYear()}`;
+  },
+  agendaDateFormat: (date: Date) => {
+    const day = SWEDISH_WEEKDAYS[date.getDay()];
+    const month = SWEDISH_MONTHS[date.getMonth()].toLowerCase();
+    return `${day} ${date.getDate()} ${month}`;
+  },
+  monthHeaderFormat: (date: Date) => {
+    return `${SWEDISH_MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+  },
+  dayRangeHeaderFormat: ({ start, end }) => {
+    const sMonth = SWEDISH_MONTHS[start.getMonth()].toLowerCase();
+    const eMonth = SWEDISH_MONTHS[end.getMonth()].toLowerCase();
+    if (start.getMonth() === end.getMonth()) {
+      return `${SWEDISH_MONTHS[start.getMonth()]} ${start.getFullYear()}: ${start.getDate()} – ${end.getDate()}`;
+    }
+    return `${start.getDate()} ${sMonth} – ${end.getDate()} ${eMonth} ${end.getFullYear()}`;
+  },
   eventTimeRangeFormat: () => '',
   eventTimeRangeStartFormat: () => '',
   eventTimeRangeEndFormat: () => '',
@@ -489,12 +516,12 @@ export default function BookPage({
                 </div>
                 {hasValidSelection ? (
                   <p className="text-sm font-semibold text-slate-700 mt-0.5">
-                    {new Date(startTime).toLocaleDateString('sv-SE', {
-                      weekday: 'short',
+                    {capitalize(new Date(startTime).toLocaleDateString('sv-SE', {
+                      weekday: 'long',
                       year: 'numeric',
-                      month: 'short',
+                      month: 'long',
                       day: 'numeric',
-                    })}{' '}
+                    }))}{' '}
                     <span className="text-blue-700 font-bold">
                       {formatTimeOnly(startTime)} – {formatTimeOnly(endTime)}
                     </span>
@@ -560,7 +587,7 @@ export default function BookPage({
               <div><strong>Anläggning / Plats:</strong> {selectedLocation.name}</div>
               <div><strong>Resurs:</strong> {selectedAsset?.name || getAssetLocationName(selectedTimeslot.assetId)}</div>
               <div><strong>Tidslucka ID:</strong> {selectedTimeslot.freeid}</div>
-              <div><strong>Datum:</strong> {new Date(startTime || selectedTimeslot.startTime).toLocaleDateString('sv-SE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+              <div><strong>Datum:</strong> {capitalize(new Date(startTime || selectedTimeslot.startTime).toLocaleDateString('sv-SE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))}</div>
               <div><strong>Tid:</strong> {formatTimeOnly(startTime || selectedTimeslot.startTime)} – {formatTimeOnly(endTime || selectedTimeslot.endTime)}</div>
             </div>
           </div>

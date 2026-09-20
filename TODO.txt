@@ -14,6 +14,23 @@ src/login/UserPage.tsx
 
 3. Change GenerateFreeYearTest.java to generate 2 locations, first location with one asset, second location with two assets
 
+4. Change FreePage.tsx to show grid with locations and assets. When user select asset, a new AssetFreePage showing showing free time for the assetis opened, user can add new free time or delete existing item in the list. 
+
+5. Ta bort text "Rutnät över platser och resurser Klicka på en resurs för att visa och redigera dess lediga tider". flytta    
+filtrera plats till "a51. Hantera lediga tider (BOOKADMIN)
+Välj en resurs i rutnätet för att visa, skapa och ta bort dess lediga tider."
+
+6a. ta bort box med Aktiv resurs #1
+Plats: Location 1
+Asset Location 1
+Uppdatera tider
+6b Ta bort fält med Vald Resurs
+6c Visa "Lediga tider för Asset Location 1# 
+  före "Lägg till ny ledig tid för Asset Location 1"
+6d. "Lägg till ny ledig tid för Asset Location 1" visas 2 gånger. "Ta bort den före Lediga tider för Asset Location 1"  
+
+
+
 2026-09-19
 -- 2. App.tsx : a. Registration on Free receiving an error from the API shows   two error boxes with the same contents. Please remove one of them.
 App.tsx : b.  Do not show result text from previous request when error from current request is displayed 

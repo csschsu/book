@@ -2,15 +2,15 @@
 
 ## Commands in bookingweb 
 
-### Recreate testdata 
-cd community/bookingweb
-mvnw compile exec:java -Dexec.mainClass="org.community.booking.TestDataGenerator"
+### Create testdata ( recreate the database and load new data )
+cd bookingweb; mvn test-compile exec:java -Dexec.mainClass="org.community.booking.TestDataGenerator"
+cd bookingweb; mvn test-compile exec:java -Dexec.mainClass="org.community.function.GenerateFreeYearTest"
 
-### Start spring boot
+### Start spring bnpm run devoot
 
-cd community/bookingweb
+cd bookingweb
 mvnw spring-boot:run
 
 ### Start app
-cd community/bookingapp
+cd bookingapp
 npm run dev
