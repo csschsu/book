@@ -1,3 +1,19 @@
+2026-09-21
+
+1. Create a folder called src/location
+2. Create a folder called src/asset
+3. Move AssetPage.tsx to src/asset
+4. Add a workflow visible to BOOKADMIN starting with a button "Ny Plats" on {/* Main Body */}  
+  4.1 function enter new location data
+  4.2 function view existing assets  
+  4.3 function create new asset  
+
+5. Add a workflow visible to BOOKADMIN starting with a button "uppdatera" in the location box.
+  5.1 function to view and update location data
+  5.2 use function 4.2 view existing assets  
+  5.3 use function 4.3 create new asset  
+  5.4 function to delete asset 
+
 2026-09-20
 1. Split APP.tsx into folders and files
 src/StartPage.tsx

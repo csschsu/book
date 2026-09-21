@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Location, AssetLocation, AuthSession } from './types/models';
 import { getAuthSession, logout } from './services/api';
-import { LocationPage } from './book/LocationPage';
-import { AssetPage } from './book/AssetPage';
+import { LocationPage } from './location/LocationPage';
+import { AssetPage } from './asset/AssetPage';
 import { BookPage } from './book/BookPage';
 import { FreePage } from './free/FreePage';
 import { UserPage } from './login/UserPage';
@@ -138,7 +138,7 @@ export const StartPage: React.FC = () => {
         {view === 'book' && (
           <>
             {step === 1 && (
-              <LocationPage onSelectLocation={handleSelectLocation} />
+              <LocationPage onSelectLocation={handleSelectLocation} isAdmin={isAdmin} />
             )}
 
             {step === 2 && selectedLocation && (

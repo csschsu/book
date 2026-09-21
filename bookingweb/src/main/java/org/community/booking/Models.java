@@ -94,7 +94,7 @@ public class Models {
 
     @Data
     public static class Location {
-        public int id;
+        public Integer id;
         public String name;
         public Double latitude;
         public Double longitude;
@@ -102,7 +102,7 @@ public class Models {
 
         public Location() {}
 
-        public Location(int id, String name, Double latitude, Double longitude, Address address) {
+        public Location(Integer id, String name, Double latitude, Double longitude, Address address) {
             this.id = id;
             this.name = name;
             this.latitude = latitude;
@@ -110,8 +110,8 @@ public class Models {
             this.address = address;
         }
 
-        public int getId() { return id; }
-        public void setId(int id) { this.id = id; }
+        public Integer getId() { return id; }
+        public void setId(Integer id) { this.id = id; }
         public String getName() { return name; }
         public void setName(String name) { this.name = name; }
         public Double getLatitude() { return latitude; }

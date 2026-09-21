@@ -55,6 +55,12 @@ public class Book {
         @GetGeneratedKeys("id")
         int insertLocation(@BindBean Models.Location location);
 
+        @SqlUpdate("UPDATE location SET name = :name, latitude = :latitude, longitude = :longitude, address = :address WHERE id = :id")
+        int updateLocation(@BindBean Models.Location location);
+
+        @SqlUpdate("DELETE FROM location WHERE id = :id")
+        int deleteLocation(@Bind("id") int id);
+
         @SqlQuery("SELECT * FROM asset WHERE id = :id")
         @RegisterFieldMapper(Models.Asset.class)
         Models.Asset getAssetById(@Bind("id") int id);
@@ -63,9 +69,16 @@ public class Book {
         @GetGeneratedKeys("id")
         int insertAsset(@BindBean Models.Asset asset);
 
+        @SqlUpdate("DELETE FROM asset WHERE id = :id")
+        int deleteAsset(@Bind("id") int id);
+
         @SqlQuery("SELECT * FROM asset_location ORDER BY id")
         @RegisterFieldMapper(Models.AssetLocation.class)
         List<Models.AssetLocation> getAssetLocations();
+
+        @SqlQuery("SELECT * FROM asset_location WHERE id = :id")
+        @RegisterFieldMapper(Models.AssetLocation.class)
+        Models.AssetLocation getAssetLocationById(@Bind("id") int id);
 
         @SqlQuery("SELECT * FROM asset_location WHERE location_id = :locationId ORDER BY id")
         @RegisterFieldMapper(Models.AssetLocation.class)
@@ -74,6 +87,12 @@ public class Book {
         @SqlUpdate("INSERT INTO asset_location (location_id, asset_id, name) VALUES (:locationId, :assetId, :name)")
         @GetGeneratedKeys("id")
         int insertAssetLocation(@BindBean Models.AssetLocation assetLocation);
+
+        @SqlUpdate("DELETE FROM asset_location WHERE id = :id")
+        int deleteAssetLocationById(@Bind("id") int id);
+
+        @SqlUpdate("DELETE FROM asset_location WHERE asset_id = :assetId")
+        int deleteAssetLocationByAssetId(@Bind("assetId") int assetId);
 
         @SqlQuery("SELECT f.* FROM free f " +
                   "JOIN asset_location al ON f.asset_id = al.asset_id " +
@@ -225,12 +244,77 @@ public class Book {
         return dao.getLocationById(id);
     }
 
+    public Models.Location addLocation(Models.Location location) {
+        if (location == null || location.getName() == null || location.getName().trim().isEmpty()) {
+            throw new BookException("Location name is required");
+        }
+        int id = dao.insertLocation(location);
+        location.setId(id);
+        return location;
+    }
+
+    public Models.Location updateLocation(Models.Location location) {
+        if (location == null || location.getId() <= 0) {
+            throw new BookException("Valid location ID is required");
+        }
+        if (location.getName() == null || location.getName().trim().isEmpty()) {
+            throw new BookException("Location name is required");
+        }
+        dao.updateLocation(location);
+        return dao.getLocationById(location.getId());
+    }
+
+    public void deleteLocation(int id) {
+        dao.deleteLocation(id);
+    }
+
     public List<Models.AssetLocation> getAssetLocations() {
         return dao.getAssetLocations();
     }
 
     public List<Models.AssetLocation> getAssetLocationsByLocation(int locationId) {
         return dao.getAssetLocationsByLocation(locationId);
+    }
+
+    public Models.AssetLocation addAssetToLocation(int locationId, String name, Double pricePerHour, Integer userId) {
+        if (name == null || name.trim().isEmpty()) {
+            throw new BookException("Asset name is required");
+        }
+        Models.Location loc = dao.getLocationById(locationId);
+        if (loc == null) {
+            throw new BookException("Location not found");
+        }
+        int uid = (userId != null && userId > 0) ? userId : 1;
+        double price = (pricePerHour != null && pricePerHour >= 0) ? pricePerHour : 0.0;
+
+        Models.Asset asset = new Models.Asset();
+        asset.setUserId(uid);
+        asset.setMark(name.trim());
+        asset.setPricePerHour(price);
+        int assetId = dao.insertAsset(asset);
+
+        Models.AssetLocation al = new Models.AssetLocation();
+        al.setLocationId(locationId);
+        al.setAssetId(assetId);
+        al.setName(name.trim());
+        int alId = dao.insertAssetLocation(al);
+        al.setId(alId);
+        return al;
+    }
+
+    public void deleteAsset(int assetId) {
+        dao.deleteAssetLocationByAssetId(assetId);
+        dao.deleteAsset(assetId);
+    }
+
+    public void deleteAssetLocation(int id) {
+        Models.AssetLocation al = dao.getAssetLocationById(id);
+        if (al != null) {
+            dao.deleteAssetLocationById(id);
+            if (al.getAssetId() != null) {
+                dao.deleteAsset(al.getAssetId());
+            }
+        }
     }
 
     public List<Models.Free> getFreeBlocks(int locationId, LocalDateTime startTime) {

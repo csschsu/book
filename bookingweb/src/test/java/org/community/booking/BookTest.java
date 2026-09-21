@@ -100,5 +100,44 @@ public class BookTest {
         book.deleteBookedTime(bookedId);
         book.deleteFreeTime(freeId);
     }
+
+    @Test
+    public void testLocationAndAssetCrud() {
+        // 1. Create Location
+        Models.Location newLoc = new Models.Location();
+        newLoc.setName("Test Center");
+        newLoc.setLatitude(59.33);
+        newLoc.setLongitude(18.07);
+        newLoc.setAddress(new Models.Address("test@center.se", "08-123456"));
+        Models.Location createdLoc = book.addLocation(newLoc);
+        assertTrue(createdLoc.getId() > 0);
+        assertEquals("Test Center", createdLoc.getName());
+
+        // 2. Update Location
+        createdLoc.setName("Test Center Updated");
+        createdLoc.getAddress().setPhone("08-654321");
+        Models.Location updatedLoc = book.updateLocation(createdLoc);
+        assertEquals("Test Center Updated", updatedLoc.getName());
+        assertEquals("08-654321", updatedLoc.getAddress().getPhone());
+
+        // 3. Add Asset to Location
+        Models.AssetLocation createdAssetLoc = book.addAssetToLocation(createdLoc.getId(), "Test Room 101", 150.0, 1);
+        assertNotNull(createdAssetLoc);
+        assertTrue(createdAssetLoc.getId() > 0);
+        assertEquals("Test Room 101", createdAssetLoc.getName());
+        assertEquals(createdLoc.getId(), createdAssetLoc.getLocationId());
+
+        List<Models.AssetLocation> locAssets = book.getAssetLocationsByLocation(createdLoc.getId());
+        assertEquals(1, locAssets.size());
+        assertEquals("Test Room 101", locAssets.get(0).getName());
+
+        // 4. Delete Asset
+        book.deleteAsset(createdAssetLoc.getAssetId());
+        List<Models.AssetLocation> afterDeleteAssets = book.getAssetLocationsByLocation(createdLoc.getId());
+        assertEquals(0, afterDeleteAssets.size());
+
+        // Clean up created location
+        book.deleteLocation(createdLoc.getId());
+    }
 }
 

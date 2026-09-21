@@ -41,9 +41,48 @@ public class BookController {
         return ResponseEntity.ok(book.getLocations());
     }
 
+    @PostMapping({"/location", "/locations"})
+    public ResponseEntity<Models.Location> createLocation(@RequestBody Models.Location location) {
+        Models.Location created = book.addLocation(location);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @PutMapping({"/location/{id}", "/locations/{id}"})
+    public ResponseEntity<Models.Location> updateLocation(@PathVariable int id, @RequestBody Models.Location location) {
+        location.setId(id);
+        Models.Location updated = book.updateLocation(location);
+        return ResponseEntity.ok(updated);
+    }
+
     @GetMapping("/assetlocations")
-    public ResponseEntity<List<Models.AssetLocation>> getAssetLocations() {
+    public ResponseEntity<List<Models.AssetLocation>> getAssetLocations(@RequestParam(required = false) Integer locationId) {
+        if (locationId != null) {
+            return ResponseEntity.ok(book.getAssetLocationsByLocation(locationId));
+        }
         return ResponseEntity.ok(book.getAssetLocations());
+    }
+
+    @PostMapping("/location/{locationId}/asset")
+    public ResponseEntity<Models.AssetLocation> createAssetForLocation(
+            @PathVariable int locationId,
+            @RequestBody Map<String, Object> body) {
+        String name = (String) body.get("name");
+        Double price = body.get("pricePerHour") != null ? Double.valueOf(body.get("pricePerHour").toString()) : null;
+        Integer userId = body.get("userId") != null ? Integer.valueOf(body.get("userId").toString()) : null;
+        Models.AssetLocation created = book.addAssetToLocation(locationId, name, price, userId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @DeleteMapping("/asset/{assetId}")
+    public ResponseEntity<Map<String, Object>> deleteAsset(@PathVariable int assetId) {
+        book.deleteAsset(assetId);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Asset deleted"));
+    }
+
+    @DeleteMapping("/assetlocation/{id}")
+    public ResponseEntity<Map<String, Object>> deleteAssetLocation(@PathVariable int id) {
+        book.deleteAssetLocation(id);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Asset location deleted"));
     }
 
     @GetMapping("/booked")

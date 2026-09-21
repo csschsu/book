@@ -196,3 +196,47 @@ export async function addUser(user: Partial<User>): Promise<User> {
   return handleResponse<User>(res);
 }
 
+export async function createLocation(location: Partial<Location>): Promise<Location> {
+  const res = await fetch(`${API_BASE}/location`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(location),
+  });
+  return handleResponse<Location>(res);
+}
+
+export async function updateLocation(id: number, location: Partial<Location>): Promise<Location> {
+  const res = await fetch(`${API_BASE}/location/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(location),
+  });
+  return handleResponse<Location>(res);
+}
+
+export async function fetchAssetsByLocation(locationId: number): Promise<AssetLocation[]> {
+  const res = await fetch(`${API_BASE}/assetlocations?locationId=${locationId}`);
+  return handleResponse<AssetLocation[]>(res);
+}
+
+export async function createAsset(
+  locationId: number,
+  name: string,
+  pricePerHour?: number
+): Promise<AssetLocation> {
+  const res = await fetch(`${API_BASE}/location/${locationId}/asset`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ name, pricePerHour }),
+  });
+  return handleResponse<AssetLocation>(res);
+}
+
+export async function deleteAsset(assetId: number): Promise<{ success: boolean }> {
+  const res = await fetch(`${API_BASE}/asset/${assetId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  return handleResponse<{ success: boolean }>(res);
+}
+
