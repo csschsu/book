@@ -1,67 +1,13 @@
-import type { Location, Timeslot, User, AssetLocation, Booked, Free, AuthSession } from '../types/models';
+import { AuthSession, Location, AssetLocation, Free, Booked, Timeslot, User } from '../types/models';
 
 const API_BASE = '/api';
 const AUTH_KEY = 'community_booking_auth';
 
-/**
- * Wrapper around fetch that logs all outgoing API requests, payloads,
- * responses, and errors to the console.
- */
-async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
-  const method = (init?.method || 'GET').toUpperCase();
-  const url = input;
-
-  let logPayload: unknown = undefined;
-  if (init?.body && typeof init.body === 'string') {
-    try {
-      const parsed = JSON.parse(init.body);
-      if (parsed && typeof parsed === 'object' && 'password' in parsed) {
-        logPayload = { ...parsed, password: '***' };
-      } else {
-        logPayload = parsed;
-      }
-    } catch {
-      logPayload = init.body;
-    }
-  }
-
-  if (logPayload !== undefined) {
-    console.log(`[API Request] ${method} ${url}`, logPayload);
-  } else {
-    console.log(`[API Request] ${method} ${url}`);
-  }
-
-  try {
-    const response = await fetch(input, init);
-    const clone = response.clone();
-    clone.text().then((text) => {
-      let data: unknown = text;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        // use raw text
-      }
-      if (response.ok) {
-        console.log(`[API Response] ${method} ${url} (${response.status})`, data);
-      } else {
-        console.warn(`[API Response Error] ${method} ${url} (${response.status})`, data);
-      }
-    }).catch(() => {
-      console.log(`[API Response] ${method} ${url} (${response.status})`);
-    });
-    return response;
-  } catch (error) {
-    console.error(`[API Network Error] ${method} ${url}`, error);
-    throw error;
-  }
-}
-
-// --- Authentication & Token Helpers ---
-
 export function getAuthSession(): AuthSession | null {
+  const data = localStorage.getItem(AUTH_KEY);
+  if (!data) return null;
   try {
-    const raw = localStorage.getItem(AUTH_KEY);
-    return raw ? JSON.parse(raw) : null;
+    return JSON.parse(data) as AuthSession;
   } catch {
     return null;
   }
@@ -75,226 +21,178 @@ export function clearAuthSession(): void {
   localStorage.removeItem(AUTH_KEY);
 }
 
-export function getAuthToken(): string | null {
-  const session = getAuthSession();
-  return session ? session.token : null;
-}
-
 export function getAuthHeaders(): HeadersInit {
-  const token = getAuthToken();
+  const session = getAuthSession();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  if (session && session.token) {
+    headers['Authorization'] = `Bearer ${session.token}`;
   }
   return headers;
 }
 
-// --- a41: Login & a42: Logout ---
+async function handleResponse<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    let errorMsg = `HTTP ${res.status}: ${res.statusText}`;
+    try {
+      const errJson = await res.json();
+      if (errJson && errJson.error) {
+        errorMsg = errJson.error;
+      } else if (errJson && errJson.message) {
+        errorMsg = errJson.message;
+      }
+    } catch {
+      // not json
+    }
+    throw new Error(errorMsg);
+  }
+  const text = await res.text();
+  if (!text) return {} as T;
+  return JSON.parse(text) as T;
+}
 
-export async function login(email: string, password: string): Promise<AuthSession> {
-  const response = await apiFetch(`${API_BASE}/login`, {
+export async function login(identifier: string, password: string): Promise<AuthSession> {
+  const res = await fetch(`${API_BASE}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ identifier, password }),
   });
-
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(errData.error || `Inloggningen misslyckades (${response.status})`);
-  }
-
-  const session: AuthSession = await response.json();
+  const session = await handleResponse<AuthSession>(res);
   setAuthSession(session);
   return session;
 }
 
 export async function logout(): Promise<void> {
   try {
-    await apiFetch(`${API_BASE}/logout`, {
+    await fetch(`${API_BASE}/logout`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
-  } catch (err) {
-    console.warn('Backend logout call returned warning:', err);
   } finally {
     clearAuthSession();
   }
 }
 
-// --- OPEN Discovery Endpoints (a31, a32, a33) ---
+export async function fetchLocations(): Promise<Location[]> {
+  const res = await fetch(`${API_BASE}/locations`);
+  return handleResponse<Location[]>(res);
+}
 
 export async function fetchAssetLocations(): Promise<AssetLocation[]> {
-  const response = await apiFetch(`${API_BASE}/assetlocations`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch asset locations: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-export async function fetchLocations(): Promise<Location[]> {
-  const response = await apiFetch(`${API_BASE}/locations`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch locations: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-export async function fetchBookedByLocation(locationId: number): Promise<Booked[]> {
-  const response = await apiFetch(`${API_BASE}/booked?locationId=${locationId}`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch booked times: ${response.statusText}`);
-  }
-  return response.json();
+  const res = await fetch(`${API_BASE}/assetlocations`);
+  return handleResponse<AssetLocation[]>(res);
 }
 
 export async function fetchFreeByLocation(locationId: number): Promise<Free[]> {
-  const response = await apiFetch(`${API_BASE}/free?locationId=${locationId}`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch free times: ${response.statusText}`);
-  }
-  return response.json();
+  const res = await fetch(`${API_BASE}/free?locationId=${locationId}`);
+  return handleResponse<Free[]>(res);
 }
 
-export async function fetchTimeslots(location: Location, startTime: string, endTime: string): Promise<Timeslot[]> {
-  const url = `${API_BASE}/timeslot?startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`;
-  const response = await apiFetch(url, {
+export async function fetchBookedByLocation(locationId: number): Promise<Booked[]> {
+  const res = await fetch(`${API_BASE}/booked/${locationId}`);
+  return handleResponse<Booked[]>(res);
+}
+
+export async function fetchTimeslots(
+  location: Location,
+  startTime?: string,
+  endTime?: string
+): Promise<Timeslot[]> {
+  let url = `${API_BASE}/timeslot`;
+  const params = new URLSearchParams();
+  if (startTime) params.append('startTime', startTime);
+  if (endTime) params.append('endTime', endTime);
+  const qs = params.toString();
+  if (qs) url += `?${qs}`;
+
+  const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(location),
   });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch timeslots: ${response.statusText}`);
-  }
-  return response.json();
+  return handleResponse<Timeslot[]>(res);
 }
-
-// --- Booking (a34.1, a34.3) ---
 
 export async function bookTime(
   freeId: number,
   userId: number,
   startTime: string,
   endTime: string
-): Promise<void> {
+): Promise<{ id: number; message: string }> {
   const params = new URLSearchParams({
-    freeId: freeId.toString(),
-    userId: userId.toString(),
+    freeId: String(freeId),
+    userId: String(userId),
     startTime,
     endTime,
   });
-  const url = `${API_BASE}/bookTime?${params.toString()}`;
-  const response = await apiFetch(url, {
+  const res = await fetch(`${API_BASE}/bookTime?${params.toString()}`, {
     method: 'POST',
     headers: getAuthHeaders(),
   });
-
-  if (!response.ok) {
-    throw new Error(`Failed to book timeslot: ${response.statusText}`);
-  }
+  return handleResponse<{ id: number; message: string }>(res);
 }
 
-export async function deleteBookedTime(bookedId: number): Promise<void> {
-  const response = await apiFetch(`${API_BASE}/bookedTime/${bookedId}`, {
+export async function deleteBookedTime(bookedId: number): Promise<{ success: boolean }> {
+  const res = await fetch(`${API_BASE}/bookedTime/${bookedId}`, {
     method: 'DELETE',
     headers: getAuthHeaders(),
   });
-  if (!response.ok) {
-    throw new Error(`Failed to delete booking: ${response.statusText}`);
-  }
+  return handleResponse<{ success: boolean }>(res);
 }
 
-// --- Admin Free Time Management (a51: BOOKADMIN) ---
-
 export async function fetchFreeByLocationIdAdmin(locationId: number): Promise<Free[]> {
-  const response = await apiFetch(`${API_BASE}/free/${locationId}`, {
+  const res = await fetch(`${API_BASE}/free/${locationId}`, {
     headers: getAuthHeaders(),
   });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch admin free blocks: ${response.statusText}`);
-  }
-  return response.json();
+  return handleResponse<Free[]>(res);
 }
 
 export async function fetchFreeByAssetIdAdmin(assetId: number): Promise<Free[]> {
-  const response = await apiFetch(`${API_BASE}/free/asset/${assetId}`, {
+  const res = await fetch(`${API_BASE}/free/asset/${assetId}`, {
     headers: getAuthHeaders(),
   });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch admin free blocks for asset: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-export async function createFreeTimeslot(location: Location): Promise<string> {
-  const response = await apiFetch(`${API_BASE}/free`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(location),
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to create free timeslot: ${response.statusText}`);
-  }
-  return response.text();
+  return handleResponse<Free[]>(res);
 }
 
 export async function addFreeTime(
   assetId: number,
   startTime: string,
   endTime: string
-): Promise<void> {
+): Promise<{ id: number; message: string }> {
   const params = new URLSearchParams({
-    assetId: assetId.toString(),
+    assetId: String(assetId),
     startTime,
     endTime,
   });
-  const response = await apiFetch(`${API_BASE}/freeTime?${params.toString()}`, {
+  const res = await fetch(`${API_BASE}/freeTime?${params.toString()}`, {
     method: 'POST',
     headers: getAuthHeaders(),
   });
-  if (!response.ok) {
-    const errData = await response.json().catch(() => null);
-    const message = errData?.error || errData?.message || `Failed to add free time: ${response.statusText}`;
-    throw new Error(message);
-  }
+  return handleResponse<{ id: number; message: string }>(res);
 }
 
-export async function deleteFreeTime(freeId: number): Promise<void> {
-  const response = await apiFetch(`${API_BASE}/freeTime/${freeId}`, {
+export async function deleteFreeTime(freeId: number): Promise<{ success: boolean }> {
+  const res = await fetch(`${API_BASE}/freeTime/${freeId}`, {
     method: 'DELETE',
     headers: getAuthHeaders(),
   });
-  if (!response.ok) {
-    const errData = await response.json().catch(() => null);
-    const message = errData?.error || errData?.message || `Failed to delete free time: ${response.statusText}`;
-    throw new Error(message);
-  }
+  return handleResponse<{ success: boolean }>(res);
 }
-
-// --- Admin User Management (a61, a62: BOOKADMIN) ---
 
 export async function fetchUsers(): Promise<User[]> {
-  const response = await apiFetch(`${API_BASE}/users`, {
+  const res = await fetch(`${API_BASE}/users`, {
     headers: getAuthHeaders(),
   });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch users: ${response.statusText}`);
-  }
-  return response.json();
+  return handleResponse<User[]>(res);
 }
 
-export async function addUser(user: Omit<User, 'id'> & { id?: number }): Promise<void> {
-  const response = await apiFetch(`${API_BASE}/user`, {
+export async function addUser(user: Partial<User>): Promise<User> {
+  const res = await fetch(`${API_BASE}/user`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(user),
   });
-
-  if (!response.ok) {
-    throw new Error(`Failed to add user: ${response.statusText}`);
-  }
+  return handleResponse<User>(res);
 }
+

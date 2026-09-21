@@ -1,716 +1,406 @@
-import { useState } from 'react';
-import {
-  Clock,
-  User as UserIcon,
-  ChevronRight,
-  ChevronLeft,
-  RefreshCw,
-  X,
-  Check,
-  CheckCircle,
-  Lock,
-  LogIn,
-  AlertCircle,
-  MousePointer,
-} from 'lucide-react';
-import { Calendar as BigCalendar, momentLocalizer, type View, type Messages, type Formats } from 'react-big-calendar';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Calendar as BigCalendar, momentLocalizer, type Formats, View, Views } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { Location, AssetLocation, Free, Booked, AuthSession } from '../types/models';
+import { fetchFreeByLocation, fetchBookedByLocation, bookTime } from '../services/api';
 import { SWEDISH_WEEKDAYS, SWEDISH_MONTHS, setupSwedishLocale } from '../services/momentSv';
-import type { Location, Timeslot, AssetLocation, Booked, Free, AuthSession } from '../types/models';
+import { ArrowLeft, CheckCircle2, Calendar as CalendarIcon, Clock, MapPin, Box, Loader2, AlertCircle } from 'lucide-react';
 
 setupSwedishLocale();
 const localizer = momentLocalizer(moment);
 localizer.startOfWeek = () => 1;
-
-const calendarMessages: Messages = {
-  allDay: 'Heldag',
-  previous: 'Föregående',
-  next: 'Nästa',
-  today: 'Idag',
-  month: 'Månad',
-  week: 'Vecka',
-  day: 'Dag',
-  agenda: 'Agenda',
-  date: 'Datum',
-  time: 'Tid',
-  event: 'Bokning',
-  noEventsInRange: 'Inga bokningar under denna tidsperiod.',
-  showMore: (total: number) => `+${total} fler`,
-};
-
-const capitalize = (str: string) => (str ? str.charAt(0).toUpperCase() + str.slice(1) : '');
 
 const calendarFormats: Formats = {
   timeGutterFormat: 'HH:mm',
   agendaTimeFormat: 'HH:mm',
   weekdayFormat: (date: Date) => SWEDISH_WEEKDAYS[date.getDay()],
   dayFormat: (date: Date) => {
-    const day = SWEDISH_WEEKDAYS[date.getDay()];
     const pad = (n: number) => String(n).padStart(2, '0');
-    return `${day} ${pad(date.getDate())}/${pad(date.getMonth() + 1)}`;
+    return `${SWEDISH_WEEKDAYS[date.getDay()]} ${pad(date.getDate())}/${pad(date.getMonth() + 1)}`;
   },
   dayHeaderFormat: (date: Date) => {
-    const day = SWEDISH_WEEKDAYS[date.getDay()];
     const month = SWEDISH_MONTHS[date.getMonth()].toLowerCase();
-    return `${day} ${date.getDate()} ${month} ${date.getFullYear()}`;
+    return `${SWEDISH_WEEKDAYS[date.getDay()]} ${date.getDate()} ${month} ${date.getFullYear()}`;
   },
   agendaDateFormat: (date: Date) => {
-    const day = SWEDISH_WEEKDAYS[date.getDay()];
     const month = SWEDISH_MONTHS[date.getMonth()].toLowerCase();
-    return `${day} ${date.getDate()} ${month}`;
+    return `${SWEDISH_WEEKDAYS[date.getDay()]} ${date.getDate()} ${month}`;
   },
-  monthHeaderFormat: (date: Date) => {
-    return `${SWEDISH_MONTHS[date.getMonth()]} ${date.getFullYear()}`;
-  },
+  monthHeaderFormat: (date: Date) => `${SWEDISH_MONTHS[date.getMonth()]} ${date.getFullYear()}`,
   dayRangeHeaderFormat: ({ start, end }) => {
-    const sMonth = SWEDISH_MONTHS[start.getMonth()].toLowerCase();
-    const eMonth = SWEDISH_MONTHS[end.getMonth()].toLowerCase();
     if (start.getMonth() === end.getMonth()) {
       return `${SWEDISH_MONTHS[start.getMonth()]} ${start.getFullYear()}: ${start.getDate()} – ${end.getDate()}`;
     }
-    return `${start.getDate()} ${sMonth} – ${end.getDate()} ${eMonth} ${end.getFullYear()}`;
+    return `${start.getDate()} ${SWEDISH_MONTHS[start.getMonth()].toLowerCase()} – ${end.getDate()} ${SWEDISH_MONTHS[end.getMonth()].toLowerCase()} ${end.getFullYear()}`;
   },
   eventTimeRangeFormat: () => '',
-  eventTimeRangeStartFormat: () => '',
-  eventTimeRangeEndFormat: () => '',
   selectRangeFormat: ({ start, end }) => `${moment(start).format('HH:mm')} – ${moment(end).format('HH:mm')}`,
   agendaTimeRangeFormat: ({ start, end }) => `${moment(start).format('HH:mm')} – ${moment(end).format('HH:mm')}`,
 };
 
-const formatToLocalISO = (date: Date): string => {
-  const pad = (num: number) => String(num).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-};
-
-const getCalendarMinTime = (): Date => {
-  const d = new Date();
-  d.setHours(9, 0, 0, 0);
-  return d;
+const calendarMessages = {
+  today: 'Idag',
+  previous: 'Föregående',
+  next: 'Nästa',
+  month: 'Månad',
+  week: 'Vecka',
+  day: 'Dag',
+  agenda: 'Agenda',
+  date: 'Datum',
+  time: 'Tid',
+  event: 'Händelse',
+  noEventsInRange: 'Inga tider tillgängliga i detta intervall',
 };
 
 interface CalendarEvent {
-  id: string | number;
+  id: string;
   title: string;
   start: Date;
   end: Date;
-  isSelection?: boolean;
-  resource?: Booked;
+  type: 'free' | 'booked';
+  rawFree?: Free;
 }
 
-const CalendarEventComponent = ({ event }: { event: CalendarEvent }) => {
-  if (event.isSelection) {
+interface BookPageProps {
+  location: Location;
+  asset: AssetLocation;
+  step: number;
+  authSession: AuthSession | null;
+  onSetStep: (step: number) => void;
+  onOpenLogin: () => void;
+  onBack: () => void;
+}
+
+export const BookPage: React.FC<BookPageProps> = ({
+  location,
+  asset,
+  step,
+  authSession,
+  onSetStep,
+  onOpenLogin,
+  onBack,
+}) => {
+  const [freeBlocks, setFreeBlocks] = useState<Free[]>([]);
+  const [bookedBlocks, setBookedBlocks] = useState<Booked[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Selection state for booking
+  const [selectedFree, setSelectedFree] = useState<Free | null>(null);
+  const [bookStart, setBookStart] = useState<Date | null>(null);
+  const [bookEnd, setBookEnd] = useState<Date | null>(null);
+  const [receipt, setReceipt] = useState<{ id: number; message: string } | null>(null);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const [currentView, setCurrentView] = useState<View>(Views.WEEK);
+
+  useEffect(() => {
+    loadData();
+  }, [location.id, asset.assetId]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [allFree, allBooked] = await Promise.all([
+        fetchFreeByLocation(location.id),
+        fetchBookedByLocation(location.id),
+      ]);
+      // Filter for this asset
+      const assetFree = allFree.filter(f => f.assetId === asset.assetId);
+      const freeIds = new Set(assetFree.map(f => f.id));
+      const assetBooked = allBooked.filter(b => freeIds.has(b.freeId));
+
+      setFreeBlocks(assetFree);
+      setBookedBlocks(assetBooked);
+
+      // Focus calendar on first upcoming free block if any
+      const upcoming = assetFree.find(f => new Date(f.endTime) > new Date());
+      if (upcoming) {
+        setCurrentDate(new Date(upcoming.startTime));
+      }
+    } catch (err: any) {
+      setError(err.message || 'Kunde inte hämta kalenderdata');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const events: CalendarEvent[] = useMemo(() => {
+    const list: CalendarEvent[] = [];
+
+    // Add free events
+    freeBlocks.forEach(f => {
+      list.push({
+        id: `free-${f.id}`,
+        title: 'Ledig tid (Klicka för att boka)',
+        start: new Date(f.startTime),
+        end: new Date(f.endTime),
+        type: 'free',
+        rawFree: f,
+      });
+    });
+
+    // Add booked events
+    bookedBlocks.forEach(b => {
+      list.push({
+        id: `booked-${b.id}`,
+        title: b.userEmail ? `Bokad (${b.userEmail})` : 'Bokad',
+        start: new Date(b.startTime),
+        end: new Date(b.endTime),
+        type: 'booked',
+      });
+    });
+
+    return list;
+  }, [freeBlocks, bookedBlocks]);
+
+  const handleSelectEvent = (event: CalendarEvent) => {
+    if (event.type === 'free' && event.rawFree) {
+      setSelectedFree(event.rawFree);
+      setBookStart(event.start);
+      // Default to 2-hour booking or slot end
+      const twoHoursLater = new Date(event.start.getTime() + 2 * 3600 * 1000);
+      setBookEnd(twoHoursLater <= event.end ? twoHoursLater : event.end);
+      onSetStep(6);
+    }
+  };
+
+  const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
+    // Check if slot falls inside any free block
+    const matchingFree = freeBlocks.find(f => {
+      const fStart = new Date(f.startTime);
+      const fEnd = new Date(f.endTime);
+      return start >= fStart && end <= fEnd;
+    });
+
+    if (matchingFree) {
+      setSelectedFree(matchingFree);
+      setBookStart(start);
+      setBookEnd(end);
+      onSetStep(6);
+    } else {
+      alert('Vänligen välj ett tidsintervall inom ett grönt ledigt block.');
+    }
+  };
+
+  const handleConfirmBooking = async () => {
+    if (!selectedFree || !bookStart || !bookEnd) return;
+    if (!authSession) {
+      onOpenLogin();
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError(null);
+      const startIso = moment(bookStart).format('YYYY-MM-DDTHH:mm:ss');
+      const endIso = moment(bookEnd).format('YYYY-MM-DDTHH:mm:ss');
+      const res = await bookTime(selectedFree.id, authSession.id, startIso, endIso);
+      setReceipt(res);
+      onSetStep(8);
+      loadData(); // reload data in background
+    } catch (err: any) {
+      setError(err.message || 'Kunde inte slutföra bokningen');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Step 8: Receipt view
+  if (step === 8 && receipt) {
     return (
-      <div className="flex items-center gap-1 font-semibold text-xs leading-tight truncate">
-        <MousePointer className="w-3 h-3 flex-shrink-0" />
-        <span className="truncate">{event.title}</span>
+      <div style={{ maxWidth: '600px', margin: '2rem auto' }}>
+        <div className="card" style={{ textAlign: 'center', padding: '2.5rem' }}>
+          <div style={{ display: 'inline-flex', background: 'var(--success-bg)', padding: '1rem', borderRadius: '50%', marginBottom: '1.5rem' }}>
+            <CheckCircle2 size={48} color="var(--success)" />
+          </div>
+          <h2 className="page-title" style={{ marginBottom: '0.5rem' }}>Bokning bekräftad!</h2>
+          <p style={{ color: 'var(--gray-500)', marginBottom: '1.5rem' }}>{receipt.message}</p>
+
+          <div style={{ textAlign: 'left', background: 'var(--gray-50)', padding: '1.25rem', borderRadius: 'var(--radius)', marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--gray-500)' }}>Bokningsnummer:</span>
+              <strong>#{receipt.id}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--gray-500)' }}>Plats:</span>
+              <strong>{location.name}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--gray-500)' }}>Resurs:</span>
+              <strong>{asset.name}</strong>
+            </div>
+            {bookStart && bookEnd && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--gray-500)' }}>Datum:</span>
+                  <strong>{moment(bookStart).format('YYYY-MM-DD')}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--gray-500)' }}>Tid:</span>
+                  <strong>{moment(bookStart).format('HH:mm')} – {moment(bookEnd).format('HH:mm')}</strong>
+                </div>
+              </>
+            )}
+          </div>
+
+          <button className="btn btn-primary" onClick={() => onSetStep(1)}>
+            Gör en ny bokning
+          </button>
+        </div>
       </div>
     );
   }
 
-  const b = event.resource;
-  const userStr = b?.userEmail || (b?.userId ? `Användare #${b.userId}` : 'Bokad');
-  const timeStr = `${moment(event.start).format('HH:mm')} – ${moment(event.end).format('HH:mm')}`;
+  // Step 6: Confirmation summary view
+  if (step === 6 && selectedFree && bookStart && bookEnd) {
+    const durationHours = (bookEnd.getTime() - bookStart.getTime()) / (1000 * 3600);
 
+    return (
+      <div style={{ maxWidth: '650px', margin: '2rem auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+          <button className="btn btn-secondary" onClick={() => onSetStep(3)}>
+            <ArrowLeft size={16} /> Tillbaka till kalendern
+          </button>
+          <h2 className="page-title" style={{ marginBottom: 0 }}>Bekräfta din bokning</h2>
+        </div>
+
+        {error && <div className="alert-error">{error}</div>}
+
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <MapPin size={20} color="var(--primary)" />
+              <div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>Plats</div>
+                <div style={{ fontWeight: 600 }}>{location.name}</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <Box size={20} color="var(--primary)" />
+              <div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>Resurs</div>
+                <div style={{ fontWeight: 600 }}>{asset.name}</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <CalendarIcon size={20} color="var(--primary)" />
+              <div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>Datum</div>
+                <div style={{ fontWeight: 600 }}>{moment(bookStart).format('dddd D MMMM YYYY')}</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <Clock size={20} color="var(--primary)" />
+              <div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>Tid & längd</div>
+                <div style={{ fontWeight: 600 }}>
+                  {moment(bookStart).format('HH:mm')} – {moment(bookEnd).format('HH:mm')} ({durationHours.toFixed(1)} timmar)
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {!authSession ? (
+          <div className="card" style={{ background: 'var(--gray-100)', textAlign: 'center', padding: '2rem' }}>
+            <AlertCircle size={32} color="var(--primary)" style={{ margin: '0 auto 0.75rem' }} />
+            <h3 style={{ marginBottom: '0.5rem' }}>Inloggning krävs för att boka</h3>
+            <p style={{ color: 'var(--gray-500)', marginBottom: '1.25rem' }}>
+              Du måste vara inloggad som användare för att kunna slutföra en bokning.
+            </p>
+            <button className="btn btn-primary" onClick={onOpenLogin}>
+              Logga in
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+            <button className="btn btn-secondary" onClick={() => onSetStep(3)}>
+              Avbryt
+            </button>
+            <button className="btn btn-primary" onClick={handleConfirmBooking} disabled={submitting}>
+              {submitting ? (
+                <>
+                  <Loader2 className="animate-spin" size={16} /> Sparar...
+                </>
+              ) : (
+                'Slutför och boka tid'
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Step 3: Calendar view
   return (
-    <div
-      className="flex flex-col text-xs leading-tight py-0.5 px-0.5 truncate overflow-hidden"
-      title={`Bokning #${b?.id || ''}: ${timeStr} | Bokad av: ${userStr}`}
-    >
-      <div className="font-bold flex items-center gap-1 truncate text-white">
-        <Clock className="w-3 h-3 flex-shrink-0" />
-        <span className="truncate">{timeStr}</span>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <button className="btn btn-secondary" onClick={onBack}>
+            <ArrowLeft size={16} /> Byt resurs
+          </button>
+          <div>
+            <h2 className="page-title" style={{ marginBottom: 0 }}>
+              {location.name} – {asset.name}
+            </h2>
+            <p style={{ color: 'var(--gray-500)', fontSize: '0.9rem' }}>
+              Gröna block = lediga tider. Klicka på ett block för att boka.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
+            <span style={{ width: 12, height: 12, borderRadius: 2, background: '#22c55e', display: 'inline-block' }}></span>
+            <span>Ledigt</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
+            <span style={{ width: 12, height: 12, borderRadius: 2, background: '#ef4444', display: 'inline-block' }}></span>
+            <span>Bokat</span>
+          </div>
+        </div>
       </div>
-      <div className="text-[11px] font-medium opacity-95 truncate flex items-center gap-1 text-white/90">
-        <UserIcon className="w-3 h-3 flex-shrink-0" />
-        <span className="truncate">{userStr}</span>
-      </div>
+
+      {error && <div className="alert-error">{error}</div>}
+
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
+          <Loader2 className="animate-spin" size={40} color="var(--primary)" />
+        </div>
+      ) : (
+        <div className="calendar-wrapper">
+          <BigCalendar
+            culture="sv"
+            localizer={localizer}
+            events={events}
+            date={currentDate}
+            onNavigate={setCurrentDate}
+            view={currentView}
+            onView={setCurrentView}
+            formats={calendarFormats}
+            messages={calendarMessages}
+            selectable
+            onSelectEvent={handleSelectEvent}
+            onSelectSlot={handleSelectSlot}
+            eventPropGetter={(event) => ({
+              className: event.type === 'free' ? 'event-free' : 'event-booked',
+            })}
+            step={60}
+            timeslots={1}
+            min={new Date(0, 0, 0, 7, 0, 0)}
+            max={new Date(0, 0, 0, 22, 0, 0)}
+          />
+        </div>
+      )}
     </div>
   );
 };
-
-interface BookPageProps {
-  step: number;
-  setStep: (step: number) => void;
-  selectedLocation: Location;
-  selectedAsset: AssetLocation | null;
-  assetLocations: AssetLocation[];
-  bookedList: Booked[];
-  freeList: Free[];
-  loadingBooked: boolean;
-  startTime: string;
-  endTime: string;
-  setStartTime: (val: string) => void;
-  setEndTime: (val: string) => void;
-  selectedTimeslot: Timeslot | null;
-  bookedDetails: {
-    locationName: string;
-    assetLocationName: string;
-    startTime: string;
-    endTime: string;
-    userEmail: string;
-  } | null;
-  session: AuthSession | null;
-  canBook: boolean;
-  loading: boolean;
-  onProceedToBooking: () => void;
-  onInitiateBooking: () => void;
-  onReset: () => void;
-  formatDateTime: (isoStr: string) => string;
-  formatTimeOnly: (isoStr: string) => string;
-  getAssetLocationName: (assetId: number) => string;
-}
-
-export default function BookPage({
-  step,
-  setStep,
-  selectedLocation,
-  selectedAsset,
-  assetLocations,
-  bookedList,
-  freeList,
-  loadingBooked,
-  startTime,
-  endTime,
-  setStartTime,
-  setEndTime,
-  selectedTimeslot,
-  bookedDetails,
-  session,
-  canBook,
-  loading,
-  onProceedToBooking,
-  onInitiateBooking,
-  onReset,
-  formatDateTime,
-  formatTimeOnly,
-  getAssetLocationName,
-}: BookPageProps) {
-  const [calendarDate, setCalendarDate] = useState<Date>(new Date());
-  const [calendarView, setCalendarView] = useState<View>('week');
-  const [calendarMinTime] = useState<Date>(getCalendarMinTime);
-
-  // Map freeId -> assetId from freeList (free table has asset_id)
-  const freeAssetMap = new Map<number, number>(freeList.map((f) => [f.id, f.assetId]));
-
-  const currentBookedList = selectedAsset
-    ? bookedList.filter((b) => freeAssetMap.get(b.freeId) === selectedAsset.assetId)
-    : bookedList;
-
-  const currentFreeList = selectedAsset
-    ? freeList.filter((f) => f.assetId === selectedAsset.assetId)
-    : freeList;
-
-  // Map booked times to Big Calendar events
-  const bookedEvents = currentBookedList.map((b) => {
-    const userStr = b.userEmail || (b.userId ? `Användare #${b.userId}` : 'Bokad');
-    const timeStr = `${moment(b.startTime).format('HH:mm')} – ${moment(b.endTime).format('HH:mm')}`;
-    return {
-      id: `booked-${b.id}`,
-      title: `${timeStr} Bokad (${userStr})`,
-      start: new Date(b.startTime),
-      end: new Date(b.endTime),
-      isSelection: false,
-      resource: b,
-    };
-  });
-
-  const hasValidSelection = Boolean(
-    startTime &&
-    endTime &&
-    !isNaN(new Date(startTime).getTime()) &&
-    !isNaN(new Date(endTime).getTime()) &&
-    new Date(startTime) < new Date(endTime)
-  );
-
-  const selectedAreaEvent = hasValidSelection
-    ? [
-      {
-        id: 'selected-search-window',
-        title: `Markerat sökintervall (${formatTimeOnly(startTime)} – ${formatTimeOnly(endTime)})`,
-        start: new Date(startTime),
-        end: new Date(endTime),
-        isSelection: true,
-      },
-    ]
-    : [];
-
-  const calendarEvents = [...bookedEvents, ...selectedAreaEvent];
-
-  const getDurationDescription = (startStr: string, endStr: string) => {
-    if (!startStr || !endStr) return '';
-    const startD = new Date(startStr);
-    const endD = new Date(endStr);
-    if (isNaN(startD.getTime()) || isNaN(endD.getTime()) || startD >= endD) return '';
-
-    const diffMs = endD.getTime() - startD.getTime();
-    const totalMinutes = Math.round(diffMs / (1000 * 60));
-    const hours = Math.floor(totalMinutes / 60);
-    const mins = totalMinutes % 60;
-    const days = Math.floor(hours / 24);
-    const remHours = hours % 24;
-
-    if (days > 0) {
-      return remHours > 0 ? `${days} d ${remHours} tim` : `${days} dag${days > 1 ? 'ar' : ''}`;
-    }
-    if (hours > 0) {
-      return mins > 0 ? `${hours} tim ${mins} min` : `${hours} timm${hours > 1 ? 'ar' : 'e'}`;
-    }
-    return `${mins} min`;
-  };
-
-  const handleSelectSlot = (slotInfo: {
-    start: Date;
-    end: Date;
-    slots: Date[];
-    action: 'select' | 'click' | 'doubleClick';
-  }) => {
-    let start = new Date(slotInfo.start);
-    let end = new Date(slotInfo.end);
-
-    if (calendarView === 'month') {
-      if (slotInfo.slots && slotInfo.slots.length > 1) {
-        const firstDay = new Date(slotInfo.slots[0]);
-        firstDay.setHours(9, 0, 0, 0);
-        const lastDay = new Date(slotInfo.slots[slotInfo.slots.length - 1]);
-        lastDay.setHours(18, 0, 0, 0);
-        start = firstDay;
-        end = lastDay;
-      } else {
-        start.setHours(9, 0, 0, 0);
-        end = new Date(start);
-        end.setHours(17, 0, 0, 0);
-      }
-    } else {
-      const isAllDay =
-        start.getHours() === 0 &&
-        start.getMinutes() === 0 &&
-        end.getHours() === 0 &&
-        end.getMinutes() === 0 &&
-        end.getTime() - start.getTime() >= 24 * 60 * 60 * 1000;
-
-      if (isAllDay) {
-        if (slotInfo.slots && slotInfo.slots.length > 1) {
-          const firstDay = new Date(slotInfo.slots[0]);
-          firstDay.setHours(9, 0, 0, 0);
-          const lastDay = new Date(slotInfo.slots[slotInfo.slots.length - 1]);
-          lastDay.setHours(18, 0, 0, 0);
-          start = firstDay;
-          end = lastDay;
-        } else {
-          start.setHours(9, 0, 0, 0);
-          end = new Date(start);
-          end.setHours(17, 0, 0, 0);
-        }
-      } else if (slotInfo.action === 'click' && start.getTime() === end.getTime()) {
-        end = new Date(start.getTime() + 60 * 60 * 1000);
-      }
-    }
-
-    setStartTime(formatToLocalISO(start));
-    setEndTime(formatToLocalISO(end));
-  };
-
-  const handleDrillDown = (date: Date, view?: View) => {
-    setCalendarDate(date);
-    setCalendarView(view || 'day');
-  };
-
-  const isTimeInFreeRange = (date: Date) => {
-    if (!currentFreeList || currentFreeList.length === 0) return false;
-    const t = date.getTime();
-    return currentFreeList.some((f) => {
-      const start = new Date(f.startTime).getTime();
-      const end = new Date(f.endTime).getTime();
-      return t >= start && t < end;
-    });
-  };
-
-  const isDayInFreeRange = (date: Date) => {
-    if (!currentFreeList || currentFreeList.length === 0) return false;
-    const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-    const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999).getTime();
-    return currentFreeList.some((f) => {
-      const start = new Date(f.startTime).getTime();
-      const end = new Date(f.endTime).getTime();
-      return start <= dayEnd && end >= dayStart;
-    });
-  };
-
-  const slotPropGetter = (date: Date) => {
-    if (hasValidSelection) {
-      const s = new Date(startTime);
-      const e = new Date(endTime);
-      if (date >= s && date < e) {
-        return { className: 'rbc-selected-area-cell' };
-      }
-    }
-    if (isTimeInFreeRange(date)) {
-      return { className: 'rbc-free-time-slot' };
-    }
-    return {};
-  };
-
-  const dayPropGetter = (date: Date) => {
-    if (hasValidSelection) {
-      const s = new Date(startTime);
-      const e = new Date(endTime);
-      const sDay = new Date(s.getFullYear(), s.getMonth(), s.getDate());
-      const eDay = new Date(e.getFullYear(), e.getMonth(), e.getDate(), 23, 59, 59);
-      if (date >= sDay && date <= eDay) {
-        return { className: 'rbc-selected-area-cell' };
-      }
-    }
-    if (isDayInFreeRange(date)) {
-      return { className: 'rbc-free-time-day' };
-    }
-    return {};
-  };
-
-  const eventPropGetter = (event: CalendarEvent) => {
-    if (event.isSelection) {
-      return {
-        className: 'rbc-selection-event',
-        style: {
-          backgroundColor: '#2563eb',
-          borderColor: '#1d4ed8',
-          color: '#ffffff',
-          borderRadius: '8px',
-          padding: '3px 8px',
-          fontSize: '0.775rem',
-          fontWeight: 600,
-          border: '2px solid #1d4ed8',
-          boxShadow: '0 4px 10px rgba(37, 99, 235, 0.35)',
-          zIndex: 20,
-        },
-      };
-    }
-    return {
-      className: 'rbc-booked-event',
-      style: {
-        backgroundColor: '#ef4444',
-        borderColor: '#dc2626',
-        color: '#ffffff',
-        borderRadius: '6px',
-        padding: '2px 6px',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        zIndex: 10,
-        boxShadow: '0 2px 5px rgba(220, 38, 38, 0.3)',
-      },
-    };
-  };
-
-  const handleClearSelection = () => {
-    setStartTime('');
-    setEndTime('');
-  };
-
-  const hasMultipleAssets = assetLocations.filter((al) => al.locationId === selectedLocation.id).length > 1;
-
-  return (
-    <>
-      {/* STEP 3: View Calendar & Select Time (a32, a33: OPEN) */}
-      {step === 3 && (
-        <div className="animate-fadeIn">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-blue-600" />
-              a32. Kalender & a33. Tidsintervall (OPEN)
-            </h2>
-            <button
-              onClick={() => {
-                if (hasMultipleAssets) {
-                  setStep(2);
-                } else {
-                  setStep(1);
-                }
-              }}
-              className="text-sm text-slate-500 hover:text-blue-800 flex items-center gap-1 transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              {hasMultipleAssets ? 'Tillbaka till resurser' : 'Tillbaka till platser'}
-            </button>
-          </div>
-
-          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 mb-6 flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-6 flex-wrap">
-              <div>
-                <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Vald plats</span>
-                <h3 className="text-lg font-bold text-blue-800">{selectedLocation.name}</h3>
-              </div>
-              {selectedAsset && (
-                <div className="border-l border-slate-200 pl-4">
-                  <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Vald resurs</span>
-                  <h3 className="text-lg font-bold text-blue-900 flex items-center gap-1.5">
-                    <span className="text-xs font-semibold px-2 py-0.5 bg-blue-100 text-blue-800 rounded-md">
-                      #{selectedAsset.assetId}
-                    </span>
-                    {selectedAsset.name}
-                  </h3>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-semibold bg-slate-100 text-slate-700 border border-slate-300">
-                <span className="w-2.5 h-2.5 rounded-sm bg-slate-300 border border-slate-400"></span>
-                Ledig tid ({currentFreeList.length})
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-semibold bg-red-50 text-red-700 border border-red-200">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                Bokade ({currentBookedList.length})
-              </span>
-              {loadingBooked && <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />}
-            </div>
-          </div>
-
-          {/* Big Calendar */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-md mb-6">
-            <div className="h-[480px]">
-              <BigCalendar
-                localizer={localizer}
-                culture="sv"
-                messages={calendarMessages}
-                formats={calendarFormats}
-                events={calendarEvents}
-                startAccessor="start"
-                endAccessor="end"
-                titleAccessor="title"
-                views={['month', 'week', 'day', 'agenda']}
-                defaultView="week"
-                min={calendarMinTime}
-                scrollToTime={calendarMinTime}
-                date={calendarDate}
-                onNavigate={(newDate) => setCalendarDate(newDate)}
-                onView={(newView) => setCalendarView(newView)}
-                onDrillDown={handleDrillDown}
-                view={calendarView}
-                selectable
-                onSelectSlot={handleSelectSlot}
-                eventPropGetter={eventPropGetter}
-                slotPropGetter={slotPropGetter}
-                dayPropGetter={dayPropGetter}
-                components={{
-                  event: CalendarEventComponent,
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Tidsintervall action card */}
-          <div className="bg-white text-black p-5 shadow-md border border-slate-200 rounded-2xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/20">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-base font-bold text-blue-900">
-                    Tidsintervall
-                  </h3>
-                  {hasValidSelection && getDurationDescription(startTime, endTime) && (
-                    <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200">
-                      Varaktighet: {getDurationDescription(startTime, endTime)}
-                    </span>
-                  )}
-                </div>
-                {hasValidSelection ? (
-                  <p className="text-sm font-semibold text-slate-700 mt-0.5">
-                    {capitalize(new Date(startTime).toLocaleDateString('sv-SE', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    }))}{' '}
-                    <span className="text-blue-700 font-bold">
-                      {formatTimeOnly(startTime)} – {formatTimeOnly(endTime)}
-                    </span>
-                  </p>
-                ) : (
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Markera önskad tid i kalendern ovan för att boka.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 justify-end">
-              {hasValidSelection && (
-                <button
-                  type="button"
-                  onClick={handleClearSelection}
-                  className="text-xs font-semibold px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1 shadow-sm"
-                >
-                  <X className="w-3.5 h-3.5" /> Rensa
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={onProceedToBooking}
-                disabled={!hasValidSelection || loading}
-                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2.5 px-6 rounded-xl flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
-              >
-                {loading ? (
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    Gå till Boka (Step 6)
-                    <ChevronRight className="w-5 h-5" />
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 6 & 7: Booking Review & Confirmation (a34.1, a34.2, a34.3) */}
-      {step === 6 && selectedTimeslot && (
-        <div className="animate-fadeIn">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-blue-600" />
-              a34.1 Boka tid (Kräver BOOKUSER eller BOOKADMIN)
-            </h2>
-            <button
-              onClick={() => setStep(3)}
-              className="text-sm text-slate-500 hover:text-blue-800 flex items-center gap-1 transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" /> Tillbaka till kalender
-            </button>
-          </div>
-
-          {/* Booking summary card */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-6">
-            <h3 className="font-bold text-blue-800 mb-3">Sammanfattning av vald tid</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-700">
-              <div><strong>Anläggning / Plats:</strong> {selectedLocation.name}</div>
-              <div><strong>Resurs:</strong> {selectedAsset?.name || getAssetLocationName(selectedTimeslot.assetId)}</div>
-              <div><strong>Tidslucka ID:</strong> {selectedTimeslot.freeid}</div>
-              <div><strong>Datum:</strong> {capitalize(new Date(startTime || selectedTimeslot.startTime).toLocaleDateString('sv-SE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }))}</div>
-              <div><strong>Tid:</strong> {formatTimeOnly(startTime || selectedTimeslot.startTime)} – {formatTimeOnly(endTime || selectedTimeslot.endTime)}</div>
-            </div>
-          </div>
-
-          {/* Authentication Check Card (a34.2 -> a41) */}
-          <div className="bg-white text-black p-6 shadow-md border border-slate-200 rounded-2xl space-y-6">
-            {session ? (
-              <div>
-                <div className="flex items-center justify-between p-4 bg-blue-50/60 rounded-xl border border-blue-200 mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">
-                      <UserIcon className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-slate-800">{session.email}</div>
-                      <div className="text-xs text-slate-500">
-                        Rollar: <span className="font-semibold text-blue-800">{session.role}</span>
-                      </div>
-                    </div>
-                  </div>
-                  {canBook ? (
-                    <span className="text-xs font-bold text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" /> Behörig att boka
-                    </span>
-                  ) : (
-                    <span className="text-xs font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5" /> Saknar bokningsroll
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex justify-end pt-4 border-t border-slate-200">
-                  <button
-                    type="button"
-                    onClick={onInitiateBooking}
-                    disabled={!canBook || loading}
-                    className={`font-bold py-3 px-8 rounded-xl shadow-md transition-all flex items-center gap-2 ${canBook
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-lg'
-                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      }`}
-                  >
-                    {loading ? 'Bokar...' : 'Bekräfta och boka tid (a34.3)'}
-                    <CheckCircle className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-6">
-                <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto mb-3">
-                  <Lock className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-lg text-slate-800 mb-1">
-                  Inloggning krävs (a34.2)
-                </h3>
-                <p className="text-slate-600 text-sm max-w-md mx-auto mb-6">
-                  För att slutföra bokningen måste du vara inloggad som användare med rollen <strong>BOOKUSER</strong> eller <strong>BOOKADMIN</strong>.
-                </p>
-                <button
-                  type="button"
-                  onClick={onInitiateBooking}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-md hover:shadow-lg transition-all inline-flex items-center gap-2"
-                >
-                  <LogIn className="w-5 h-5" />
-                  Logga in för att boka tid (a41)
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* STEP 8: Booking Receipt & Return to Locations (a34.4) */}
-      {step === 8 && bookedDetails && (
-        <div className="text-center py-8 animate-scaleIn">
-          <div className="w-16 h-16 bg-green-50 border border-green-200 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
-            <Check className="w-8 h-8 text-green-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">Bokning bekräftad!</h2>
-          <p className="text-slate-600 mb-8">Ditt kvitto och bokningsdetaljer visas nedan.</p>
-
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-left max-w-md mx-auto space-y-4 shadow-md mb-8">
-            <div>
-              <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Plats</span>
-              <span className="font-bold text-blue-800 text-lg">{bookedDetails.locationName}</span>
-            </div>
-            <div>
-              <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Resurs</span>
-              <span className="font-bold text-slate-800">{bookedDetails.assetLocationName}</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Starttid</span>
-                <span className="font-medium text-slate-700">{formatDateTime(bookedDetails.startTime)}</span>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Sluttid</span>
-                <span className="font-medium text-slate-700">{formatDateTime(bookedDetails.endTime)}</span>
-              </div>
-            </div>
-            <div className="border-t border-slate-200 pt-4">
-              <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Bokad av</span>
-              <span className="font-bold text-slate-900">{bookedDetails.userEmail}</span>
-            </div>
-            <div className="border-t border-slate-200 pt-4 flex items-center justify-between">
-              <span className="text-[10px] uppercase text-slate-500 font-bold block tracking-wider">Bokningsstatus</span>
-              <span className="text-xs font-bold text-green-700 bg-green-50 px-2.5 py-0.5 rounded-full border border-green-200 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                Bekräftad
-              </span>
-            </div>
-          </div>
-
-          {/* a34.4: Return to locations */}
-          <button
-            onClick={onReset}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2 mx-auto"
-          >
-            <ChevronLeft className="w-5 h-5" />
-            Tillbaka till platser (a34.4)
-          </button>
-        </div>
-      )}
-    </>
-  );
-}
 

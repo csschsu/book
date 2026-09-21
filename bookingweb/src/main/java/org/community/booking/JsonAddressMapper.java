@@ -1,56 +1,54 @@
 package org.community.booking;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.jdbi.v3.core.argument.AbstractArgumentFactory;
 import org.jdbi.v3.core.argument.Argument;
-import org.jdbi.v3.core.argument.ArgumentFactory;
 import org.jdbi.v3.core.config.ConfigRegistry;
 import org.jdbi.v3.core.mapper.ColumnMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Optional;
+import java.sql.Types;
 
 public class JsonAddressMapper {
-
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    /**
-     * Läser från databasen: Omvandlar JSON-text i SQLite till
-     * Models.address-objekt.
-     */
     public static class Column implements ColumnMapper<Models.Address> {
         @Override
         public Models.Address map(ResultSet r, int columnNumber, StatementContext ctx) throws SQLException {
             String json = r.getString(columnNumber);
-            if (json == null || json.isEmpty()) {
+            if (json == null || json.isBlank()) {
                 return null;
             }
             try {
                 return objectMapper.readValue(json, Models.Address.class);
             } catch (Exception e) {
-                throw new SQLException("Kunde inte deserialisera JSON till Models.address", e);
+                return null;
             }
         }
     }
 
-    /**
-     * Skriver till databasen: Omvandlar Models.address-objekt till JSON-text.
-     */
-    public static class Factory implements ArgumentFactory {
+    public static class Factory extends AbstractArgumentFactory<Models.Address> {
+        public Factory() {
+            super(Types.VARCHAR);
+        }
+
         @Override
-        public Optional<Argument> build(java.lang.reflect.Type type, Object value, ConfigRegistry config) {
-            if (type == Models.Address.class && value != null) {
-                return Optional.of((position, statement, ctx) -> {
+        protected Argument build(Models.Address value, ConfigRegistry config) {
+            return (position, statement, ctx) -> {
+                if (value == null) {
+                    statement.setNull(position, Types.VARCHAR);
+                } else {
                     try {
-                        String json = objectMapper.writeValueAsString(value);
-                        statement.setString(position, json);
-                    } catch (Exception e) {
-                        throw new SQLException("Kunde inte serialisera Models.address till JSON", e);
+                        statement.setString(position, objectMapper.writeValueAsString(value));
+                    } catch (JsonProcessingException e) {
+                        statement.setNull(position, Types.VARCHAR);
                     }
-                });
-            }
-            return Optional.empty();
+                }
+            };
         }
     }
 }
+

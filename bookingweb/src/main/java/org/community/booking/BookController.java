@@ -1,183 +1,195 @@
-/*
-Generate CreateBookinDB.java using jdbi to create sqlite tables to save garage, parking id, free and booked time for a supplier and a buyer of time. 
-Generate a time booking function in this file searching free time and generate a booking when it finds free time
- where booking fits. Booking must be registered within current timestamp - 5 minutes and booking starts on the requested time. 
-*/
-
 package org.community.booking;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-import org.jdbi.v3.core.Jdbi;
 import org.community.booking.security.UserPrincipal;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
 
 @CrossOrigin(origins = "*")
 @RestController
 public class BookController {
 
-  private final Book book;
+    private final Book book;
+    private final PasswordEncoder passwordEncoder;
 
-  public BookController() {
-    Jdbi jdbi = org.community.booking.config.DbConfig.createJdbi();
-    this.book = new Book(jdbi);
-  }
-
-  // Constructor for testing / dependency injection
-  @org.springframework.beans.factory.annotation.Autowired
-  public BookController(Book book) {
-    this.book = book;
-  }
-
-  @GetMapping("/book")
-  public String book() {
-    return "Greetings from Spring Boot!";
-  }
-
-  @GetMapping("/assetlocations")
-  public List<Models.AssetLocation> getAssetLocations() {
-    return book.getAssetLocations();
-  }
-
-  @GetMapping("/locations")
-  public List<Models.Location> getLocations() {
-    return book.getLocations();
-  }
-
-  @GetMapping("/booked")
-  public List<Models.Booked> getBooked(@RequestParam("locationId") int locationId) {
-    return book.getBookedBlocksByLocation(locationId);
-  }
-
-  @GetMapping("/booked/{locationId}")
-  public List<Models.Booked> getBookedByLocationId(@PathVariable("locationId") int locationId) {
-    return book.getBookedBlocksByLocation(locationId);
-  }
-
-  @GetMapping("/free")
-  public List<Models.Free> getFree(@RequestParam("locationId") int locationId) {
-    return book.getFreeBlocksByLocation(locationId);
-  }
-
-  @PreAuthorize("hasRole('BOOKADMIN')")
-  @GetMapping("/free/{locationId}")
-  public List<Models.Free> getFreeByLocationId(@PathVariable("locationId") int locationId) {
-    return book.getFreeBlocksByLocation(locationId);
-  }
-
-  @PreAuthorize("hasRole('BOOKADMIN')")
-  @GetMapping("/free/asset/{assetId}")
-  public List<Models.Free> getFreeByAssetId(@PathVariable("assetId") int assetId) {
-    return book.getAllFreeBlocksByAsset(assetId);
-  }
-
-  @PreAuthorize("hasRole('BOOKADMIN')")
-  @PostMapping("/free")
-  public String free(@RequestBody Models.Location location) {
-    LocalDateTime now = LocalDateTime.now();
-    List<Models.Timeslot> slots = book.findTimeslot(location, now, now.plusHours(24));
-    return slots.toString();
-  }
-
-  @PreAuthorize("hasRole('BOOKADMIN')")
-  @PostMapping("/user")
-  public void addUser(@RequestBody Models.User user) {
-    book.addUser(user);
-  }
-
-  @PreAuthorize("hasRole('BOOKADMIN')")
-  @GetMapping("/user/{id}")
-  public Models.User getUser(@PathVariable("id") int id) {
-    return book.getUser(id);
-  }
-
-  @PreAuthorize("hasRole('BOOKADMIN')")
-  @GetMapping("/user/email/{email}")
-  public Models.User getUserByEmail(@PathVariable("email") String email) {
-    return book.getUserByEmail(email);
-  }
-
-  @PreAuthorize("hasRole('BOOKADMIN')")
-  @GetMapping("/users")
-  public List<Models.User> getUsers() {
-    return book.getUsers();
-  }
-
-  @PreAuthorize("hasRole('BOOKADMIN')")
-  @PostMapping("/user/findOrCreate")
-  public Models.User findOrCreateUser(@RequestParam("name") String name) {
-    return book.findOrCreateUser(name);
-  }
-
-  @PostMapping("/timeslot")
-  public List<Models.Timeslot> findTimeslot(
-      @RequestBody Models.Location location,
-      @RequestParam("startTime") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
-      @RequestParam("endTime") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) {
-    return book.findTimeslot(location, startTime, endTime);
-  }
-
-  @PreAuthorize("hasAnyRole('BOOKUSER', 'BOOKADMIN')")
-  @PostMapping("/bookTime")
-  public void bookTime(
-      @RequestParam("freeId") int freeId,
-      @RequestParam(value = "userId", required = false) Integer userId,
-      @RequestParam("startTime") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
-      @RequestParam("endTime") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) {
-    int effectiveUserId = (userId != null) ? userId : 0;
-    org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder
-        .getContext().getAuthentication();
-    if (auth != null && auth.getPrincipal() instanceof UserPrincipal userPrincipal) {
-      effectiveUserId = userPrincipal.getId();
+    public BookController(Book book, PasswordEncoder passwordEncoder) {
+        this.book = book;
+        this.passwordEncoder = passwordEncoder;
     }
-    book.bookTime(freeId, effectiveUserId, startTime, endTime);
-  }
 
-  @PreAuthorize("hasAnyRole('BOOKUSER', 'BOOKADMIN')")
-  @DeleteMapping("/bookedTime/{bookedId}")
-  public void deleteBookedTime(@PathVariable("bookedId") int bookedId) {
-    book.deleteBookedTime(bookedId);
-  }
-
-  @PreAuthorize("hasRole('BOOKADMIN')")
-  @DeleteMapping("/freeTime/{freeId}")
-  public void deleteFreeTime(@PathVariable("freeId") int freeId) {
-    book.deleteFreeTime(freeId);
-  }
-
-  @PreAuthorize("hasRole('BOOKADMIN')")
-  @PostMapping("/freeTime")
-  public ResponseEntity<?> addFreeTime(
-      @RequestParam("assetId") int assetId,
-      @RequestParam("startTime") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
-      @RequestParam("endTime") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) {
-    try {
-      book.addFreeTime(assetId, startTime, endTime);
-      return ResponseEntity.ok().build();
-    } catch (BookException e) {
-      return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-          .body(Map.of("error", e.getMessage()));
+    @ExceptionHandler(BookException.class)
+    public ResponseEntity<?> handleBookException(BookException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", e.getMessage()));
     }
-  }
 
-  @ExceptionHandler(BookException.class)
-  public ResponseEntity<?> handleBookException(BookException e) {
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-        .body(Map.of("error", e.getMessage()));
-  }
+    @GetMapping("/book")
+    public ResponseEntity<String> getBookGreeting() {
+        return ResponseEntity.ok("Community Booking System API is running");
+    }
 
+    @GetMapping("/locations")
+    public ResponseEntity<List<Models.Location>> getLocations() {
+        return ResponseEntity.ok(book.getLocations());
+    }
+
+    @GetMapping("/assetlocations")
+    public ResponseEntity<List<Models.AssetLocation>> getAssetLocations() {
+        return ResponseEntity.ok(book.getAssetLocations());
+    }
+
+    @GetMapping("/booked")
+    public ResponseEntity<List<Models.Booked>> getBookedByQuery(
+            @RequestParam(required = false) Integer locationId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime) {
+        if (locationId != null) {
+            if (startTime != null) {
+                return ResponseEntity.ok(book.getBookedBlocks(locationId, startTime));
+            }
+            return ResponseEntity.ok(book.getBookedBlocksByLocation(locationId));
+        }
+        return ResponseEntity.ok(List.of());
+    }
+
+    @GetMapping("/booked/{locationId}")
+    public ResponseEntity<List<Models.Booked>> getBookedByLocation(
+            @PathVariable int locationId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime) {
+        if (startTime != null) {
+            return ResponseEntity.ok(book.getBookedBlocks(locationId, startTime));
+        }
+        return ResponseEntity.ok(book.getBookedBlocksByLocation(locationId));
+    }
+
+    @GetMapping("/free")
+    public ResponseEntity<List<Models.Free>> getFreeByQuery(
+            @RequestParam(required = false) Integer locationId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime) {
+        if (locationId != null) {
+            if (startTime != null) {
+                return ResponseEntity.ok(book.getFreeBlocks(locationId, startTime));
+            }
+            return ResponseEntity.ok(book.getFreeBlocksByLocation(locationId));
+        }
+        return ResponseEntity.ok(List.of());
+    }
+
+    @GetMapping("/free/{locationId}")
+    public ResponseEntity<List<Models.Free>> getFreeByLocationAdmin(@PathVariable int locationId) {
+        return ResponseEntity.ok(book.getFreeBlocksByLocation(locationId));
+    }
+
+    @GetMapping("/free/asset/{assetId}")
+    public ResponseEntity<List<Models.Free>> getFreeByAssetAdmin(@PathVariable int assetId) {
+        return ResponseEntity.ok(book.getAllFreeBlocksByAsset(assetId));
+    }
+
+    @PostMapping("/timeslot")
+    public ResponseEntity<List<Models.Timeslot>> getTimeslots(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
+            @RequestBody Models.Location location) {
+        return ResponseEntity.ok(book.findTimeslot(location.getId(), startTime, endTime));
+    }
+
+    @PostMapping("/free")
+    public ResponseEntity<List<Models.Free>> getFreeNext24Hours(@RequestBody Models.Location location) {
+        LocalDateTime now = LocalDateTime.now();
+        return ResponseEntity.ok(book.getFreeBlocks(location.getId(), now));
+    }
+
+    @PostMapping("/bookTime")
+    public ResponseEntity<?> bookTime(
+            @RequestParam int freeId,
+            @RequestParam(required = false) Integer userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
+            Authentication authentication) {
+
+        int resolvedUserId;
+        if (userId != null && userId > 0) {
+            resolvedUserId = userId;
+        } else if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal principal) {
+            resolvedUserId = principal.getId();
+        } else {
+            throw new BookException("User ID is required to book a time");
+        }
+
+        int bookedId = book.bookTime(freeId, resolvedUserId, startTime, endTime);
+        return ResponseEntity.ok(Map.of("id", bookedId, "message", "Booking created successfully"));
+    }
+
+    @DeleteMapping("/bookedTime/{bookedId}")
+    public ResponseEntity<?> deleteBookedTime(@PathVariable int bookedId) {
+        int rows = book.deleteBookedTime(bookedId);
+        return ResponseEntity.ok(Map.of("success", rows > 0, "deleted", bookedId));
+    }
+
+    @DeleteMapping("/freeTime/{freeId}")
+    public ResponseEntity<?> deleteFreeTime(@PathVariable int freeId) {
+        int rows = book.deleteFreeTime(freeId);
+        return ResponseEntity.ok(Map.of("success", rows > 0, "deleted", freeId));
+    }
+
+    @PostMapping("/freeTime")
+    public ResponseEntity<?> addFreeTime(
+            @RequestParam int assetId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) {
+        int freeId = book.addFreeTime(assetId, startTime, endTime);
+        return ResponseEntity.ok(Map.of("id", freeId, "message", "Free time added successfully"));
+    }
+
+    @PostMapping("/user")
+    public ResponseEntity<?> createUser(@RequestBody Models.User user) {
+        if (user.getPassword() != null && !user.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        }
+        if (user.getCreatetime() == null || user.getCreatetime().isBlank()) {
+            user.setCreatetime(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        }
+        if (user.getRole() == null || user.getRole().isBlank()) {
+            user.setRole("BOOKUSER");
+        }
+        int userId = book.insertUser(user);
+        user.setId(userId);
+        user.setPassword(null); // Do not return hashed password
+        return ResponseEntity.status(HttpStatus.CREATED).body(user);
+    }
+
+    @GetMapping("/user/{id}")
+    public ResponseEntity<?> getUserById(@PathVariable int id) {
+        Models.User user = book.getUserById(id);
+        if (user == null) {
+            return ResponseEntity.notFound().build();
+        }
+        user.setPassword(null);
+        return ResponseEntity.ok(user);
+    }
+
+    @GetMapping("/user/email/{email}")
+    public ResponseEntity<?> getUserByEmail(@PathVariable String email) {
+        Models.User user = book.getUserByEmail(email);
+        if (user == null) {
+            return ResponseEntity.notFound().build();
+        }
+        user.setPassword(null);
+        return ResponseEntity.ok(user);
+    }
+
+    @GetMapping("/users")
+    public ResponseEntity<List<Models.User>> getUsers() {
+        List<Models.User> users = book.getUsers();
+        users.forEach(u -> u.setPassword(null));
+        return ResponseEntity.ok(users);
+    }
 }
+

@@ -20,8 +20,16 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         Models.User user = book.getUserByEmail(username);
         if (user == null) {
-            throw new UsernameNotFoundException("User not found with email: " + username);
+            try {
+                int id = Integer.parseInt(username);
+                user = book.getUserById(id);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        if (user == null) {
+            throw new UsernameNotFoundException("User not found with username: " + username);
         }
         return new UserPrincipal(user);
     }
 }
+

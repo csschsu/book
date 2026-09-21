@@ -6,6 +6,7 @@
             "name": "Run Current Java File",
             "request": "launch",
             "mainClass": "${file}",
+            "projectName": "bookingweb",
             "vmArgs": "--enable-native-access=ALL-UNNAMED",
             "env": {
                 "JDK_JAVA_OPTIONS": "--enable-native-access=ALL-UNNAMED"

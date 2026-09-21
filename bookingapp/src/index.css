@@ -1,197 +1,400 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer base {
-  body {
-    font-family: 'Outfit', sans-serif;
-    @apply bg-slate-50 text-slate-900 antialiased min-h-screen selection:bg-blue-500 selection:text-white;
-  }
+/* Global Reset & Base Typography */
+:root {
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --success: #16a34a;
+  --success-bg: #dcfce7;
+  --warning: #eab308;
+  --danger: #dc2626;
+  --danger-bg: #fee2e2;
+  --gray-50: #f8fafc;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-500: #64748b;
+  --gray-700: #334155;
+  --gray-900: #0f172a;
+  --radius: 8px;
+  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 
-/* Custom scrollbars for a premium look */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-slate-100;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 rounded-full hover:bg-slate-400 transition-colors;
-}
-
-/* Custom flex-cols-3 behavior as specified by user requirements */
-.flex-cols-3 {
-  display: flex;
-}
-
-.flex-cols-3>* {
-  flex: 0 0 calc(33.333% - 0.25rem);
+* {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-@media (max-width: 768px) {
-  .flex-cols-3>* {
-    flex: 0 0 calc(50% - 0.25rem);
-  }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--gray-50);
+  color: var(--gray-900);
+  line-height: 1.5;
 }
 
-@media (max-width: 480px) {
-  .flex-cols-3>* {
-    flex: 0 0 100%;
-  }
+/* App Container */
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-/* React Big Calendar styling adjustments */
+/* Header */
+.app-header {
+  background: white;
+  border-bottom: 1px solid var(--gray-200);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--primary);
+  cursor: pointer;
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-link {
+  background: none;
+  border: none;
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--gray-700);
+  cursor: pointer;
+  border-radius: var(--radius);
+  transition: all 0.2s;
+}
+
+.nav-link:hover, .nav-link.active {
+  background: var(--gray-100);
+  color: var(--primary);
+}
+
+.auth-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  background: var(--gray-100);
+  border-radius: 9999px;
+  font-size: 0.85rem;
+}
+
+.role-tag {
+  background: var(--primary);
+  color: white;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Steps Tracker */
+.steps-bar {
+  background: white;
+  border-bottom: 1px solid var(--gray-200);
+  padding: 0.75rem 2rem;
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--gray-500);
+}
+
+.step-item.active {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.step-item.done {
+  color: var(--success);
+}
+
+.step-number {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gray-200);
+  color: var(--gray-700);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.step-item.active .step-number {
+  background: var(--primary);
+  color: white;
+}
+
+.step-item.done .step-number {
+  background: var(--success);
+  color: white;
+}
+
+/* Main Content */
+.main-content {
+  flex: 1;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Cards & Layout */
+.page-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: var(--gray-900);
+}
+
+.grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.card {
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary);
+}
+
+.card-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--gray-900);
+}
+
+.card-subtitle {
+  font-size: 0.9rem;
+  color: var(--gray-500);
+  margin-bottom: 1rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-secondary {
+  background: var(--gray-200);
+  color: var(--gray-700);
+}
+
+.btn-secondary:hover {
+  background: var(--gray-300);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #b91c1c;
+}
+
+.btn-success {
+  background: var(--success);
+  color: white;
+}
+
+.btn-success:hover {
+  background: #15803d;
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modal-card {
+  background: white;
+  border-radius: var(--radius);
+  padding: 2rem;
+  width: 100%;
+  max-width: 450px;
+  box-shadow: var(--shadow-lg);
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+  color: var(--gray-700);
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.alert-error {
+  background: var(--danger-bg);
+  color: var(--danger);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.alert-success {
+  background: var(--success-bg);
+  color: var(--success);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+/* Calendar Styles */
+.calendar-wrapper {
+  background: white;
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  height: 750px;
+}
+
 .rbc-calendar {
+  height: 100%;
   font-family: inherit;
 }
 
-.rbc-toolbar {
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+.rbc-event {
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.85rem;
+}
+
+.rbc-event.event-free {
+  background-color: #22c55e !important;
+  border-color: #16a34a !important;
+  color: white !important;
+}
+
+.rbc-event.event-booked {
+  background-color: #ef4444 !important;
+  border-color: #dc2626 !important;
+  color: white !important;
 }
 
 .rbc-toolbar button {
-  border-radius: 0.75rem;
-  border: 1px solid #cbd5e1;
-  color: #334155;
-  font-size: 0.8125rem;
+  border-radius: 4px;
+  border: 1px solid var(--gray-300);
+  padding: 6px 12px;
+  font-weight: 500;
+}
+
+.rbc-toolbar button:active, .rbc-toolbar button.rbc-active {
+  background-color: var(--primary) !important;
+  color: white !important;
+  border-color: var(--primary) !important;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  background: white;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.data-table th {
+  background: var(--gray-100);
+  padding: 0.75rem 1rem;
   font-weight: 600;
-  padding: 0.4rem 0.85rem;
-  background-color: #ffffff;
-  transition: all 0.15s ease-in-out;
+  font-size: 0.85rem;
+  color: var(--gray-700);
+  border-bottom: 1px solid var(--gray-200);
 }
 
-.rbc-toolbar button:hover {
-  background-color: #f8fafc;
-  border-color: #94a3b8;
-  color: #1e293b;
+.data-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--gray-200);
+  font-size: 0.9rem;
 }
 
-.rbc-toolbar button.rbc-active {
-  background-color: #2563eb !important;
-  border-color: #2563eb !important;
-  color: #ffffff !important;
-  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2) !important;
+.data-table tr:hover {
+  background: var(--gray-50);
 }
 
-.rbc-toolbar-label {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #1e293b;
-  text-transform: capitalize;
-}
-
-.rbc-header {
-  padding: 0.5rem 0.25rem;
-  font-weight: 600;
-  color: #334155;
-  font-size: 0.8125rem;
-  text-transform: none;
-  letter-spacing: 0.01em;
-  border-bottom-color: #e2e8f0;
-}
-
-.rbc-month-view,
-.rbc-time-view,
-.rbc-agenda-view {
-  border-color: #e2e8f0;
-  border-radius: 1rem;
-  overflow: hidden;
-}
-
-.rbc-day-bg+.rbc-day-bg,
-.rbc-month-row+.rbc-month-row {
-  border-color: #f1f5f9;
-}
-
-.rbc-today {
-  background-color: #f0f7ff;
-}
-
-/* Free time in the calendar background in a light gray color */
-.rbc-free-time-day {
-  background-color: #f1f5f9 !important;
-  /* light gray (slate-100) */
-}
-
-.rbc-day-bg.rbc-free-time-day.rbc-today {
-  background-color: #e2e8f0 !important;
-  /* distinct light gray for today when free */
-}
-
-.rbc-free-time-slot {
-  background-color: #f8fafc !important;
-  /* light gray */
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.rbc-timeslot-group:nth-child(even) .rbc-free-time-slot {
-  background-color: #f1f5f9 !important;
-  /* subtle alternating light gray */
-}
-
-/* Ensure bookings are displayed prominently in the front */
-.rbc-event {
-  cursor: pointer;
-  transition: opacity 0.15s ease, transform 0.1s ease;
-  z-index: 5;
-}
-
-.rbc-event.rbc-booked-event {
-  z-index: 10 !important;
-}
-
-.rbc-event.rbc-selection-event {
-  z-index: 20 !important;
-}
-
-.rbc-event:hover {
-  opacity: 0.95;
-  transform: translateY(-1px);
-}
-
-/* Enhanced Selection Box and Active Selection States */
-.rbc-slot-selection {
-  background-color: rgba(37, 99, 235, 0.3) !important;
-  border: 2px solid #2563eb !important;
-  border-radius: 6px;
-  color: #1e3a8a !important;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
-  z-index: 15 !important;
-}
-
-.rbc-slot-selecting {
-  cursor: crosshair !important;
-}
-
-.rbc-selected-area-cell {
-  background-color: rgba(191, 219, 254, 0.7) !important;
-  z-index: 6;
-}
-
-/* Custom booked event styling in month and time views */
-.rbc-month-row .rbc-event {
-  min-height: 26px;
-  padding: 2px 4px !important;
-}
-
-.rbc-event-content {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Hide default time label from react-big-calendar to prevent duplicate time display,
-   keeping our custom event component which starts with the clock icon */
-.rbc-event-label {
-  display: none !important;
-}

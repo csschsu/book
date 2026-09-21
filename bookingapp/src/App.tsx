@@ -1,7 +1,7 @@
-import StartPage from './StartPage';
+import React from 'react';
+import { StartPage } from './StartPage';
 
-function App() {
+export default function App() {
   return <StartPage />;
 }
 
-export default App;

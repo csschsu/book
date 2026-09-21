@@ -1,164 +1,127 @@
-import { useState } from 'react';
-import { X, KeyRound, AlertCircle, RefreshCw, LogIn } from 'lucide-react';
-import type { Timeslot, AuthSession } from '../types/models';
-import { login as apiLogin } from '../services/api';
+import React, { useState } from 'react';
+import { login } from '../services/api';
+import { AuthSession } from '../types/models';
+import { X, Lock, Mail, Loader2 } from 'lucide-react';
 
 interface LoginPageProps {
-  isOpen: boolean;
   onClose: () => void;
   onLoginSuccess: (session: AuthSession) => void;
-  pendingBookingSlot: Timeslot | null;
-  loginError: string | null;
-  setLoginError: (err: string | null) => void;
 }
 
-export default function LoginPage({
-  isOpen,
-  onClose,
-  onLoginSuccess,
-  pendingBookingSlot,
-  loginError,
-  setLoginError,
-}: LoginPageProps) {
-  const [loginEmail, setLoginEmail] = useState<string>('user@example.com');
-  const [loginPassword, setLoginPassword] = useState<string>('user123');
-  const [loginLoading, setLoginLoading] = useState<boolean>(false);
+export const LoginPage: React.FC<LoginPageProps> = ({ onClose, onLoginSuccess }) => {
+  const [identifier, setIdentifier] = useState<string>('user1@example.com');
+  const [password, setPassword] = useState<string>('password123');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!isOpen) return null;
-
-  const handleQuickLogin = (email: string, pass: string) => {
-    setLoginEmail(email);
-    setLoginPassword(pass);
-  };
-
-  const handleLoginSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoginLoading(true);
-    setLoginError(null);
     try {
-      const newSession = await apiLogin(loginEmail.trim(), loginPassword);
-      onLoginSuccess(newSession);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setLoginError(err.message);
-      } else {
-        setLoginError('Felaktig e-post eller lösenord.');
-      }
+      setLoading(true);
+      setError(null);
+      const session = await login(identifier, password);
+      onLoginSuccess(session);
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Inloggningen misslyckades. Kontrollera uppgifterna.');
     } finally {
-      setLoginLoading(false);
+      setLoading(false);
     }
   };
 
+  const fillCredentials = (email: string) => {
+    setIdentifier(email);
+    setPassword('password123');
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-      <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 relative animate-scaleIn">
-        <button
-          onClick={onClose}
-          className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center mb-4">
-          <KeyRound className="w-6 h-6" />
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Logga in</h2>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray-500)' }}
+          >
+            <X size={20} />
+          </button>
         </div>
 
-        <h2 className="text-2xl font-extrabold text-slate-900">
-          Logga in (a41)
-        </h2>
-        <p className="text-sm text-slate-500 mt-1 mb-6">
-          {pendingBookingSlot
-            ? 'Logga in för att slutföra din bokning.'
-            : 'Ange din e-post och lösenord för att autentisera.'}
-        </p>
+        {error && <div className="alert-error">{error}</div>}
 
-        {loginError && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-500" />
-            <span>{loginError}</span>
-          </div>
-        )}
-
-        {/* Quick Demo Credentials */}
-        <div className="mb-5 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-            Snabbval demo-konton:
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('user@example.com', 'user123')}
-              className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors"
-            >
-              user@example.com (BOOKUSER)
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('admin@example.com', 'admin123')}
-              className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-purple-700 hover:bg-purple-50 transition-colors"
-            >
-              admin@example.com (BOOKADMIN)
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('super@example.com', 'super123')}
-              className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors"
-            >
-              super@example.com (Dual)
-            </button>
-          </div>
-        </div>
-
-        <form onSubmit={handleLoginSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              E-post (Användar-ID)
-            </label>
-            <input
-              type="email"
-              value={loginEmail}
-              onChange={(e) => setLoginEmail(e.target.value)}
-              placeholder="din@epost.se"
-              className="w-full border border-blue-200 rounded-xl p-3 bg-slate-50 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-              autoFocus
-            />
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">E-post eller ID</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                className="form-input"
+                style={{ paddingLeft: '2.25rem' }}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="user1@example.com"
+                required
+              />
+              <Mail size={16} color="var(--gray-500)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Lösenord
-            </label>
-            <input
-              type="password"
-              value={loginPassword}
-              onChange={(e) => setLoginPassword(e.target.value)}
-              placeholder="Lösenord"
-              className="w-full border border-blue-200 rounded-xl p-3 bg-slate-50 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
+          <div className="form-group">
+            <label className="form-label">Lösenord</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="password"
+                className="form-input"
+                style={{ paddingLeft: '2.25rem' }}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <Lock size={16} color="var(--gray-500)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
+            </div>
           </div>
 
           <button
             type="submit"
-            disabled={loginLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm mt-2"
+            className="btn btn-primary"
+            style={{ width: '100%', marginBottom: '1.25rem' }}
+            disabled={loading}
           >
-            {loginLoading ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                Loggar in...
-              </>
-            ) : (
-              <>
-                <LogIn className="w-4 h-4" />
-                Logga in
-              </>
-            )}
+            {loading ? <Loader2 className="animate-spin" size={16} /> : 'Logga in'}
           </button>
         </form>
+
+        <div style={{ borderTop: '1px solid var(--gray-200)', paddingTop: '1rem', fontSize: '0.8rem', color: 'var(--gray-500)' }}>
+          <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Snabbval testanvändare:</p>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+              onClick={() => fillCredentials('user1@example.com')}
+            >
+              user1 (Admin)
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+              onClick={() => fillCredentials('user2@example.com')}
+            >
+              user2 (Admin+User)
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+              onClick={() => fillCredentials('user3@example.com')}
+            >
+              user3 (User)
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
-}
+};
 

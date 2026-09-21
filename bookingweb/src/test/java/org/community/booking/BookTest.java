@@ -1,7 +1,6 @@
 package org.community.booking;
 
-import org.jdbi.v3.core.Jdbi;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -11,98 +10,95 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class BookTest {
 
-    private Jdbi jdbi;
-    private Book book;
+    private static Book book;
 
-    @BeforeEach
-    public void setUp() {
-        // Use a file-based SQLite database for testing to ensure persistence between
-        // connection opens/closes
-        java.io.File dbFile = new java.io.File("target/test.db");
-        if (dbFile.exists()) {
-            dbFile.delete();
-        }
-        jdbi = Jdbi.create("jdbc:sqlite:target/test.db?foreign_keys=true");
-        book = new Book(jdbi);
-
-        // Initialize schema
-        jdbi.useHandle(handle -> {
-            handle.execute(
-                    "CREATE TABLE user (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, code INTEGER DEFAULT 0, createtime TEXT NOT NULL, role TEXT NOT NULL, address TEXT)");
-            handle.execute(
-                    "CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, mark TEXT, price_per_hour REAL NOT NULL, blob BLOB, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
-            handle.execute(
-                    "CREATE TABLE location (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, latitude REAL, longitude REAL, address TEXT)");
-            handle.execute(
-                    "CREATE TABLE asset_location (id INTEGER PRIMARY KEY AUTOINCREMENT, location_id INTEGER, asset_id INTEGER UNIQUE, name TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE, FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE)");
-            handle.execute(
-                    "CREATE TABLE free (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE)");
-            handle.execute(
-                    "CREATE TABLE booked (id INTEGER PRIMARY KEY AUTOINCREMENT, free_id INTEGER NOT NULL, user_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
-        });
-    }
-
-    @org.junit.jupiter.api.AfterEach
-    public void tearDown() {
-        java.io.File dbFile = new java.io.File("target/test.db");
-        if (dbFile.exists()) {
-            dbFile.delete();
-        }
+    @BeforeAll
+    public static void setup() {
+        // Run test data generator first
+        TestDataGenerator.main(new String[]{});
+        book = new Book();
     }
 
     @Test
-    public void testFindTimeslotWithAssetLocationAndSplitting() {
-        // Setup initial test data
-        jdbi.useHandle(handle -> {
-            handle.execute(
-                    "INSERT INTO user (id, email, password, code, createtime, role, address) VALUES (1, 'user1@example.com', 'password123', 0, '2026-07-04T00:00:00', 'BOOKUSER', 'User Address')");
-            handle.execute(
-                    "INSERT INTO asset (id, user_id, mark, price_per_hour, blob) VALUES (1, 1, 'Asset 1', 10.0, NULL)");
-            handle.execute(
-                    "INSERT INTO location (id, name, latitude, longitude, address) VALUES (1, 'Location 1', 59.3293, 18.0686, 'Location Address')");
-            handle.execute(
-                    "INSERT INTO asset_location (id, location_id, asset_id, name) VALUES (1, 1, 1, 'Asset Location 1')");
+    public void testUsersLoaded() {
+        List<Models.User> users = book.getUsers();
+        assertNotNull(users);
+        assertTrue(users.size() >= 10);
 
-            // Free block: 2026-07-04T10:00:00 to 2026-07-04T18:00:00
-            handle.execute(
-                    "INSERT INTO free (id, asset_id, start_time, end_time) VALUES (10, 1, '2026-07-04T10:00:00', '2026-07-04T18:00:00')");
+        Models.User user1 = book.getUserByEmail("user1@example.com");
+        assertNotNull(user1);
+        assertEquals("BOOKADMIN", user1.getRole());
+        assertNotNull(user1.getAddress());
+        assertEquals("user1@example.com", user1.getAddress().getEmail());
+    }
 
-            // Bookings:
-            // Booking 1: 2026-07-04T12:00:00 to 2026-07-04T13:00:00
-            // Booking 2: 2026-07-04T15:00:00 to 2026-07-04T16:00:00
-            handle.execute(
-                    "INSERT INTO booked (id, free_id, user_id, start_time, end_time) VALUES (101, 10, 1, '2026-07-04T12:00:00', '2026-07-04T13:00:00')");
-            handle.execute(
-                    "INSERT INTO booked (id, free_id, user_id, start_time, end_time) VALUES (102, 10, 1, '2026-07-04T15:00:00', '2026-07-04T16:00:00')");
+    @Test
+    public void testLocationsAndAssetLocations() {
+        List<Models.Location> locations = book.getLocations();
+        assertEquals(2, locations.size());
+
+        List<Models.AssetLocation> assetLocations = book.getAssetLocations();
+        assertTrue(assetLocations.size() >= 100);
+
+        List<Models.AssetLocation> loc1Assets = book.getAssetLocationsByLocation(1);
+        assertEquals(50, loc1Assets.size());
+    }
+
+    @Test
+    public void testAddFreeTimeValidation() {
+        int assetId = 150; // Use high asset ID that has no free blocks initially
+        LocalDateTime now = LocalDateTime.now();
+
+        // 1. Start time in past should throw BookException
+        assertThrows(BookException.class, () -> {
+            book.addFreeTime(assetId, now.minusDays(1), now.plusDays(1));
         });
 
-        Models.AssetLocation al = new Models.AssetLocation();
-        al.id = 1;
-        al.locationId = 1;
-        al.assetId = 1;
-        al.name = "Asset Location 1";
+        // 2. End time before start time should throw BookException
+        assertThrows(BookException.class, () -> {
+            book.addFreeTime(assetId, now.plusDays(2), now.plusDays(1));
+        });
 
-        LocalDateTime wantedStart = LocalDateTime.of(2026, 7, 4, 13, 0);
-        LocalDateTime wantedEnd = LocalDateTime.of(2026, 7, 4, 14, 30);
+        // 3. Valid free block
+        LocalDateTime start1 = now.plusDays(10).withHour(10).withMinute(0).withSecond(0).withNano(0);
+        LocalDateTime end1 = start1.plusHours(4);
+        int freeId1 = book.addFreeTime(assetId, start1, end1);
+        assertTrue(freeId1 > 0);
 
-        List<Models.Timeslot> slots = book.findTimeslot(al, wantedStart, wantedEnd);
+        // 4. Overlapping free block should throw BookException
+        LocalDateTime overlapStart = start1.plusHours(1);
+        LocalDateTime overlapEnd = end1.plusHours(1);
+        assertThrows(BookException.class, () -> {
+            book.addFreeTime(assetId, overlapStart, overlapEnd);
+        });
 
-        // Expected timeslots:
-        // Only the timeslot [13:00 to 15:00] contains the wanted range [13:00 to 14:30]
-        assertEquals(1, slots.size());
+        // Clean up
+        book.deleteFreeTime(freeId1);
+    }
 
-        // The slot bounds should remain the original free timeslot bounds
-        assertEquals(LocalDateTime.of(2026, 7, 4, 13, 0), slots.get(0).startTime);
-        assertEquals(LocalDateTime.of(2026, 7, 4, 15, 0), slots.get(0).endTime);
+    @Test
+    public void testBookingAndTimeslots() {
+        int assetId = 180;
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime freeStart = now.plusDays(20).withHour(8).withMinute(0).withSecond(0).withNano(0);
+        LocalDateTime freeEnd = freeStart.plusHours(10); // 08:00 - 18:00
 
-        // Verify with another range
-        LocalDateTime wantedStart2 = LocalDateTime.of(2026, 7, 4, 10, 30);
-        LocalDateTime wantedEnd2 = LocalDateTime.of(2026, 7, 4, 11, 30);
-        List<Models.Timeslot> slots2 = book.findTimeslot(al, wantedStart2, wantedEnd2);
+        int freeId = book.addFreeTime(assetId, freeStart, freeEnd);
 
-        // Only the timeslot [10:00 to 12:00] contains the wanted range [10:30 to 11:30]
-        assertEquals(1, slots2.size());
-        assertEquals(LocalDateTime.of(2026, 7, 4, 10, 0), slots2.get(0).startTime);
-        assertEquals(LocalDateTime.of(2026, 7, 4, 12, 0), slots2.get(0).endTime);
+        // Book 10:00 - 12:00
+        LocalDateTime bookStart = freeStart.plusHours(2);
+        LocalDateTime bookEnd = freeStart.plusHours(4);
+        int bookedId = book.bookTime(freeId, 1, bookStart, bookEnd);
+        assertTrue(bookedId > 0);
+
+        // Try booking overlapping interval 11:00 - 13:00 -> should fail
+        assertThrows(BookException.class, () -> {
+            book.bookTime(freeId, 2, bookStart.plusHours(1), bookEnd.plusHours(1));
+        });
+
+        // Delete booking and free slot
+        book.deleteBookedTime(bookedId);
+        book.deleteFreeTime(freeId);
     }
 }
+

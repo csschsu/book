@@ -1,78 +1,87 @@
-import { MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { Location, AssetLocation } from '../types/models';
+import React, { useEffect, useState } from 'react';
+import { Location, AssetLocation } from '../types/models';
+import { fetchAssetLocations } from '../services/api';
+import { ArrowLeft, ArrowRight, Box, Loader2 } from 'lucide-react';
 
 interface AssetPageProps {
-  selectedLocation: Location;
-  assetLocations: AssetLocation[];
+  location: Location;
   onSelectAsset: (asset: AssetLocation) => void;
   onBack: () => void;
 }
 
-export default function AssetPage({
-  selectedLocation,
-  assetLocations,
-  onSelectAsset,
-  onBack,
-}: AssetPageProps) {
-  const locationAssets = assetLocations.filter((al) => al.locationId === selectedLocation.id);
+export const AssetPage: React.FC<AssetPageProps> = ({ location, onSelectAsset, onBack }) => {
+  const [assets, setAssets] = useState<AssetLocation[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadAssets();
+  }, [location.id]);
+
+  const loadAssets = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const allAssets = await fetchAssetLocations();
+      const filtered = allAssets.filter(a => a.locationId === location.id);
+      setAssets(filtered);
+    } catch (err: any) {
+      setError(err.message || 'Kunde inte hämta resurser');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="animate-fadeIn">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-          <MapPin className="w-5 h-5 text-blue-600" />
-          2. Välj resurs på {selectedLocation.name} (OPEN)
-        </h2>
-        <button
-          onClick={onBack}
-          className="text-sm text-slate-500 hover:text-blue-800 flex items-center gap-1 transition-colors"
-        >
-          <ChevronLeft className="w-4 h-4" /> Tillbaka till platser
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+        <button className="btn btn-secondary" onClick={onBack}>
+          <ArrowLeft size={16} /> Tillbaka
         </button>
+        <div>
+          <h1 className="page-title" style={{ marginBottom: 0 }}>{location.name} – Resurser</h1>
+          <p style={{ color: 'var(--gray-500)' }}>Välj en resurs att boka tider för</p>
+        </div>
       </div>
-      <p className="text-slate-600 text-sm mb-6">
-        Denna plats har flera resurser. Klicka på en resurs nedan för att visa dess kalender.
-      </p>
 
-      {locationAssets.length === 0 ? (
-        <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl">
-          <p className="text-slate-500">Inga resurser kopplade till denna plats.</p>
-          <button
-            onClick={onBack}
-            className="mt-3 text-sm text-blue-600 hover:underline font-semibold"
-          >
-            Välj en annan plats
-          </button>
+      {error && <div className="alert-error">{error}</div>}
+
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
+          <Loader2 className="animate-spin" size={36} color="var(--primary)" />
+        </div>
+      ) : assets.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--gray-500)' }}>
+          Inga resurser kopplade till denna plats.
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {locationAssets.map((asset) => (
-            <button
+        <div className="grid-cards">
+          {assets.map((asset) => (
+            <div
               key={asset.id}
+              className="card"
               onClick={() => onSelectAsset(asset)}
-              className="text-left bg-white border border-blue-200 hover:bg-blue-50/50 p-5 rounded-2xl transition-all group flex flex-col justify-between h-full hover:shadow-lg hover:border-blue-300"
             >
-              <div>
-                <div className="flex justify-between items-start">
-                  <span className="text-xs font-semibold px-2.5 py-0.5 bg-blue-50 text-blue-800 rounded-full border border-blue-100">
-                    Resurs #{asset.assetId}
-                  </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                <div style={{ background: 'var(--gray-100)', padding: '0.5rem', borderRadius: '50%' }}>
+                  <Box size={22} color="var(--primary)" />
                 </div>
-                <h3 className="font-bold text-base text-slate-800 mt-2.5 group-hover:text-blue-800 transition-colors">
-                  {asset.name}
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  Tillhör {selectedLocation.name}
-                </p>
+                <div>
+                  <h3 className="card-title" style={{ fontSize: '1.1rem', marginBottom: 0 }}>{asset.name}</h3>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--gray-500)' }}>Resurs-ID: {asset.assetId}</span>
+                </div>
               </div>
-              <div className="mt-4 pt-3 w-full border-t border-slate-100 flex items-center text-sm font-semibold text-blue-600 group-hover:translate-x-1 transition-transform">
-                Välj resurs och se kalender <ChevronRight className="w-4 h-4 ml-1" />
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                <button className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
+                  Välj resurs <ArrowRight size={16} />
+                </button>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       )}
     </div>
   );
-}
+};
 

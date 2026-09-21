@@ -5,30 +5,16 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
+import java.util.stream.Collectors;
 
 public class UserPrincipal implements UserDetails {
 
     private final Models.User user;
-    private final List<GrantedAuthority> authorities;
 
     public UserPrincipal(Models.User user) {
         this.user = user;
-        this.authorities = new ArrayList<>();
-        if (user.role != null && !user.role.trim().isEmpty()) {
-            String[] roles = user.role.split(",");
-            for (String r : roles) {
-                String cleanRole = r.trim().toUpperCase();
-                if (!cleanRole.isEmpty()) {
-                    this.authorities.add(new SimpleGrantedAuthority(cleanRole));
-                    if (!cleanRole.startsWith("ROLE_")) {
-                        this.authorities.add(new SimpleGrantedAuthority("ROLE_" + cleanRole));
-                    }
-                }
-            }
-        }
     }
 
     public Models.User getUser() {
@@ -36,26 +22,33 @@ public class UserPrincipal implements UserDetails {
     }
 
     public int getId() {
-        return user.id;
+        return user.getId();
     }
 
     public String getRole() {
-        return user.role;
+        return user.getRole();
     }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return authorities;
+        if (user.getRole() == null || user.getRole().isBlank()) {
+            return java.util.Collections.emptyList();
+        }
+        return Arrays.stream(user.getRole().split(","))
+                .map(String::trim)
+                .filter(r -> !r.isEmpty())
+                .map(r -> r.startsWith("ROLE_") ? new SimpleGrantedAuthority(r) : new SimpleGrantedAuthority("ROLE_" + r))
+                .collect(Collectors.toList());
     }
 
     @Override
     public String getPassword() {
-        return user.password;
+        return user.getPassword();
     }
 
     @Override
     public String getUsername() {
-        return user.email;
+        return user.getEmail();
     }
 
     @Override
@@ -78,3 +71,4 @@ public class UserPrincipal implements UserDetails {
         return true;
     }
 }
+

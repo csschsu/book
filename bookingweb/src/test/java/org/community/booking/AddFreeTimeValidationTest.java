@@ -65,7 +65,7 @@ public class AddFreeTimeValidationTest {
         BookException ex = assertThrows(BookException.class, () -> {
             book.addFreeTime(1, pastStart, futureEnd);
         });
-        assertEquals("Registration of free start_time must be bigger than current time", ex.getMessage());
+        assertEquals("Start time must be in the future", ex.getMessage());
     }
 
     @Test
@@ -76,13 +76,13 @@ public class AddFreeTimeValidationTest {
         BookException ex = assertThrows(BookException.class, () -> {
             book.addFreeTime(1, futureStart, invalidEnd);
         });
-        assertEquals("Registration of free end_time must be bigger than start_time", ex.getMessage());
+        assertEquals("End time must be after start time", ex.getMessage());
 
         // Equal start and end
         BookException exEqual = assertThrows(BookException.class, () -> {
             book.addFreeTime(1, futureStart, futureStart);
         });
-        assertEquals("Registration of free end_time must be bigger than start_time", exEqual.getMessage());
+        assertEquals("End time must be after start time", exEqual.getMessage());
     }
 
     @Test
@@ -97,7 +97,7 @@ public class AddFreeTimeValidationTest {
         BookException exExact = assertThrows(BookException.class, () -> {
             book.addFreeTime(1, start1, end1);
         });
-        assertEquals("Registration of new free time must not overlapap another free for the asset",
+        assertEquals("Free time overlaps with existing free time for this asset",
                 exExact.getMessage());
 
         // Attempt partial overlap (starts inside: 12:00 - 16:00)
@@ -106,7 +106,7 @@ public class AddFreeTimeValidationTest {
         BookException exPartial1 = assertThrows(BookException.class, () -> {
             book.addFreeTime(1, startOverlap1, endOverlap1);
         });
-        assertEquals("Registration of new free time must not overlapap another free for the asset",
+        assertEquals("Free time overlaps with existing free time for this asset",
                 exPartial1.getMessage());
 
         // Attempt partial overlap (ends inside: 08:00 - 12:00)
@@ -115,7 +115,7 @@ public class AddFreeTimeValidationTest {
         BookException exPartial2 = assertThrows(BookException.class, () -> {
             book.addFreeTime(1, startOverlap2, endOverlap2);
         });
-        assertEquals("Registration of new free time must not overlapap another free for the asset",
+        assertEquals("Free time overlaps with existing free time for this asset",
                 exPartial2.getMessage());
 
         // Attempt full enclosing overlap (08:00 - 16:00)
@@ -124,7 +124,7 @@ public class AddFreeTimeValidationTest {
         BookException exEnclosing = assertThrows(BookException.class, () -> {
             book.addFreeTime(1, startEnclosing, endEnclosing);
         });
-        assertEquals("Registration of new free time must not overlapap another free for the asset",
+        assertEquals("Free time overlaps with existing free time for this asset",
                 exEnclosing.getMessage());
 
         // Different asset with overlapping time -> Should succeed (only overlaps for
