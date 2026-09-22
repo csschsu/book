@@ -71,7 +71,8 @@ public class TestDataGenerator {
                                                         "code INTEGER DEFAULT 0, " +
                                                         "createtime TEXT NOT NULL, " +
                                                         "role TEXT NOT NULL, " +
-                                                        "address TEXT)");
+                                                        "address TEXT, " +
+                                                        "alias TEXT)");
                         handle.execute(
                                         "CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, mark TEXT, price_per_hour REAL NOT NULL, blob BLOB, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
                         handle.execute(
@@ -88,17 +89,19 @@ public class TestDataGenerator {
                         String hashedPassword = PASSWORD_ENCODER.encode("password123");
 
                         PreparedBatch userBatch = handle.prepareBatch(
-                                        "INSERT INTO user (email, password, code, createtime, role, address) VALUES (?, ?, ?, ?, ?, ?)");
+                                        "INSERT INTO user (email, password, code, createtime, role, address, alias) VALUES (?, ?, ?, ?, ?, ?, ?)");
                         for (int i = 1; i <= 10; i++) {
                                 String email = "user" + i + "@example.com";
                                 String jsonAddress = toJson(email, "070-22222" + String.format("%02d", i));
                                 String role = (i == 1) ? "BOOKADMIN" : ((i == 2) ? "BOOKUSER,BOOKADMIN" : "BOOKUSER");
+                                String alias = "Alias: " + i;
                                 userBatch.bind(0, email)
                                                 .bind(1, hashedPassword)
                                                 .bind(2, 0)
                                                 .bind(3, now)
                                                 .bind(4, role)
                                                 .bind(5, jsonAddress)
+                                                .bind(6, alias)
                                                 .add();
                         }
                         userBatch.execute();

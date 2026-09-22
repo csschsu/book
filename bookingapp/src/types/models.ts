@@ -38,6 +38,7 @@ export interface Booked {
   freeId: number;
   userId: number;
   userEmail?: string;
+  alias?: string;
   startTime: string;
   endTime: string;
 }
@@ -52,6 +53,7 @@ export interface Timeslot {
 export interface User {
   id: number;
   email: string;
+  alias?: string;
   password?: string;
   code: number;
   createtime?: string;

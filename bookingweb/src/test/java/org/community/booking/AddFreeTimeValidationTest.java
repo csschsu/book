@@ -27,7 +27,7 @@ public class AddFreeTimeValidationTest {
         // Initialize schema
         jdbi.useHandle(handle -> {
             handle.execute(
-                    "CREATE TABLE user (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, code INTEGER DEFAULT 0, createtime TEXT NOT NULL, role TEXT NOT NULL, address TEXT)");
+                    "CREATE TABLE user (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, code INTEGER DEFAULT 0, createtime TEXT NOT NULL, role TEXT NOT NULL, address TEXT, alias TEXT)");
             handle.execute(
                     "CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, mark TEXT, price_per_hour REAL NOT NULL, blob BLOB, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
             handle.execute(
@@ -41,7 +41,7 @@ public class AddFreeTimeValidationTest {
 
             // Create initial user and asset
             handle.execute(
-                    "INSERT INTO user (id, email, password, createtime, role, address) VALUES (1, 'owner@example.com', 'pass', '2026-01-01T00:00:00', 'USER', '{}')");
+                    "INSERT INTO user (id, email, password, createtime, role, address, alias) VALUES (1, 'owner@example.com', 'pass', '2026-01-01T00:00:00', 'USER', '{}', 'Alias: 1')");
             handle.execute(
                     "INSERT INTO asset (id, user_id, mark, price_per_hour) VALUES (1, 1, 'Tennis Court 1', 100.0)");
             handle.execute(

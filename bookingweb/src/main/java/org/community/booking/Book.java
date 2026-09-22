@@ -26,8 +26,8 @@ import java.util.List;
 public class Book {
 
     public interface BookingDao {
-        @SqlUpdate("INSERT INTO user (email, password, code, createtime, role, address) " +
-                   "VALUES (:email, :password, :code, :createtime, :role, :address)")
+        @SqlUpdate("INSERT INTO user (email, password, code, createtime, role, address, alias) " +
+                "VALUES (:email, :password, :code, :createtime, :role, :address, :alias)")
         @GetGeneratedKeys("id")
         int insertUser(@BindBean Models.User user);
 
@@ -42,6 +42,12 @@ public class Book {
         @SqlQuery("SELECT * FROM user ORDER BY id")
         @RegisterFieldMapper(Models.User.class)
         List<Models.User> getUsers();
+
+        @SqlUpdate("UPDATE user SET email = :email, role = :role, code = :code, address = :address, alias = :alias WHERE id = :id")
+        int updateUser(@BindBean Models.User user);
+
+        @SqlUpdate("UPDATE user SET email = :email, password = :password, role = :role, code = :code, address = :address, alias = :alias WHERE id = :id")
+        int updateUserWithPassword(@BindBean Models.User user);
 
         @SqlQuery("SELECT * FROM location ORDER BY id")
         @RegisterFieldMapper(Models.Location.class)
@@ -95,9 +101,9 @@ public class Book {
         int deleteAssetLocationByAssetId(@Bind("assetId") int assetId);
 
         @SqlQuery("SELECT f.* FROM free f " +
-                  "JOIN asset_location al ON f.asset_id = al.asset_id " +
-                  "WHERE al.location_id = :locationId AND f.end_time > :startTime " +
-                  "ORDER BY f.start_time")
+                "JOIN asset_location al ON f.asset_id = al.asset_id " +
+                "WHERE al.location_id = :locationId AND f.end_time > :startTime " +
+                "ORDER BY f.start_time")
         @RegisterFieldMapper(Models.Free.class)
         List<Models.Free> getFreeBlocks(@Bind("locationId") int locationId, @Bind("startTime") LocalDateTime startTime);
 
@@ -107,12 +113,13 @@ public class Book {
 
         @SqlQuery("SELECT * FROM free WHERE asset_id = :assetId AND end_time > :startTime ORDER BY start_time")
         @RegisterFieldMapper(Models.Free.class)
-        List<Models.Free> getFreeBlocksByAsset(@Bind("assetId") int assetId, @Bind("startTime") LocalDateTime startTime);
+        List<Models.Free> getFreeBlocksByAsset(@Bind("assetId") int assetId,
+                @Bind("startTime") LocalDateTime startTime);
 
         @SqlQuery("SELECT f.* FROM free f " +
-                  "JOIN asset_location al ON f.asset_id = al.asset_id " +
-                  "WHERE al.location_id = :locationId " +
-                  "ORDER BY f.start_time")
+                "JOIN asset_location al ON f.asset_id = al.asset_id " +
+                "WHERE al.location_id = :locationId " +
+                "ORDER BY f.start_time")
         @RegisterFieldMapper(Models.Free.class)
         List<Models.Free> getFreeBlocksByLocation(@Bind("locationId") int locationId);
 
@@ -120,45 +127,50 @@ public class Book {
         @RegisterFieldMapper(Models.Free.class)
         Models.Free getFreeById(@Bind("id") int id);
 
-        @SqlQuery("SELECT b.id, b.free_id, b.user_id, u.email as user_email, b.start_time, b.end_time " +
-                  "FROM booked b " +
-                  "JOIN free f ON b.free_id = f.id " +
-                  "JOIN asset_location al ON f.asset_id = al.asset_id " +
-                  "LEFT JOIN user u ON b.user_id = u.id " +
-                  "WHERE al.location_id = :locationId AND b.end_time > :startTime " +
-                  "ORDER BY b.start_time")
+        @SqlQuery("SELECT b.id, b.free_id, b.user_id, u.email as user_email, u.alias as alias, b.start_time, b.end_time "
+                +
+                "FROM booked b " +
+                "JOIN free f ON b.free_id = f.id " +
+                "JOIN asset_location al ON f.asset_id = al.asset_id " +
+                "LEFT JOIN user u ON b.user_id = u.id " +
+                "WHERE al.location_id = :locationId AND b.end_time > :startTime " +
+                "ORDER BY b.start_time")
         @RegisterFieldMapper(Models.Booked.class)
-        List<Models.Booked> getBookedBlocks(@Bind("locationId") int locationId, @Bind("startTime") LocalDateTime startTime);
+        List<Models.Booked> getBookedBlocks(@Bind("locationId") int locationId,
+                @Bind("startTime") LocalDateTime startTime);
 
-        @SqlQuery("SELECT b.id, b.free_id, b.user_id, u.email as user_email, b.start_time, b.end_time " +
-                  "FROM booked b " +
-                  "JOIN free f ON b.free_id = f.id " +
-                  "JOIN asset_location al ON f.asset_id = al.asset_id " +
-                  "LEFT JOIN user u ON b.user_id = u.id " +
-                  "WHERE al.location_id = :locationId " +
-                  "ORDER BY b.start_time")
+        @SqlQuery("SELECT b.id, b.free_id, b.user_id, u.email as user_email, u.alias as alias, b.start_time, b.end_time "
+                +
+                "FROM booked b " +
+                "JOIN free f ON b.free_id = f.id " +
+                "JOIN asset_location al ON f.asset_id = al.asset_id " +
+                "LEFT JOIN user u ON b.user_id = u.id " +
+                "WHERE al.location_id = :locationId " +
+                "ORDER BY b.start_time")
         @RegisterFieldMapper(Models.Booked.class)
         List<Models.Booked> getBookedBlocksByLocation(@Bind("locationId") int locationId);
 
-        @SqlQuery("SELECT b.id, b.free_id, b.user_id, u.email as user_email, b.start_time, b.end_time " +
-                  "FROM booked b " +
-                  "LEFT JOIN user u ON b.user_id = u.id " +
-                  "WHERE b.free_id = :freeId " +
-                  "ORDER BY b.start_time")
+        @SqlQuery("SELECT b.id, b.free_id, b.user_id, u.email as user_email, u.alias as alias, b.start_time, b.end_time "
+                +
+                "FROM booked b " +
+                "LEFT JOIN user u ON b.user_id = u.id " +
+                "WHERE b.free_id = :freeId " +
+                "ORDER BY b.start_time")
         @RegisterFieldMapper(Models.Booked.class)
         List<Models.Booked> getBookedBlocksByFreeId(@Bind("freeId") int freeId);
 
-        @SqlQuery("SELECT b.id, b.free_id, b.user_id, u.email as user_email, b.start_time, b.end_time " +
-                  "FROM booked b " +
-                  "LEFT JOIN user u ON b.user_id = u.id " +
-                  "WHERE b.id = :id")
+        @SqlQuery("SELECT b.id, b.free_id, b.user_id, u.email as user_email, u.alias as alias, b.start_time, b.end_time "
+                +
+                "FROM booked b " +
+                "LEFT JOIN user u ON b.user_id = u.id " +
+                "WHERE b.id = :id")
         @RegisterFieldMapper(Models.Booked.class)
         Models.Booked getBookedById(@Bind("id") int id);
 
         @SqlUpdate("INSERT INTO booked (free_id, user_id, start_time, end_time) VALUES (:freeId, :userId, :startTime, :endTime)")
         @GetGeneratedKeys("id")
         int bookTime(@Bind("freeId") int freeId, @Bind("userId") int userId,
-                     @Bind("startTime") LocalDateTime startTime, @Bind("endTime") LocalDateTime endTime);
+                @Bind("startTime") LocalDateTime startTime, @Bind("endTime") LocalDateTime endTime);
 
         @SqlUpdate("DELETE FROM booked WHERE id = :bookedId")
         int deleteBookedTime(@Bind("bookedId") int bookedId);
@@ -166,7 +178,7 @@ public class Book {
         @SqlUpdate("INSERT INTO free (asset_id, start_time, end_time) VALUES (:assetId, :startTime, :endTime)")
         @GetGeneratedKeys("id")
         int addFreeTime(@Bind("assetId") int assetId,
-                        @Bind("startTime") LocalDateTime startTime, @Bind("endTime") LocalDateTime endTime);
+                @Bind("startTime") LocalDateTime startTime, @Bind("endTime") LocalDateTime endTime);
 
         @SqlUpdate("DELETE FROM free WHERE id = :freeId")
         int deleteFreeTime(@Bind("freeId") int freeId);
@@ -204,6 +216,27 @@ public class Book {
             return LocalDateTime.parse(str, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         });
         this.dao = this.jdbi.onDemand(BookingDao.class);
+        ensureSchema();
+    }
+
+    private void ensureSchema() {
+        try {
+            this.jdbi.useHandle(handle -> {
+                boolean userTableExists = handle.createQuery(
+                        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='user'")
+                        .mapTo(Integer.class)
+                        .one() > 0;
+                if (userTableExists) {
+                    List<String> columns = handle.createQuery("PRAGMA table_info(user)")
+                            .map((rs, ctx) -> rs.getString("name"))
+                            .list();
+                    if (!columns.contains("alias")) {
+                        handle.execute("ALTER TABLE user ADD COLUMN alias TEXT");
+                    }
+                }
+            });
+        } catch (Exception ignored) {
+        }
     }
 
     public BookingDao getDao() {
@@ -222,6 +255,35 @@ public class Book {
             throw new BookException("User with email already exists");
         }
         return dao.insertUser(user);
+    }
+
+    public Models.User updateUser(Models.User user) {
+        if (user.getEmail() == null || user.getEmail().isBlank()) {
+            throw new BookException("Email cannot be empty");
+        }
+        Models.User existing = dao.getUserById(user.getId());
+        if (existing == null) {
+            throw new BookException("User not found with id: " + user.getId());
+        }
+        if (!user.getEmail().equalsIgnoreCase(existing.getEmail())) {
+            Models.User withEmail = dao.getUserByEmail(user.getEmail());
+            if (withEmail != null && withEmail.getId() != user.getId()) {
+                throw new BookException("User with email already exists");
+            }
+        }
+        if (user.getRole() == null || user.getRole().isBlank()) {
+            user.setRole(existing.getRole());
+        }
+        if (user.getCreatetime() == null || user.getCreatetime().isBlank()) {
+            user.setCreatetime(existing.getCreatetime());
+        }
+        if (user.getPassword() != null && !user.getPassword().isBlank()) {
+            dao.updateUserWithPassword(user);
+        } else {
+            user.setPassword(existing.getPassword());
+            dao.updateUser(user);
+        }
+        return dao.getUserById(user.getId());
     }
 
     public Models.User getUserById(int id) {
@@ -422,7 +484,7 @@ public class Book {
                     .build());
 
             List<Models.Booked> bookings = dao.getBookedBlocksByFreeId(free.getId());
-            bookings.sort(Comparator.comparing(Models.Booked::getStartTime));
+            bookings.sort(Comparator.comparing(b -> b.getStartTime()));
 
             for (Models.Booked b : bookings) {
                 List<Models.Timeslot> updatedSlots = new ArrayList<>();
@@ -466,8 +528,7 @@ public class Book {
             }
         }
 
-        result.sort(Comparator.comparing(Models.Timeslot::getStartTime));
+        result.sort(Comparator.comparing(slot -> slot.getStartTime()));
         return result;
     }
 }
-

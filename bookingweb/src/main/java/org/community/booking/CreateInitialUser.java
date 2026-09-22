@@ -71,6 +71,9 @@ public class CreateInitialUser {
                 if (!columns.contains("email")) {
                     System.out.println("Old user schema detected. Migrating user table (a17)...");
                     handle.execute("DROP TABLE IF EXISTS user");
+                } else if (!columns.contains("alias")) {
+                    System.out.println("Adding alias column to user table...");
+                    handle.execute("ALTER TABLE user ADD COLUMN alias TEXT");
                 }
             }
 
@@ -81,13 +84,18 @@ public class CreateInitialUser {
                     "code INTEGER DEFAULT 0, " +
                     "createtime TEXT NOT NULL, " +
                     "role TEXT NOT NULL, " +
-                    "address TEXT)");
+                    "address TEXT, " +
+                    "alias TEXT)");
             // TODO: handle.execute("CREATE VIEW IF NOT EXISTS users AS SELECT * FROM
             // user");
         });
     }
 
     public static void insertUser(Jdbi jdbi, String email, String rawPassword, String role) {
+        insertUser(jdbi, email, rawPassword, role, "Admin");
+    }
+
+    public static void insertUser(Jdbi jdbi, String email, String rawPassword, String role, String alias) {
         if (rawPassword == null || rawPassword.length() < 6) {
             throw new IllegalArgumentException("Password must be at least 6 characters long");
         }
@@ -116,22 +124,26 @@ public class CreateInitialUser {
                     .orElse(null);
 
             if (existingId == null) {
-                handle.createUpdate("INSERT INTO user (email, password, code, createtime, role, address) " +
-                        "VALUES (:email, :password, :code, :createtime, :role, :address)")
+                handle.createUpdate("INSERT INTO user (email, password, code, createtime, role, address, alias) " +
+                        "VALUES (:email, :password, :code, :createtime, :role, :address, :alias)")
                         .bind("email", email)
                         .bind("password", hashedPassword)
                         .bind("code", code)
                         .bind("createtime", createtime)
                         .bind("role", role)
                         .bind("address", finalAddress)
+                        .bind("alias", alias)
                         .execute();
                 System.out.println("Inserted user: " + email + " with role: " + role);
             } else {
-                handle.createUpdate("UPDATE user SET password = :password, role = :role, address = :address " +
-                        "WHERE id = :id")
+                handle.createUpdate(
+                        "UPDATE user SET password = :password, role = :role, address = :address, alias = COALESCE(:alias, alias) "
+                                +
+                                "WHERE id = :id")
                         .bind("password", hashedPassword)
                         .bind("role", role)
                         .bind("address", finalAddress)
+                        .bind("alias", alias)
                         .bind("id", existingId)
                         .execute();
                 System.out.println("Updated existing user: " + email + " with role: " + role);

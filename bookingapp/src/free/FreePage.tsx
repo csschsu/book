@@ -15,9 +15,11 @@ export const FreePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // New free time form
-  const [newStart, setNewStart] = useState<string>(moment().add(1, 'day').hour(9).minute(0).format('YYYY-MM-DDTHH:mm'));
-  const [newEnd, setNewEnd] = useState<string>(moment().add(1, 'day').hour(17).minute(0).format('YYYY-MM-DDTHH:mm'));
+  // New free time form (Calendar date + Swedish 24h clock)
+  const [startDate, setStartDate] = useState<string>(moment().add(1, 'day').format('YYYY-MM-DD'));
+  const [startTime, setStartTime] = useState<string>('09:00');
+  const [endDate, setEndDate] = useState<string>(moment().add(1, 'day').format('YYYY-MM-DD'));
+  const [endTime, setEndTime] = useState<string>('17:00');
   const [saving, setSaving] = useState<boolean>(false);
 
   useEffect(() => {
@@ -84,12 +86,23 @@ export const FreePage: React.FC = () => {
       return;
     }
 
+    const startStr = `${startDate} ${startTime.trim().replace('.', ':')}`;
+    const endStr = `${endDate} ${endTime.trim().replace('.', ':')}`;
+
+    const startMoment = moment(startStr, ['YYYY-MM-DD HH:mm', 'YYYY-MM-DD H:mm'], true);
+    const endMoment = moment(endStr, ['YYYY-MM-DD HH:mm', 'YYYY-MM-DD H:mm'], true);
+
+    if (!startMoment.isValid() || !endMoment.isValid()) {
+      setError('Starttid och Sluttid måste ha giltigt datum och tid i 24-timmars format (t.ex. 09:00)');
+      return;
+    }
+
     try {
       setSaving(true);
       setError(null);
       setSuccess(null);
-      const startIso = moment(newStart).format('YYYY-MM-DDTHH:mm:ss');
-      const endIso = moment(newEnd).format('YYYY-MM-DDTHH:mm:ss');
+      const startIso = startMoment.format('YYYY-MM-DDTHH:mm:ss');
+      const endIso = endMoment.format('YYYY-MM-DDTHH:mm:ss');
       await addFreeTime(selectedAssetId, startIso, endIso);
       setSuccess('Ledig tid har registrerats!');
       await loadFreeBlocks(selectedLocationId);
@@ -165,25 +178,89 @@ export const FreePage: React.FC = () => {
 
             <div className="form-group">
               <label className="form-label">Starttid</label>
-              <input
-                type="datetime-local"
-                className="form-input"
-                value={newStart}
-                onChange={(e) => setNewStart(e.target.value)}
-                required
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: '0.5rem' }}>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  onClick={(e) => {
+                    try { (e.currentTarget as any).showPicker?.(); } catch { }
+                  }}
+                  required
+                />
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="09:00"
+                  list="time-presets"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  style={{ textAlign: 'center' }}
+                  required
+                />
+              </div>
             </div>
 
             <div className="form-group">
               <label className="form-label">Sluttid</label>
-              <input
-                type="datetime-local"
-                className="form-input"
-                value={newEnd}
-                onChange={(e) => setNewEnd(e.target.value)}
-                required
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: '0.5rem' }}>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  onClick={(e) => {
+                    try { (e.currentTarget as any).showPicker?.(); } catch { }
+                  }}
+                  required
+                />
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="17:00"
+                  list="time-presets"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  style={{ textAlign: 'center' }}
+                  required
+                />
+              </div>
             </div>
+
+            <datalist id="time-presets">
+              <option value="06:00" />
+              <option value="07:00" />
+              <option value="08:00" />
+              <option value="08:30" />
+              <option value="09:00" />
+              <option value="09:30" />
+              <option value="10:00" />
+              <option value="10:30" />
+              <option value="11:00" />
+              <option value="11:30" />
+              <option value="12:00" />
+              <option value="12:30" />
+              <option value="13:00" />
+              <option value="13:30" />
+              <option value="14:00" />
+              <option value="14:30" />
+              <option value="15:00" />
+              <option value="15:30" />
+              <option value="16:00" />
+              <option value="16:30" />
+              <option value="17:00" />
+              <option value="17:30" />
+              <option value="18:00" />
+              <option value="18:30" />
+              <option value="19:00" />
+              <option value="19:30" />
+              <option value="20:00" />
+              <option value="20:30" />
+              <option value="21:00" />
+              <option value="21:30" />
+              <option value="22:00" />
+            </datalist>
 
             <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={saving}>
               {saving ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
@@ -240,10 +317,9 @@ export const FreePage: React.FC = () => {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Resurs-ID</th>
                 <th>Resursnamn</th>
-                <th>Datum</th>
-                <th>Tidsintervall</th>
+                <th>Starttid</th>
+                <th>Sluttid</th>
                 <th>Åtgärd</th>
               </tr>
             </thead>
@@ -254,11 +330,10 @@ export const FreePage: React.FC = () => {
                 return (
                   <tr key={block.id} style={{ opacity: isPast ? 0.6 : 1 }}>
                     <td>#{block.id}</td>
-                    <td>{block.assetId}</td>
                     <td>{assetMatch ? assetMatch.name : `Resurs ${block.assetId}`}</td>
-                    <td>{moment(block.startTime).format('YYYY-MM-DD')}</td>
+                    <td>{moment(block.startTime).format('YYYY-MM-DD HH:mm')}</td>
                     <td>
-                      {moment(block.startTime).format('HH:mm')} – {moment(block.endTime).format('HH:mm')}
+                      {moment(block.endTime).format('YYYY-MM-DD HH:mm')}
                       {isPast && <span style={{ marginLeft: '0.5rem', color: 'var(--danger)', fontSize: '0.75rem' }}>(Passerad)</span>}
                     </td>
                     <td>

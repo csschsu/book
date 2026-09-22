@@ -147,7 +147,7 @@ export const BookPage: React.FC<BookPageProps> = ({
     bookedBlocks.forEach(b => {
       list.push({
         id: `booked-${b.id}`,
-        title: b.userEmail ? `Bokad (${b.userEmail})` : 'Bokad',
+        title: b.alias || (b.userEmail ? `Bokad (${b.userEmail})` : 'Bokad'),
         start: new Date(b.startTime),
         end: new Date(b.endTime),
         type: 'booked',
@@ -395,7 +395,7 @@ export const BookPage: React.FC<BookPageProps> = ({
             })}
             step={60}
             timeslots={1}
-            min={new Date(0, 0, 0, 7, 0, 0)}
+            min={new Date(0, 0, 0, 9, 0, 0)}
             max={new Date(0, 0, 0, 22, 0, 0)}
           />
         </div>

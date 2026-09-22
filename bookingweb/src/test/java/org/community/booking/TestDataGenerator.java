@@ -29,70 +29,71 @@ public class TestDataGenerator {
 
             System.out.println("Creating tables...");
             handle.execute("""
-                CREATE TABLE user (
-                  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                  email       TEXT UNIQUE NOT NULL,
-                  password    TEXT NOT NULL,
-                  code        INTEGER DEFAULT 0,
-                  createtime  TEXT NOT NULL,
-                  role        TEXT NOT NULL,
-                  address     TEXT
-                )
-            """);
+                        CREATE TABLE user (
+                          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                          email       TEXT UNIQUE NOT NULL,
+                          password    TEXT NOT NULL,
+                          code        INTEGER DEFAULT 0,
+                          createtime  TEXT NOT NULL,
+                          role        TEXT NOT NULL,
+                          address     TEXT,
+                          alias       TEXT
+                        )
+                    """);
 
             handle.execute("""
-                CREATE TABLE asset (
-                  id             INTEGER PRIMARY KEY AUTOINCREMENT,
-                  user_id        INTEGER NOT NULL,
-                  mark           TEXT,
-                  price_per_hour REAL NOT NULL,
-                  blob           BLOB,
-                  FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
-                )
-            """);
+                        CREATE TABLE asset (
+                          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                          user_id        INTEGER NOT NULL,
+                          mark           TEXT,
+                          price_per_hour REAL NOT NULL,
+                          blob           BLOB,
+                          FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+                        )
+                    """);
 
             handle.execute("""
-                CREATE TABLE location (
-                  id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                  name      TEXT NOT NULL,
-                  latitude  REAL,
-                  longitude REAL,
-                  address   TEXT
-                )
-            """);
+                        CREATE TABLE location (
+                          id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                          name      TEXT NOT NULL,
+                          latitude  REAL,
+                          longitude REAL,
+                          address   TEXT
+                        )
+                    """);
 
             handle.execute("""
-                CREATE TABLE asset_location (
-                  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                  location_id INTEGER,
-                  asset_id    INTEGER UNIQUE,
-                  name        TEXT NOT NULL,
-                  FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE,
-                  FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE
-                )
-            """);
+                        CREATE TABLE asset_location (
+                          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                          location_id INTEGER,
+                          asset_id    INTEGER UNIQUE,
+                          name        TEXT NOT NULL,
+                          FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE,
+                          FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE
+                        )
+                    """);
 
             handle.execute("""
-                CREATE TABLE free (
-                  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                  asset_id   INTEGER NOT NULL,
-                  start_time TEXT NOT NULL,
-                  end_time   TEXT NOT NULL,
-                  FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE
-                )
-            """);
+                        CREATE TABLE free (
+                          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                          asset_id   INTEGER NOT NULL,
+                          start_time TEXT NOT NULL,
+                          end_time   TEXT NOT NULL,
+                          FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE
+                        )
+                    """);
 
             handle.execute("""
-                CREATE TABLE booked (
-                  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                  free_id    INTEGER NOT NULL,
-                  user_id    INTEGER NOT NULL,
-                  start_time TEXT NOT NULL,
-                  end_time   TEXT NOT NULL,
-                  FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE,
-                  FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
-                )
-            """);
+                        CREATE TABLE booked (
+                          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                          free_id    INTEGER NOT NULL,
+                          user_id    INTEGER NOT NULL,
+                          start_time TEXT NOT NULL,
+                          end_time   TEXT NOT NULL,
+                          FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE,
+                          FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+                        )
+                    """);
 
             BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
             String defaultHash = encoder.encode("password123");
@@ -107,16 +108,19 @@ public class TestDataGenerator {
                     role = "BOOKUSER,BOOKADMIN";
                 }
                 String email = "user" + i + "@example.com";
-                String address = "{\"email\":\"" + email + "\",\"phone\":\"070-12345" + String.format("%02d", i) + "\"}";
+                String address = "{\"email\":\"" + email + "\",\"phone\":\"070-12345" + String.format("%02d", i)
+                        + "\"}";
+                String alias = "Alias: " + i;
 
-                handle.createUpdate("INSERT INTO user (email, password, code, createtime, role, address) " +
-                                    "VALUES (?, ?, ?, ?, ?, ?)")
+                handle.createUpdate("INSERT INTO user (email, password, code, createtime, role, address, alias) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)")
                         .bind(0, email)
                         .bind(1, defaultHash)
                         .bind(2, 1000 + i)
                         .bind(3, nowIso)
                         .bind(4, role)
                         .bind(5, address)
+                        .bind(6, alias)
                         .execute();
             }
 
@@ -170,7 +174,8 @@ public class TestDataGenerator {
             for (int i = 1; i <= 100; i++) {
                 int assetId = i;
                 int dayOffset = (random.nextInt(18) - 8); // -8 to +9 days
-                if (dayOffset == 0) dayOffset = 1; // avoid immediate past/present boundary
+                if (dayOffset == 0)
+                    dayOffset = 1; // avoid immediate past/present boundary
                 LocalDateTime blockStart = baseTime.plusDays(dayOffset).withHour(8);
                 LocalDateTime blockEnd = blockStart.plusHours(48);
 
@@ -185,4 +190,3 @@ public class TestDataGenerator {
         }
     }
 }
-

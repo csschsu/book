@@ -35,9 +35,10 @@ public class UserPrincipal implements UserDetails {
             return java.util.Collections.emptyList();
         }
         return Arrays.stream(user.getRole().split(","))
-                .map(String::trim)
+                .map(s -> s.trim())
                 .filter(r -> !r.isEmpty())
-                .map(r -> r.startsWith("ROLE_") ? new SimpleGrantedAuthority(r) : new SimpleGrantedAuthority("ROLE_" + r))
+                .map(r -> r.startsWith("ROLE_") ? new SimpleGrantedAuthority(r)
+                        : new SimpleGrantedAuthority("ROLE_" + r))
                 .collect(Collectors.toList());
     }
 
@@ -71,4 +72,3 @@ public class UserPrincipal implements UserDetails {
         return true;
     }
 }
-

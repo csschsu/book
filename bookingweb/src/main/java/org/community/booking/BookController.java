@@ -41,13 +41,13 @@ public class BookController {
         return ResponseEntity.ok(book.getLocations());
     }
 
-    @PostMapping({"/location", "/locations"})
+    @PostMapping({ "/location", "/locations" })
     public ResponseEntity<Models.Location> createLocation(@RequestBody Models.Location location) {
         Models.Location created = book.addLocation(location);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    @PutMapping({"/location/{id}", "/locations/{id}"})
+    @PutMapping({ "/location/{id}", "/locations/{id}" })
     public ResponseEntity<Models.Location> updateLocation(@PathVariable int id, @RequestBody Models.Location location) {
         location.setId(id);
         Models.Location updated = book.updateLocation(location);
@@ -55,7 +55,8 @@ public class BookController {
     }
 
     @GetMapping("/assetlocations")
-    public ResponseEntity<List<Models.AssetLocation>> getAssetLocations(@RequestParam(required = false) Integer locationId) {
+    public ResponseEntity<List<Models.AssetLocation>> getAssetLocations(
+            @RequestParam(required = false) Integer locationId) {
         if (locationId != null) {
             return ResponseEntity.ok(book.getAssetLocationsByLocation(locationId));
         }
@@ -204,6 +205,17 @@ public class BookController {
         return ResponseEntity.status(HttpStatus.CREATED).body(user);
     }
 
+    @PutMapping({ "/user/{id}", "/users/{id}" })
+    public ResponseEntity<?> updateUser(@PathVariable int id, @RequestBody Models.User user) {
+        user.setId(id);
+        if (user.getPassword() != null && !user.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        }
+        Models.User updated = book.updateUser(user);
+        updated.setPassword(null);
+        return ResponseEntity.ok(updated);
+    }
+
     @GetMapping("/user/{id}")
     public ResponseEntity<?> getUserById(@PathVariable int id) {
         Models.User user = book.getUserById(id);
@@ -231,4 +243,3 @@ public class BookController {
         return ResponseEntity.ok(users);
     }
 }
-

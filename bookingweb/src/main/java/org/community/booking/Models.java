@@ -11,17 +11,29 @@ public class Models {
         public String email;
         public String phone;
 
-        public Address() {}
+        public Address() {
+        }
 
         public Address(String email, String phone) {
             this.email = email;
             this.phone = phone;
         }
 
-        public String getEmail() { return email; }
-        public void setEmail(String email) { this.email = email; }
-        public String getPhone() { return phone; }
-        public void setPhone(String phone) { this.phone = phone; }
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getPhone() {
+            return phone;
+        }
+
+        public void setPhone(String phone) {
+            this.phone = phone;
+        }
     }
 
     @Data
@@ -33,10 +45,17 @@ public class Models {
         public String createtime;
         public String role;
         public Address address;
+        public String alias;
 
-        public User() {}
+        public User() {
+        }
 
         public User(int id, String email, String password, int code, String createtime, String role, Address address) {
+            this(id, email, password, code, createtime, role, address, null);
+        }
+
+        public User(int id, String email, String password, int code, String createtime, String role, Address address,
+                String alias) {
             this.id = id;
             this.email = email;
             this.password = password;
@@ -44,22 +63,72 @@ public class Models {
             this.createtime = createtime;
             this.role = role;
             this.address = address;
+            this.alias = alias;
         }
 
-        public int getId() { return id; }
-        public void setId(int id) { this.id = id; }
-        public String getEmail() { return email; }
-        public void setEmail(String email) { this.email = email; }
-        public String getPassword() { return password; }
-        public void setPassword(String password) { this.password = password; }
-        public int getCode() { return code; }
-        public void setCode(int code) { this.code = code; }
-        public String getCreatetime() { return createtime; }
-        public void setCreatetime(String createtime) { this.createtime = createtime; }
-        public String getRole() { return role; }
-        public void setRole(String role) { this.role = role; }
-        public Address getAddress() { return address; }
-        public void setAddress(Address address) { this.address = address; }
+        public int getId() {
+            return id;
+        }
+
+        public void setId(int id) {
+            this.id = id;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String password) {
+            this.password = password;
+        }
+
+        public int getCode() {
+            return code;
+        }
+
+        public void setCode(int code) {
+            this.code = code;
+        }
+
+        public String getCreatetime() {
+            return createtime;
+        }
+
+        public void setCreatetime(String createtime) {
+            this.createtime = createtime;
+        }
+
+        public String getRole() {
+            return role;
+        }
+
+        public void setRole(String role) {
+            this.role = role;
+        }
+
+        public Address getAddress() {
+            return address;
+        }
+
+        public void setAddress(Address address) {
+            this.address = address;
+        }
+
+        public String getAlias() {
+            return alias;
+        }
+
+        public void setAlias(String alias) {
+            this.alias = alias;
+        }
     }
 
     @Data
@@ -70,7 +139,8 @@ public class Models {
         public double pricePerHour;
         public byte[] blob;
 
-        public Asset() {}
+        public Asset() {
+        }
 
         public Asset(int id, int userId, String mark, double pricePerHour, byte[] blob) {
             this.id = id;
@@ -80,16 +150,45 @@ public class Models {
             this.blob = blob;
         }
 
-        public int getId() { return id; }
-        public void setId(int id) { this.id = id; }
-        public int getUserId() { return userId; }
-        public void setUserId(int userId) { this.userId = userId; }
-        public String getMark() { return mark; }
-        public void setMark(String mark) { this.mark = mark; }
-        public double getPricePerHour() { return pricePerHour; }
-        public void setPricePerHour(double pricePerHour) { this.pricePerHour = pricePerHour; }
-        public byte[] getBlob() { return blob; }
-        public void setBlob(byte[] blob) { this.blob = blob; }
+        public int getId() {
+            return id;
+        }
+
+        public void setId(int id) {
+            this.id = id;
+        }
+
+        public int getUserId() {
+            return userId;
+        }
+
+        public void setUserId(int userId) {
+            this.userId = userId;
+        }
+
+        public String getMark() {
+            return mark;
+        }
+
+        public void setMark(String mark) {
+            this.mark = mark;
+        }
+
+        public double getPricePerHour() {
+            return pricePerHour;
+        }
+
+        public void setPricePerHour(double pricePerHour) {
+            this.pricePerHour = pricePerHour;
+        }
+
+        public byte[] getBlob() {
+            return blob;
+        }
+
+        public void setBlob(byte[] blob) {
+            this.blob = blob;
+        }
     }
 
     @Data
@@ -100,7 +199,8 @@ public class Models {
         public Double longitude;
         public Address address;
 
-        public Location() {}
+        public Location() {
+        }
 
         public Location(Integer id, String name, Double latitude, Double longitude, Address address) {
             this.id = id;
@@ -110,16 +210,45 @@ public class Models {
             this.address = address;
         }
 
-        public Integer getId() { return id; }
-        public void setId(Integer id) { this.id = id; }
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        public Double getLatitude() { return latitude; }
-        public void setLatitude(Double latitude) { this.latitude = latitude; }
-        public Double getLongitude() { return longitude; }
-        public void setLongitude(Double longitude) { this.longitude = longitude; }
-        public Address getAddress() { return address; }
-        public void setAddress(Address address) { this.address = address; }
+        public Integer getId() {
+            return id;
+        }
+
+        public void setId(Integer id) {
+            this.id = id;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public Double getLatitude() {
+            return latitude;
+        }
+
+        public void setLatitude(Double latitude) {
+            this.latitude = latitude;
+        }
+
+        public Double getLongitude() {
+            return longitude;
+        }
+
+        public void setLongitude(Double longitude) {
+            this.longitude = longitude;
+        }
+
+        public Address getAddress() {
+            return address;
+        }
+
+        public void setAddress(Address address) {
+            this.address = address;
+        }
     }
 
     @Data
@@ -129,7 +258,8 @@ public class Models {
         public Integer assetId;
         public String name;
 
-        public AssetLocation() {}
+        public AssetLocation() {
+        }
 
         public AssetLocation(int id, Integer locationId, Integer assetId, String name) {
             this.id = id;
@@ -138,14 +268,37 @@ public class Models {
             this.name = name;
         }
 
-        public int getId() { return id; }
-        public void setId(int id) { this.id = id; }
-        public Integer getLocationId() { return locationId; }
-        public void setLocationId(Integer locationId) { this.locationId = locationId; }
-        public Integer getAssetId() { return assetId; }
-        public void setAssetId(Integer assetId) { this.assetId = assetId; }
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
+        public int getId() {
+            return id;
+        }
+
+        public void setId(int id) {
+            this.id = id;
+        }
+
+        public Integer getLocationId() {
+            return locationId;
+        }
+
+        public void setLocationId(Integer locationId) {
+            this.locationId = locationId;
+        }
+
+        public Integer getAssetId() {
+            return assetId;
+        }
+
+        public void setAssetId(Integer assetId) {
+            this.assetId = assetId;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
     }
 
     @Data
@@ -155,7 +308,8 @@ public class Models {
         public LocalDateTime startTime;
         public LocalDateTime endTime;
 
-        public Free() {}
+        public Free() {
+        }
 
         public Free(int id, int assetId, LocalDateTime startTime, LocalDateTime endTime) {
             this.id = id;
@@ -164,14 +318,37 @@ public class Models {
             this.endTime = endTime;
         }
 
-        public int getId() { return id; }
-        public void setId(int id) { this.id = id; }
-        public int getAssetId() { return assetId; }
-        public void setAssetId(int assetId) { this.assetId = assetId; }
-        public LocalDateTime getStartTime() { return startTime; }
-        public void setStartTime(LocalDateTime startTime) { this.startTime = startTime; }
-        public LocalDateTime getEndTime() { return endTime; }
-        public void setEndTime(LocalDateTime endTime) { this.endTime = endTime; }
+        public int getId() {
+            return id;
+        }
+
+        public void setId(int id) {
+            this.id = id;
+        }
+
+        public int getAssetId() {
+            return assetId;
+        }
+
+        public void setAssetId(int assetId) {
+            this.assetId = assetId;
+        }
+
+        public LocalDateTime getStartTime() {
+            return startTime;
+        }
+
+        public void setStartTime(LocalDateTime startTime) {
+            this.startTime = startTime;
+        }
+
+        public LocalDateTime getEndTime() {
+            return endTime;
+        }
+
+        public void setEndTime(LocalDateTime endTime) {
+            this.endTime = endTime;
+        }
     }
 
     @Data
@@ -180,32 +357,84 @@ public class Models {
         public int freeId;
         public int userId;
         public String userEmail;
+        public String alias;
         public LocalDateTime startTime;
         public LocalDateTime endTime;
 
-        public Booked() {}
+        public Booked() {
+        }
 
-        public Booked(int id, int freeId, int userId, String userEmail, LocalDateTime startTime, LocalDateTime endTime) {
+        public Booked(int id, int freeId, int userId, String userEmail, LocalDateTime startTime,
+                LocalDateTime endTime) {
+            this(id, freeId, userId, userEmail, null, startTime, endTime);
+        }
+
+        public Booked(int id, int freeId, int userId, String userEmail, String alias, LocalDateTime startTime,
+                LocalDateTime endTime) {
             this.id = id;
             this.freeId = freeId;
             this.userId = userId;
             this.userEmail = userEmail;
+            this.alias = alias;
             this.startTime = startTime;
             this.endTime = endTime;
         }
 
-        public int getId() { return id; }
-        public void setId(int id) { this.id = id; }
-        public int getFreeId() { return freeId; }
-        public void setFreeId(int freeId) { this.freeId = freeId; }
-        public int getUserId() { return userId; }
-        public void setUserId(int userId) { this.userId = userId; }
-        public String getUserEmail() { return userEmail; }
-        public void setUserEmail(String userEmail) { this.userEmail = userEmail; }
-        public LocalDateTime getStartTime() { return startTime; }
-        public void setStartTime(LocalDateTime startTime) { this.startTime = startTime; }
-        public LocalDateTime getEndTime() { return endTime; }
-        public void setEndTime(LocalDateTime endTime) { this.endTime = endTime; }
+        public int getId() {
+            return id;
+        }
+
+        public void setId(int id) {
+            this.id = id;
+        }
+
+        public int getFreeId() {
+            return freeId;
+        }
+
+        public void setFreeId(int freeId) {
+            this.freeId = freeId;
+        }
+
+        public int getUserId() {
+            return userId;
+        }
+
+        public void setUserId(int userId) {
+            this.userId = userId;
+        }
+
+        public String getUserEmail() {
+            return userEmail;
+        }
+
+        public void setUserEmail(String userEmail) {
+            this.userEmail = userEmail;
+        }
+
+        public String getAlias() {
+            return alias;
+        }
+
+        public void setAlias(String alias) {
+            this.alias = alias;
+        }
+
+        public LocalDateTime getStartTime() {
+            return startTime;
+        }
+
+        public void setStartTime(LocalDateTime startTime) {
+            this.startTime = startTime;
+        }
+
+        public LocalDateTime getEndTime() {
+            return endTime;
+        }
+
+        public void setEndTime(LocalDateTime endTime) {
+            this.endTime = endTime;
+        }
     }
 
     @Data
@@ -215,7 +444,8 @@ public class Models {
         public LocalDateTime startTime;
         public LocalDateTime endTime;
 
-        public Timeslot() {}
+        public Timeslot() {
+        }
 
         public Timeslot(int freeid, int assetId, LocalDateTime startTime, LocalDateTime endTime) {
             this.freeid = freeid;
@@ -224,18 +454,49 @@ public class Models {
             this.endTime = endTime;
         }
 
-        public int getFreeid() { return freeid; }
-        public void setFreeid(int freeid) { this.freeid = freeid; }
-        public int getFreeId() { return freeid; }
-        public void setFreeId(int freeId) { this.freeid = freeId; }
-        public int getAssetId() { return assetId; }
-        public void setAssetId(int assetId) { this.assetId = assetId; }
-        public LocalDateTime getStartTime() { return startTime; }
-        public void setStartTime(LocalDateTime startTime) { this.startTime = startTime; }
-        public LocalDateTime getEndTime() { return endTime; }
-        public void setEndTime(LocalDateTime endTime) { this.endTime = endTime; }
+        public int getFreeid() {
+            return freeid;
+        }
 
-        public static TimeslotBuilder builder() { return new TimeslotBuilder(); }
+        public void setFreeid(int freeid) {
+            this.freeid = freeid;
+        }
+
+        public int getFreeId() {
+            return freeid;
+        }
+
+        public void setFreeId(int freeId) {
+            this.freeid = freeId;
+        }
+
+        public int getAssetId() {
+            return assetId;
+        }
+
+        public void setAssetId(int assetId) {
+            this.assetId = assetId;
+        }
+
+        public LocalDateTime getStartTime() {
+            return startTime;
+        }
+
+        public void setStartTime(LocalDateTime startTime) {
+            this.startTime = startTime;
+        }
+
+        public LocalDateTime getEndTime() {
+            return endTime;
+        }
+
+        public void setEndTime(LocalDateTime endTime) {
+            this.endTime = endTime;
+        }
+
+        public static TimeslotBuilder builder() {
+            return new TimeslotBuilder();
+        }
 
         public static class TimeslotBuilder {
             private int freeid;
@@ -243,12 +504,29 @@ public class Models {
             private LocalDateTime startTime;
             private LocalDateTime endTime;
 
-            public TimeslotBuilder freeid(int freeid) { this.freeid = freeid; return this; }
-            public TimeslotBuilder assetId(int assetId) { this.assetId = assetId; return this; }
-            public TimeslotBuilder startTime(LocalDateTime startTime) { this.startTime = startTime; return this; }
-            public TimeslotBuilder endTime(LocalDateTime endTime) { this.endTime = endTime; return this; }
-            public Timeslot build() { return new Timeslot(freeid, assetId, startTime, endTime); }
+            public TimeslotBuilder freeid(int freeid) {
+                this.freeid = freeid;
+                return this;
+            }
+
+            public TimeslotBuilder assetId(int assetId) {
+                this.assetId = assetId;
+                return this;
+            }
+
+            public TimeslotBuilder startTime(LocalDateTime startTime) {
+                this.startTime = startTime;
+                return this;
+            }
+
+            public TimeslotBuilder endTime(LocalDateTime endTime) {
+                this.endTime = endTime;
+                return this;
+            }
+
+            public Timeslot build() {
+                return new Timeslot(freeid, assetId, startTime, endTime);
+            }
         }
     }
 }
-

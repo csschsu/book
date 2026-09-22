@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { login } from '../services/api';
 import { AuthSession } from '../types/models';
 import { X, Lock, Mail, Loader2 } from 'lucide-react';
@@ -13,6 +13,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onClose, onLoginSuccess })
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIdentifier('');
+    setPassword('');
+    setError(null);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +50,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onClose, onLoginSuccess })
 
         {error && <div className="alert-error">{error}</div>}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} autoComplete="off">
           <div className="form-group">
             <label className="form-label">E-post eller ID</label>
             <div style={{ position: 'relative' }}>
@@ -55,6 +61,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onClose, onLoginSuccess })
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder="din.epost@example.com"
+                autoComplete="off"
                 required
               />
               <Mail size={16} color="var(--gray-500)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
@@ -71,6 +78,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onClose, onLoginSuccess })
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Lösenord"
+                autoComplete="new-password"
                 required
               />
               <Lock size={16} color="var(--gray-500)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />

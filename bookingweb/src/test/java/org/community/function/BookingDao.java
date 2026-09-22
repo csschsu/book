@@ -11,7 +11,8 @@ public interface BookingDao {
                         "code INTEGER DEFAULT 0, " +
                         "createtime TEXT NOT NULL, " +
                         "role TEXT NOT NULL, " +
-                        "address TEXT)")
+                        "address TEXT, " +
+                        "alias TEXT)")
         void createUserTable();
 
         @SqlUpdate("CREATE TABLE IF NOT EXISTS asset (" +

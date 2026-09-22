@@ -196,6 +196,15 @@ export async function addUser(user: Partial<User>): Promise<User> {
   return handleResponse<User>(res);
 }
 
+export async function updateUser(id: number, user: Partial<User>): Promise<User> {
+  const res = await fetch(`${API_BASE}/user/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(user),
+  });
+  return handleResponse<User>(res);
+}
+
 export async function createLocation(location: Partial<Location>): Promise<Location> {
   const res = await fetch(`${API_BASE}/location`, {
     method: 'POST',

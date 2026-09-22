@@ -4,13 +4,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,50 +25,43 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
-    private final CustomUserDetailsService userDetailsService;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter, CustomUserDetailsService userDetailsService) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
-        this.userDetailsService = userDetailsService;
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(AbstractHttpConfigurer::disable)
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/login", "/auth/**", "/error").permitAll()
-                .requestMatchers(HttpMethod.GET, "/book").permitAll()
-                .requestMatchers(HttpMethod.GET, "/locations", "/locations/**", "/location/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/assetlocations", "/assetlocations/**", "/assetlocation/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/booked", "/booked/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/free").permitAll()
-                .requestMatchers(HttpMethod.POST, "/timeslot").permitAll()
-                .requestMatchers("/location", "/location/**", "/locations", "/locations/**").hasRole("BOOKADMIN")
-                .requestMatchers("/asset", "/asset/**", "/assetlocation", "/assetlocation/**", "/assetlocations", "/assetlocations/**").hasRole("BOOKADMIN")
-                .requestMatchers(HttpMethod.GET, "/free/*", "/free/asset/**").hasRole("BOOKADMIN")
-                .requestMatchers(HttpMethod.POST, "/free").hasRole("BOOKADMIN")
-                .requestMatchers("/freeTime", "/freeTime/**").hasRole("BOOKADMIN")
-                .requestMatchers("/user/**", "/users", "/users/**").hasRole("BOOKADMIN")
-                .requestMatchers(HttpMethod.POST, "/bookTime").hasAnyRole("BOOKUSER", "BOOKADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/bookedTime/**").hasAnyRole("BOOKUSER", "BOOKADMIN")
-                .requestMatchers("/logout", "/auth/logout").hasAnyRole("BOOKUSER", "BOOKADMIN")
-                .anyRequest().authenticated()
-            )
-            .authenticationProvider(authenticationProvider())
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/login", "/auth/**", "/error").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/book").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/locations", "/locations/**", "/location/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/assetlocations", "/assetlocations/**", "/assetlocation/**")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/booked", "/booked/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/free").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/timeslot").permitAll()
+                        .requestMatchers("/location", "/location/**", "/locations", "/locations/**")
+                        .hasRole("BOOKADMIN")
+                        .requestMatchers("/asset", "/asset/**", "/assetlocation", "/assetlocation/**",
+                                "/assetlocations", "/assetlocations/**")
+                        .hasRole("BOOKADMIN")
+                        .requestMatchers(HttpMethod.GET, "/free/*", "/free/asset/**").hasRole("BOOKADMIN")
+                        .requestMatchers(HttpMethod.POST, "/free").hasRole("BOOKADMIN")
+                        .requestMatchers("/freeTime", "/freeTime/**").hasRole("BOOKADMIN")
+                        .requestMatchers("/user/**", "/users", "/users/**").hasRole("BOOKADMIN")
+                        .requestMatchers(HttpMethod.POST, "/bookTime").hasAnyRole("BOOKUSER", "BOOKADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/bookedTime/**").hasAnyRole("BOOKUSER", "BOOKADMIN")
+                        .requestMatchers("/logout", "/auth/logout").hasAnyRole("BOOKUSER", "BOOKADMIN")
+                        .anyRequest().authenticated())
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
-    }
-
-    @Bean
-    public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService);
-        authProvider.setPasswordEncoder(passwordEncoder());
-        return authProvider;
     }
 
     @Bean

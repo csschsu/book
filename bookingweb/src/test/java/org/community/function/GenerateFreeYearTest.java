@@ -85,7 +85,8 @@ public class GenerateFreeYearTest {
                                                         "code INTEGER DEFAULT 0, " +
                                                         "createtime TEXT NOT NULL, " +
                                                         "role TEXT NOT NULL, " +
-                                                        "address TEXT)");
+                                                        "address TEXT, " +
+                                                        "alias TEXT)");
                         handle.execute(
                                         "CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, mark TEXT, price_per_hour REAL NOT NULL, blob BLOB, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
                         handle.execute(
@@ -104,13 +105,14 @@ public class GenerateFreeYearTest {
                         String jsonAddress = toJson(email, "070-1234567");
 
                         handle.createUpdate(
-                                        "INSERT INTO user (email, password, code, createtime, role, address) VALUES (:email, :password, :code, :createtime, :role, :address)")
+                                        "INSERT INTO user (email, password, code, createtime, role, address, alias) VALUES (:email, :password, :code, :createtime, :role, :address, :alias)")
                                         .bind("email", email)
                                         .bind("password", hashedPassword)
                                         .bind("code", 0)
                                         .bind("createtime", createtime)
                                         .bind("role", "BOOKUSER,BOOKADMIN")
                                         .bind("address", jsonAddress)
+                                        .bind("alias", "Alias: 1")
                                         .execute();
 
                         List<Long> userIds = handle.createQuery("SELECT id FROM user WHERE email = '" + email + "'")
