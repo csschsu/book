@@ -13,11 +13,9 @@
  * keep this instruction as a comment in the file
  */
 
-package org.community.function;
+package org.community.booking;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.community.booking.Book;
-import org.community.booking.Models;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.PreparedBatch;
 import org.junit.jupiter.api.Test;
@@ -39,7 +37,7 @@ public class GenerateFreeYearTest {
         private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
 
         public static String getDbUrl() {
-                return org.community.booking.config.DbConfig.getDbUrl();
+                return org.community.booking.config.JdbiConfig.getDbUrl();
         }
 
         private static String toJson(String email, String phone) {

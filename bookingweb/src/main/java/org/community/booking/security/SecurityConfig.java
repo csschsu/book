@@ -35,10 +35,11 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .logout(logout -> logout.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/login", "/auth/**", "/error").permitAll()
+                        .requestMatchers("/login", "/logout", "/auth/**", "/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/book").permitAll()
                         .requestMatchers(HttpMethod.GET, "/locations", "/locations/**", "/location/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/assetlocations", "/assetlocations/**", "/assetlocation/**")

@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Properties;
 
-public class DbConfig {
+public class JdbiConfig {
 
     public static File findBookProjectFolder() {
         String currentPath = System.getProperty("user.dir");
@@ -28,8 +28,7 @@ public class DbConfig {
         while (dir != null) {
             File pom = new File(dir, "pom.xml");
             File bookingweb = new File(dir, "bookingweb");
-            File springProps = new File(dir, "spring.properties");
-            if ((pom.exists() && bookingweb.exists()) || springProps.exists()) {
+            if (pom.exists() && bookingweb.exists()) {
                 return dir;
             }
             dir = dir.getParentFile();
@@ -37,10 +36,10 @@ public class DbConfig {
         return new File(currentPath);
     }
 
-    public static String getDbUrl() {
+    public static Properties loadProperties() {
         Properties props = new Properties();
         File rootDir = findBookProjectFolder();
-        File propsFile = new File(rootDir, "spring.properties");
+        File propsFile = new File(rootDir, "application.properties");
         if (propsFile.exists()) {
             try (InputStream in = new FileInputStream(propsFile)) {
                 props.load(in);
@@ -48,15 +47,33 @@ public class DbConfig {
             }
         }
         if (props.isEmpty()) {
-            try (InputStream in = DbConfig.class.getClassLoader().getResourceAsStream("spring.properties")) {
+            try (InputStream in = JdbiConfig.class.getClassLoader().getResourceAsStream("application.properties")) {
                 if (in != null) {
                     props.load(in);
                 }
             } catch (Exception ignored) {
             }
         }
+        if (props.isEmpty()) {
+            File resPropsFile = new File(rootDir, "bookingweb/src/main/resources/application.properties");
+            if (resPropsFile.exists()) {
+                try (InputStream in = new FileInputStream(resPropsFile)) {
+                    props.load(in);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        return props;
+    }
 
-        String url = props.getProperty("spring.datasource.url", "jdbc:sqlite:booking_system.db?foreign_keys=true");
+    public static String getDbUrl() {
+        Properties props = loadProperties();
+        File rootDir = findBookProjectFolder();
+        String url = props.getProperty("spring.datasource.url");
+        if (url == null || url.isBlank()) {
+            throw new IllegalStateException(
+                    "Property 'spring.datasource.url' is not configured in application.properties");
+        }
         if (url.startsWith("jdbc:sqlite:")) {
             String pathPart = url.substring("jdbc:sqlite:".length());
             String queryPart = "";
@@ -75,8 +92,28 @@ public class DbConfig {
     }
 
     public static Jdbi createJdbi() {
+        Properties props = loadProperties();
+        String driverClassName = props.getProperty("spring.datasource.driver-class-name",
+                props.getProperty("app.datasource.driver-class-name"));
+        if (driverClassName != null && !driverClassName.isBlank()) {
+            try {
+                Class.forName(driverClassName);
+            } catch (ClassNotFoundException ignored) {
+            }
+        }
+
         String url = getDbUrl();
-        Jdbi jdbi = Jdbi.create(url);
+        String username = props.getProperty("spring.datasource.username",
+                props.getProperty("app.datasource.username"));
+        String password = props.getProperty("spring.datasource.password",
+                props.getProperty("app.datasource.password"));
+
+        Jdbi jdbi;
+        if (username != null && !username.isBlank()) {
+            jdbi = Jdbi.create(url, username, password != null ? password : "");
+        } else {
+            jdbi = Jdbi.create(url);
+        }
         jdbi.installPlugin(new SqlObjectPlugin());
 
         // Register Address mapper
@@ -111,4 +148,3 @@ public class DbConfig {
         return jdbi;
     }
 }
-

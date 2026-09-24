@@ -1,183 +1,205 @@
 package org.community.function;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.core.statement.PreparedBatch;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+// import org.jdbi.v3.core.Handle;
+// import org.jdbi.v3.core.Jdbi;
+// import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
-
-/**
- * Delegator / alias for backwards-compatibility.
- * Main implementation is at org.community.booking.TestDataGenerator.
- */
+// import java.time.LocalDateTime;
+// import java.time.format.DateTimeFormatter;
+// import java.util.Random;
 public class TestDataGenerator {
 
-        private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-        private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-        private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
+    public static void main(String[] strings) {
+        throw new UnsupportedOperationException("Unimplemented method 'main'");
+    }
 
-        public static class address {
-                public String email;
-                public String phone;
+    // public static void main(String[] args) {
+    // System.out.println("Starting TestDataGenerator...");
+    // //Jdbi jdbi = DbConfig.createJdbi();
+    // Jdbi jdbi = org.community.booking.config.JdbiConfig.createJdbi();
+    // try (Handle handle = jdbi.open()) {
+    // // Enable foreign keys
+    // handle.execute("PRAGMA foreign_keys = ON");
 
-                public address() {
-                }
+    // System.out.println("Dropping existing tables...");
+    // handle.execute("DROP TABLE IF EXISTS booked");
+    // handle.execute("DROP TABLE IF EXISTS free");
+    // handle.execute("DROP TABLE IF EXISTS asset_location");
+    // handle.execute("DROP TABLE IF EXISTS location");
+    // handle.execute("DROP TABLE IF EXISTS asset");
+    // handle.execute("DROP TABLE IF EXISTS user");
 
-                public address(String email, String phone) {
-                        this.email = email;
-                        this.phone = phone;
-                }
-        }
+    // System.out.println("Creating tables...");
+    // handle.execute("""
+    // CREATE TABLE user (
+    // id INTEGER PRIMARY KEY AUTOINCREMENT,
+    // email TEXT UNIQUE NOT NULL,
+    // password TEXT NOT NULL,
+    // code INTEGER DEFAULT 0,
+    // createtime TEXT NOT NULL,
+    // role TEXT NOT NULL,
+    // address TEXT,
+    // alias TEXT
+    // )
+    // """);
 
-        private static String toJson(String email, String phone) {
-                try {
-                        return OBJECT_MAPPER.writeValueAsString(new address(email, phone));
-                } catch (Exception e) {
-                        throw new RuntimeException("Kunde inte serialisera adress till JSON", e);
-                }
-        }
+    // handle.execute("""
+    // CREATE TABLE asset (
+    // id INTEGER PRIMARY KEY AUTOINCREMENT,
+    // user_id INTEGER NOT NULL,
+    // mark TEXT,
+    // price_per_hour REAL NOT NULL,
+    // blob BLOB,
+    // FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+    // )
+    // """);
 
-        public static void main(String[] args) {
-                String dbUrl = org.community.booking.config.DbConfig.getDbUrl();
-                System.out.println("Ansluter till databasen: " + dbUrl);
-                Jdbi jdbi = org.community.booking.config.DbConfig.createJdbi();
+    // handle.execute("""
+    // CREATE TABLE location (
+    // id INTEGER PRIMARY KEY AUTOINCREMENT,
+    // name TEXT NOT NULL,
+    // latitude REAL,
+    // longitude REAL,
+    // address TEXT
+    // )
+    // """);
 
-                System.out.println("Genererar testdata...");
-                generateData(jdbi);
-                System.out.println("Klart! Testdata har genererats framgångsrikt.");
-        }
+    // handle.execute("""
+    // CREATE TABLE asset_location (
+    // id INTEGER PRIMARY KEY AUTOINCREMENT,
+    // location_id INTEGER,
+    // asset_id INTEGER UNIQUE,
+    // name TEXT NOT NULL,
+    // FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE,
+    // FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE
+    // )
+    // """);
 
-        public static void generateData(Jdbi jdbi) {
-                jdbi.useHandle(handle -> {
-                        handle.execute("DROP TABLE IF EXISTS booked");
-                        handle.execute("DROP TABLE IF EXISTS free");
-                        handle.execute("DROP TABLE IF EXISTS asset_location");
-                        handle.execute("DROP TABLE IF EXISTS location");
-                        handle.execute("DROP TABLE IF EXISTS asset");
-                        handle.execute("DROP TABLE IF EXISTS user");
+    // handle.execute("""
+    // CREATE TABLE free (
+    // id INTEGER PRIMARY KEY AUTOINCREMENT,
+    // asset_id INTEGER NOT NULL,
+    // start_time TEXT NOT NULL,
+    // end_time TEXT NOT NULL,
+    // FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE
+    // )
+    // """);
 
-                        handle.execute(
-                                        "DELETE FROM sqlite_sequence WHERE name IN ('booked', 'free', 'asset_location', 'asset', 'user')");
+    // handle.execute("""
+    // CREATE TABLE booked (
+    // id INTEGER PRIMARY KEY AUTOINCREMENT,
+    // free_id INTEGER NOT NULL,
+    // user_id INTEGER NOT NULL,
+    // start_time TEXT NOT NULL,
+    // end_time TEXT NOT NULL,
+    // FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE,
+    // FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+    // )
+    // """);
 
-                        handle.execute(
-                                        "CREATE TABLE user (" +
-                                                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                                                        "email TEXT UNIQUE NOT NULL, " +
-                                                        "password TEXT NOT NULL, " +
-                                                        "code INTEGER DEFAULT 0, " +
-                                                        "createtime TEXT NOT NULL, " +
-                                                        "role TEXT NOT NULL, " +
-                                                        "address TEXT, " +
-                                                        "alias TEXT)");
-                        handle.execute(
-                                        "CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, mark TEXT, price_per_hour REAL NOT NULL, blob BLOB, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
-                        handle.execute(
-                                        "CREATE TABLE location (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, latitude REAL, longitude REAL, address TEXT)");
-                        handle.execute(
-                                        "CREATE TABLE asset_location (id INTEGER PRIMARY KEY AUTOINCREMENT, location_id INTEGER, asset_id INTEGER UNIQUE, name TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE, FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE)");
-                        handle.execute(
-                                        "CREATE TABLE free (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE)");
-                        handle.execute(
-                                        "CREATE TABLE booked (id INTEGER PRIMARY KEY AUTOINCREMENT, free_id INTEGER NOT NULL, user_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
+    // BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+    // String defaultHash = encoder.encode("password123");
+    // String nowIso =
+    // LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
 
-                        // 2. Generera 10 användare (users) med roller och krypterat lösenord
-                        String now = LocalDateTime.now().format(FORMATTER);
-                        String hashedPassword = PASSWORD_ENCODER.encode("password123");
+    // System.out.println("Inserting 10 users...");
+    // for (int i = 1; i <= 10; i++) {
+    // String role = "BOOKUSER";
+    // if (i == 1) {
+    // role = "BOOKADMIN";
+    // } else if (i == 2) {
+    // role = "BOOKUSER,BOOKADMIN";
+    // }
+    // String email = "user" + i + "@example.com";
+    // String address = "{\"email\":\"" + email + "\",\"phone\":\"070-12345" +
+    // String.format("%02d", i)
+    // + "\"}";
+    // String alias = "Alias: " + i;
 
-                        PreparedBatch userBatch = handle.prepareBatch(
-                                        "INSERT INTO user (email, password, code, createtime, role, address, alias) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                        for (int i = 1; i <= 10; i++) {
-                                String email = "user" + i + "@example.com";
-                                String jsonAddress = toJson(email, "070-22222" + String.format("%02d", i));
-                                String role = (i == 1) ? "BOOKADMIN" : ((i == 2) ? "BOOKUSER,BOOKADMIN" : "BOOKUSER");
-                                String alias = "Alias: " + i;
-                                userBatch.bind(0, email)
-                                                .bind(1, hashedPassword)
-                                                .bind(2, 0)
-                                                .bind(3, now)
-                                                .bind(4, role)
-                                                .bind(5, jsonAddress)
-                                                .bind(6, alias)
-                                                .add();
-                        }
-                        userBatch.execute();
-                        List<Long> userIds = handle.createQuery("SELECT id FROM user").mapTo(Long.class).list();
+    // handle.createUpdate("INSERT INTO user (email, password, code, createtime,
+    // role, address, alias) " +
+    // "VALUES (?, ?, ?, ?, ?, ?, ?)")
+    // .bind(0, email)
+    // .bind(1, defaultHash)
+    // .bind(2, 1000 + i)
+    // .bind(3, nowIso)
+    // .bind(4, role)
+    // .bind(5, address)
+    // .bind(6, alias)
+    // .execute();
+    // }
 
-                        // 3. Generera 200 tillgångar (assets)
-                        PreparedBatch assetBatch = handle
-                                        .prepareBatch("INSERT INTO asset (user_id, mark, price_per_hour, blob) VALUES (?, ?, ?, ?)");
-                        for (int i = 1; i <= 200; i++) {
-                                long randomUserId = userIds.get(ThreadLocalRandom.current().nextInt(userIds.size()));
-                                assetBatch.bind(0, randomUserId)
-                                                .bind(1, "Asset Mark " + i)
-                                                .bind(2, 1.0)
-                                                .bind(3, (byte[]) null)
-                                                .add();
-                        }
-                        assetBatch.execute();
-                        List<Long> assetIds = handle.createQuery("SELECT id FROM asset").mapTo(Long.class).list();
+    // System.out.println("Inserting 2 locations...");
+    // handle.createUpdate("INSERT INTO location (name, latitude, longitude,
+    // address) VALUES (?, ?, ?, ?)")
+    // .bind(0, "Location 1")
+    // .bind(1, 59.3293)
+    // .bind(2, 18.0686)
+    // .bind(3, "{\"email\":\"contact@location1.se\",\"phone\":\"08-111222\"}")
+    // .execute();
 
-                        // 4. Generera 2 platser (locations) och koppla 50 unika assets till vardera
-                        PreparedBatch locationBatch = handle
-                                        .prepareBatch("INSERT INTO location (name, latitude, longitude, address) VALUES (?, ?, ?, ?)");
-                        for (int loc = 1; loc <= 2; loc++) {
-                                String jsonAddress = toJson("location" + loc + "@example.com", "070-33333" + loc);
-                                locationBatch.bind(0, "Location " + loc)
-                                                .bind(1, 59.3293 + loc * 0.01)
-                                                .bind(2, 18.0686 + loc * 0.01)
-                                                .bind(3, jsonAddress)
-                                                .add();
-                        }
-                        locationBatch.execute();
-                        List<Long> locationIds = handle.createQuery("SELECT id FROM location").mapTo(Long.class).list();
+    // handle.createUpdate("INSERT INTO location (name, latitude, longitude,
+    // address) VALUES (?, ?, ?, ?)")
+    // .bind(0, "Location 2")
+    // .bind(1, 57.7089)
+    // .bind(2, 11.9746)
+    // .bind(3, "{\"email\":\"contact@location2.se\",\"phone\":\"031-333444\"}")
+    // .execute();
 
-                        List<Long> shuffledAssets = new ArrayList<>(assetIds);
-                        Collections.shuffle(shuffledAssets);
-                        PreparedBatch assetLocationBatch = handle
-                                        .prepareBatch("INSERT INTO asset_location (location_id, asset_id, name) VALUES (?, ?, ?)");
+    // System.out.println("Inserting 200 assets...");
+    // Random random = new Random(42);
+    // for (int i = 1; i <= 200; i++) {
+    // int ownerUserId = 1 + random.nextInt(10);
+    // String mark = "Asset " + i;
+    // double price = 50.0 + (random.nextInt(10) * 15.0);
 
-                        int assetIndex = 0;
-                        for (int locIndex = 0; locIndex < locationIds.size(); locIndex++) {
-                                long locationId = locationIds.get(locIndex);
-                                for (int i = 0; i < 50; i++) {
-                                        long uniqueAssetId = shuffledAssets.get(assetIndex++);
-                                        assetLocationBatch.bind(0, locationId)
-                                                        .bind(1, uniqueAssetId)
-                                                        .bind(2, "Asset Location " + (locIndex + 1))
-                                                        .add();
-                                }
-                        }
-                        assetLocationBatch.execute();
+    // handle.createUpdate("INSERT INTO asset (user_id, mark, price_per_hour) VALUES
+    // (?, ?, ?)")
+    // .bind(0, ownerUserId)
+    // .bind(1, mark)
+    // .bind(2, price)
+    // .execute();
+    // }
 
-                        // 5. Generera 100 lediga tider (free)
-                        PreparedBatch freeBatch = handle
-                                        .prepareBatch("INSERT INTO free (asset_id, start_time, end_time) VALUES (?, ?, ?)");
+    // System.out.println("Inserting 100 asset_location links (50 per
+    // location)...");
+    // for (int i = 1; i <= 50; i++) {
+    // handle.createUpdate("INSERT INTO asset_location (location_id, asset_id, name)
+    // VALUES (?, ?, ?)")
+    // .bind(0, 1)
+    // .bind(1, i)
+    // .bind(2, "Room / Resource " + i + " (Loc 1)")
+    // .execute();
+    // }
+    // for (int i = 51; i <= 100; i++) {
+    // handle.createUpdate("INSERT INTO asset_location (location_id, asset_id, name)
+    // VALUES (?, ?, ?)")
+    // .bind(0, 2)
+    // .bind(1, i)
+    // .bind(2, "Room / Resource " + i + " (Loc 2)")
+    // .execute();
+    // }
 
-                        LocalDateTime nowDate = LocalDateTime.now();
-                        LocalDateTime startRange = nowDate.minusDays(1);
-                        LocalDateTime endRange = nowDate.plusDays(9);
-                        long minEpochSecond = startRange.toEpochSecond(java.time.ZoneOffset.UTC);
-                        long maxEpochSecond = endRange.toEpochSecond(java.time.ZoneOffset.UTC);
+    // System.out.println("Inserting 100 free blocks (48h blocks, ±1-9 days)...");
+    // LocalDateTime baseTime =
+    // LocalDateTime.now().withMinute(0).withSecond(0).withNano(0);
+    // for (int i = 1; i <= 100; i++) {
+    // int assetId = i;
+    // int dayOffset = (random.nextInt(18) - 8); // -8 to +9 days
+    // if (dayOffset == 0)
+    // dayOffset = 1; // avoid immediate past/present boundary
+    // LocalDateTime blockStart = baseTime.plusDays(dayOffset).withHour(8);
+    // LocalDateTime blockEnd = blockStart.plusHours(48);
 
-                        for (int i = 0; i < 100; i++) {
-                                long randomAssetId = assetIds.get(ThreadLocalRandom.current().nextInt(assetIds.size()));
-                                long randomStartSecond = ThreadLocalRandom.current().nextLong(minEpochSecond,
-                                                maxEpochSecond);
+    // handle.createUpdate("INSERT INTO free (asset_id, start_time, end_time) VALUES
+    // (?, ?, ?)")
+    // .bind(0, assetId)
+    // .bind(1, blockStart.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+    // .bind(2, blockEnd.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+    // .execute();
+    // }
 
-                                LocalDateTime startTime = LocalDateTime.ofEpochSecond(randomStartSecond, 0,
-                                                java.time.ZoneOffset.UTC);
-                                LocalDateTime endTime = startTime.plusHours(48);
-
-                                freeBatch.bind(0, randomAssetId)
-                                                .bind(1, startTime.format(FORMATTER))
-                                                .bind(2, endTime.format(FORMATTER))
-                                                .add();
-                        }
-                        freeBatch.execute();
-                });
-        }
+    // System.out.println("Database seeded successfully!");
+    // }
+    // }
 }

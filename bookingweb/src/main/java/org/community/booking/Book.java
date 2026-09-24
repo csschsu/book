@@ -1,6 +1,6 @@
 package org.community.booking;
 
-import org.community.booking.config.DbConfig;
+import org.community.booking.config.JdbiConfig;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.config.RegisterFieldMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
@@ -100,6 +100,12 @@ public class Book {
         @SqlUpdate("DELETE FROM asset_location WHERE asset_id = :assetId")
         int deleteAssetLocationByAssetId(@Bind("assetId") int assetId);
 
+        @SqlUpdate("DELETE FROM booked WHERE free_id IN (SELECT id FROM free WHERE asset_id = :assetId)")
+        int deleteBookedByAssetId(@Bind("assetId") int assetId);
+
+        @SqlUpdate("DELETE FROM free WHERE asset_id = :assetId")
+        int deleteFreeByAssetId(@Bind("assetId") int assetId);
+
         @SqlQuery("SELECT f.* FROM free f " +
                 "JOIN asset_location al ON f.asset_id = al.asset_id " +
                 "WHERE al.location_id = :locationId AND f.end_time > :startTime " +
@@ -188,7 +194,7 @@ public class Book {
     private final BookingDao dao;
 
     public Book() {
-        this(DbConfig.createJdbi());
+        this(JdbiConfig.createJdbi());
     }
 
     public Book(Jdbi jdbi) {
@@ -327,6 +333,16 @@ public class Book {
     }
 
     public void deleteLocation(int id) {
+        List<Models.AssetLocation> assetLocations = dao.getAssetLocationsByLocation(id);
+        if (assetLocations != null) {
+            for (Models.AssetLocation al : assetLocations) {
+                if (al.getAssetId() != null) {
+                    deleteAsset(al.getAssetId());
+                } else {
+                    dao.deleteAssetLocationById(al.getId());
+                }
+            }
+        }
         dao.deleteLocation(id);
     }
 
@@ -365,6 +381,8 @@ public class Book {
     }
 
     public void deleteAsset(int assetId) {
+        dao.deleteBookedByAssetId(assetId);
+        dao.deleteFreeByAssetId(assetId);
         dao.deleteAssetLocationByAssetId(assetId);
         dao.deleteAsset(assetId);
     }

@@ -54,6 +54,12 @@ public class BookController {
         return ResponseEntity.ok(updated);
     }
 
+    @DeleteMapping({ "/location/{id}", "/locations/{id}" })
+    public ResponseEntity<Map<String, Object>> deleteLocation(@PathVariable int id) {
+        book.deleteLocation(id);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Location deleted"));
+    }
+
     @GetMapping("/assetlocations")
     public ResponseEntity<List<Models.AssetLocation>> getAssetLocations(
             @RequestParam(required = false) Integer locationId) {

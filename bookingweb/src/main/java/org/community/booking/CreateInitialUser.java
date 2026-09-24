@@ -21,9 +21,9 @@ public class CreateInitialUser {
     private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
 
     public static void main(String[] args) {
-        String dbUrl = org.community.booking.config.DbConfig.getDbUrl();
+        String dbUrl = org.community.booking.config.JdbiConfig.getDbUrl();
         System.out.println("Connecting to database: " + dbUrl);
-        Jdbi jdbi = org.community.booking.config.DbConfig.createJdbi();
+        Jdbi jdbi = org.community.booking.config.JdbiConfig.createJdbi();
 
         initializeDatabase(jdbi);
 
@@ -86,8 +86,6 @@ public class CreateInitialUser {
                     "role TEXT NOT NULL, " +
                     "address TEXT, " +
                     "alias TEXT)");
-            // TODO: handle.execute("CREATE VIEW IF NOT EXISTS users AS SELECT * FROM
-            // user");
         });
     }
 

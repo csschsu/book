@@ -33,7 +33,7 @@ book/                          (rotprojekt)
 │       ├── Models.java                (datamodeller)
 │       ├── JsonAddressMapper.java     (JSON-mapper för adressfält)
 │       ├── config/
-│       │   └── DbConfig.java          (JDBI/SQLite-konfiguration)
+│       │   └── JdbiConfig.java          (JDBI/SQLite-konfiguration)
 │       └── security/
 │           ├── SecurityConfig.java          (Spring Security, CORS, JWT-filter)
 │           ├── AuthController.java          (POST /login, POST /logout)
@@ -293,7 +293,7 @@ public class BookException extends RuntimeException {
 }
 ```
 
-#### `config/DbConfig.java`
+#### `config/JdbiConfig.java`
 Statisk hjälpklass som:
 1. Söker rotprojektmappen uppåt från `user.dir` (letar efter `bookingweb/` och `pom.xml`)
 2. Läser `spring.properties` (classpath + projektmapp)
@@ -823,5 +823,5 @@ npm run build
 | `BookException` ger inte JSON-svar | Saknas `@ExceptionHandler` | Lägg till handler i `BookController` |
 | CORS-fel från frontend | Backend ej konfigurerat | `@CrossOrigin(origins="*")` + `CorsConfigurationSource` i `SecurityConfig` |
 | SQLite foreign key constraint-fel | FKs inaktiverade som standard i SQLite | Lägg `?foreign_keys=true` i JDBC-URL |
-| `bookingweb` hittar inte `booking_system.db` | Relativ sökväg löst fel | `DbConfig.findBookProjectFolder()` söker uppåt efter rotprojektmapp |
+| `bookingweb` hittar inte `booking_system.db` | Relativ sökväg löst fel | `JdbiConfig.findBookProjectFolder()` söker uppåt efter rotprojektmapp |
 | 401 vid API-anrop | JWT-token saknas eller utgången | Kontrollera `Authorization`-header och token-giltighetstid |

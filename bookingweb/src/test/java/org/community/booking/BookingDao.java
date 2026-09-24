@@ -1,4 +1,4 @@
-package org.community.function;
+package org.community.booking;
 
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 

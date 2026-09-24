@@ -223,6 +223,14 @@ export async function updateLocation(id: number, location: Partial<Location>): P
   return handleResponse<Location>(res);
 }
 
+export async function deleteLocation(locationId: number): Promise<{ success: boolean }> {
+  const res = await fetch(`${API_BASE}/location/${locationId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  return handleResponse<{ success: boolean }>(res);
+}
+
 export async function fetchAssetsByLocation(locationId: number): Promise<AssetLocation[]> {
   const res = await fetch(`${API_BASE}/assetlocations?locationId=${locationId}`);
   return handleResponse<AssetLocation[]>(res);

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Location } from '../types/models';
-import { createLocation, updateLocation } from '../services/api';
+import { createLocation, updateLocation, deleteLocation } from '../services/api';
 import { AssetManager } from '../asset/AssetManager';
-import { X, MapPin, Mail, Phone, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, MapPin, Mail, Phone, Loader2, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
 
 interface LocationModalProps {
   isOpen: boolean;
@@ -25,6 +25,8 @@ export const LocationModal: React.FC<LocationModalProps> = ({
 
   const [savingLocation, setSavingLocation] = useState<boolean>(false);
   const [savedLocation, setSavedLocation] = useState<Location | null>(null);
+  const [deletingLocation, setDeletingLocation] = useState<boolean>(false);
+  const [confirmingDelete, setConfirmingDelete] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [dirty, setDirty] = useState<boolean>(false);
@@ -48,6 +50,8 @@ export const LocationModal: React.FC<LocationModalProps> = ({
     setError(null);
     setSuccess(null);
     setDirty(false);
+    setConfirmingDelete(false);
+    setDeletingLocation(false);
   }, [initialLocation, isOpen]);
 
   if (!isOpen) return null;
@@ -92,6 +96,21 @@ export const LocationModal: React.FC<LocationModalProps> = ({
       setError(err.message || 'Kunde inte spara platsen');
     } finally {
       setSavingLocation(false);
+    }
+  };
+
+  const handleDeleteLocation = async () => {
+    if (!savedLocation?.id) return;
+    try {
+      setDeletingLocation(true);
+      setError(null);
+      await deleteLocation(savedLocation.id);
+      onClose(true);
+    } catch (err: any) {
+      setError(err.message || 'Kunde inte ta bort platsen');
+      setConfirmingDelete(false);
+    } finally {
+      setDeletingLocation(false);
     }
   };
 
@@ -205,11 +224,46 @@ export const LocationModal: React.FC<LocationModalProps> = ({
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
+            {savedLocation && savedLocation.id ? (
+              confirmingDelete ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--danger)', fontWeight: 600 }}>Säkert?</span>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    style={{ padding: '0.35rem 0.65rem', fontSize: '0.85rem' }}
+                    onClick={handleDeleteLocation}
+                    disabled={deletingLocation}
+                  >
+                    {deletingLocation ? <Loader2 className="animate-spin" size={14} /> : 'Ja, ta bort'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '0.35rem 0.65rem', fontSize: '0.85rem' }}
+                    onClick={() => setConfirmingDelete(false)}
+                    disabled={deletingLocation}
+                  >
+                    Avbryt
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                  onClick={() => setConfirmingDelete(true)}
+                  disabled={savingLocation || deletingLocation}
+                >
+                  <Trash2 size={16} /> Ta bort Plats
+                </button>
+              )
+            ) : null}
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={savingLocation}
+              disabled={savingLocation || deletingLocation}
             >
               {savingLocation ? (
                 <>
