@@ -17,11 +17,14 @@ public interface BookingDao {
 
         @SqlUpdate("CREATE TABLE IF NOT EXISTS asset (" +
                         "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "location_id INTEGER, " +
                         "user_id INTEGER NOT NULL, " +
+                        "name TEXT NOT NULL, " +
                         "mark TEXT, " +
                         "price_per_hour REAL NOT NULL, " +
                         "blob BLOB, " +
-                        "FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)")
+                        "FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE, " +
+                        "FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE)")
         void createAssetTable();
 
         @SqlUpdate("CREATE TABLE IF NOT EXISTS location (" +
@@ -31,15 +34,6 @@ public interface BookingDao {
                         "longitude REAL, " +
                         "address TEXT)")
         void createLocationTable();
-
-        @SqlUpdate("CREATE TABLE IF NOT EXISTS asset_location (" +
-                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                        "location_id INTEGER, " +
-                        "asset_id INTEGER UNIQUE, " +
-                        "name TEXT NOT NULL, " +
-                        "FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE, " +
-                        "FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE)")
-        void createAssetLocationTable();
 
         @SqlUpdate("CREATE TABLE IF NOT EXISTS free (" +
                         "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
@@ -61,9 +55,8 @@ public interface BookingDao {
 
         default void initializeSchema() {
                 createUserTable();
-                createAssetTable();
                 createLocationTable();
-                createAssetLocationTable();
+                createAssetTable();
                 createFreeTable();
                 createBookedTable();
         }

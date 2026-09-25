@@ -1,4 +1,4 @@
-import { AuthSession, Location, AssetLocation, Free, Booked, Timeslot, User } from '../types/models';
+import { AuthSession, Location, Asset, AssetLocation, Free, Booked, Timeslot, User } from '../types/models';
 
 const API_BASE = '/api';
 const AUTH_KEY = 'community_booking_auth';
@@ -33,6 +33,11 @@ export function getAuthHeaders(): HeadersInit {
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
+  if (res.status === 401) {
+    clearAuthSession();
+    window.dispatchEvent(new CustomEvent('auth-expired'));
+    throw new Error('Din inloggningssession har gått ut. Vänligen logga in igen.');
+  }
   if (!res.ok) {
     let errorMsg = `HTTP ${res.status}: ${res.statusText}`;
     try {
@@ -44,6 +49,9 @@ async function handleResponse<T>(res: Response): Promise<T> {
       }
     } catch {
       // not json
+    }
+    if (res.status === 403) {
+      errorMsg = 'Åtkomst nekad (403): Du saknar behörighet eller din session har gått ut. Logga in igen vid behov.';
     }
     throw new Error(errorMsg);
   }
@@ -75,12 +83,12 @@ export async function logout(): Promise<void> {
 }
 
 export async function fetchLocations(): Promise<Location[]> {
-  const res = await fetch(`${API_BASE}/locations`);
+  const res = await fetch(`${API_BASE}/location`);
   return handleResponse<Location[]>(res);
 }
 
 export async function fetchAssetLocations(): Promise<AssetLocation[]> {
-  const res = await fetch(`${API_BASE}/assetlocations`);
+  const res = await fetch(`${API_BASE}/assets`);
   return handleResponse<AssetLocation[]>(res);
 }
 
@@ -231,22 +239,43 @@ export async function deleteLocation(locationId: number): Promise<{ success: boo
   return handleResponse<{ success: boolean }>(res);
 }
 
-export async function fetchAssetsByLocation(locationId: number): Promise<AssetLocation[]> {
-  const res = await fetch(`${API_BASE}/assetlocations?locationId=${locationId}`);
-  return handleResponse<AssetLocation[]>(res);
+export async function fetchAssets(locationId?: number): Promise<Asset[]> {
+  const url = locationId != null ? `${API_BASE}/assets?locationId=${locationId}` : `${API_BASE}/assets`;
+  const res = await fetch(url);
+  return handleResponse<Asset[]>(res);
+}
+
+export async function fetchAssetsByLocation(locationId: number): Promise<Asset[]> {
+  return fetchAssets(locationId);
 }
 
 export async function createAsset(
   locationId: number,
-  name: string,
-  pricePerHour?: number
-): Promise<AssetLocation> {
+  asset: Partial<Asset> | string,
+  pricePerHour?: number,
+  mark?: string
+): Promise<Asset> {
+  const payload = typeof asset === 'string'
+    ? { name: asset, pricePerHour, mark }
+    : { ...asset };
   const res = await fetch(`${API_BASE}/location/${locationId}/asset`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ name, pricePerHour }),
+    body: JSON.stringify(payload),
   });
-  return handleResponse<AssetLocation>(res);
+  return handleResponse<Asset>(res);
+}
+
+export async function updateAsset(
+  assetId: number,
+  asset: Partial<Asset>
+): Promise<Asset> {
+  const res = await fetch(`${API_BASE}/asset/${assetId}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(asset),
+  });
+  return handleResponse<Asset>(res);
 }
 
 export async function deleteAsset(assetId: number): Promise<{ success: boolean }> {

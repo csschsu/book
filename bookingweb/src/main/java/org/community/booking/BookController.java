@@ -36,60 +36,71 @@ public class BookController {
         return ResponseEntity.ok("Community Booking System API is running");
     }
 
-    @GetMapping("/locations")
+    @GetMapping("/location")
     public ResponseEntity<List<Models.Location>> getLocations() {
         return ResponseEntity.ok(book.getLocations());
     }
 
-    @PostMapping({ "/location", "/locations" })
+    @PostMapping({ "/location" })
     public ResponseEntity<Models.Location> createLocation(@RequestBody Models.Location location) {
         Models.Location created = book.addLocation(location);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    @PutMapping({ "/location/{id}", "/locations/{id}" })
+    @PutMapping({ "/location/{id}" })
     public ResponseEntity<Models.Location> updateLocation(@PathVariable int id, @RequestBody Models.Location location) {
         location.setId(id);
         Models.Location updated = book.updateLocation(location);
         return ResponseEntity.ok(updated);
     }
 
-    @DeleteMapping({ "/location/{id}", "/locations/{id}" })
+    @DeleteMapping({ "/location/{id}" })
     public ResponseEntity<Map<String, Object>> deleteLocation(@PathVariable int id) {
         book.deleteLocation(id);
         return ResponseEntity.ok(Map.of("success", true, "message", "Location deleted"));
     }
 
-    @GetMapping("/assetlocations")
-    public ResponseEntity<List<Models.AssetLocation>> getAssetLocations(
+    @GetMapping({ "/assets", "/asset" })
+    public ResponseEntity<List<Models.Asset>> getAssets(
             @RequestParam(required = false) Integer locationId) {
         if (locationId != null) {
-            return ResponseEntity.ok(book.getAssetLocationsByLocation(locationId));
+            return ResponseEntity.ok(book.getAssetsByLocation(locationId));
         }
-        return ResponseEntity.ok(book.getAssetLocations());
+        return ResponseEntity.ok(book.getAssets());
+    }
+
+    @GetMapping("/asset/{id}")
+    public ResponseEntity<Models.Asset> getAssetById(@PathVariable int id) {
+        Models.Asset asset = book.getAssetById(id);
+        if (asset == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(asset);
     }
 
     @PostMapping("/location/{locationId}/asset")
-    public ResponseEntity<Models.AssetLocation> createAssetForLocation(
+    public ResponseEntity<Models.Asset> createAssetForLocation(
             @PathVariable int locationId,
             @RequestBody Map<String, Object> body) {
         String name = (String) body.get("name");
+        String mark = (String) body.get("mark");
         Double price = body.get("pricePerHour") != null ? Double.valueOf(body.get("pricePerHour").toString()) : null;
         Integer userId = body.get("userId") != null ? Integer.valueOf(body.get("userId").toString()) : null;
-        Models.AssetLocation created = book.addAssetToLocation(locationId, name, price, userId);
+        Models.Asset created = book.addAssetToLocation(locationId, name, mark, price, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @PutMapping("/asset/{id}")
+    public ResponseEntity<Models.Asset> updateAsset(@PathVariable int id, @RequestBody Models.Asset asset) {
+        asset.setId(id);
+        Models.Asset updated = book.updateAsset(asset);
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/asset/{assetId}")
     public ResponseEntity<Map<String, Object>> deleteAsset(@PathVariable int assetId) {
         book.deleteAsset(assetId);
         return ResponseEntity.ok(Map.of("success", true, "message", "Asset deleted"));
-    }
-
-    @DeleteMapping("/assetlocation/{id}")
-    public ResponseEntity<Map<String, Object>> deleteAssetLocation(@PathVariable int id) {
-        book.deleteAssetLocation(id);
-        return ResponseEntity.ok(Map.of("success", true, "message", "Asset location deleted"));
     }
 
     @GetMapping("/booked")

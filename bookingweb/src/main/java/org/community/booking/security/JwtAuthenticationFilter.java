@@ -28,8 +28,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
-            FilterChain filterChain
-    ) throws ServletException, IOException {
+            FilterChain filterChain) throws ServletException, IOException {
         final String authHeader = request.getHeader("Authorization");
         final String jwt;
         final String userEmail;
@@ -42,14 +41,33 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         jwt = authHeader.substring(7);
         try {
             userEmail = jwtService.extractUsername(jwt);
-            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
-                if (jwtService.isTokenValid(jwt, userDetails)) {
+            Integer userId = jwtService.extractUserId(jwt);
+            if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = null;
+                if (userEmail != null) {
+                    try {
+                        userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+                    } catch (Exception e) {
+                        // User might have updated their email address; fallback to userId
+                        if (userId != null) {
+                            try {
+                                userDetails = this.userDetailsService.loadUserById(userId);
+                            } catch (Exception ignored2) {
+                            }
+                        }
+                    }
+                } else if (userId != null) {
+                    try {
+                        userDetails = this.userDetailsService.loadUserById(userId);
+                    } catch (Exception ignored2) {
+                    }
+                }
+
+                if (userDetails != null && jwtService.isTokenValid(jwt, userDetails)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails,
                             null,
-                            userDetails.getAuthorities()
-                    );
+                            userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
@@ -61,4 +79,3 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 }
-

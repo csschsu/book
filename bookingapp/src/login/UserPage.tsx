@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '../types/models';
-import { fetchUsers, addUser, updateUser } from '../services/api';
+import { fetchUsers, addUser, updateUser, getAuthSession, setAuthSession } from '../services/api';
 import { UserPlus, Users, Loader2, Edit2, Check } from 'lucide-react';
 
 export const UserPage: React.FC = () => {
@@ -82,6 +82,12 @@ export const UserPage: React.FC = () => {
             phone,
           },
         });
+        const currentSession = getAuthSession();
+        if (currentSession && currentSession.id === editingUser.id) {
+          currentSession.email = email;
+          currentSession.role = role;
+          setAuthSession(currentSession);
+        }
         setSuccess(`Användare #${editingUser.id} (${email}) har uppdaterats!`);
         handleCancelEdit();
       } else {

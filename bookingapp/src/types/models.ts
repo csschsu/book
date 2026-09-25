@@ -19,12 +19,17 @@ export interface Location {
   address: Address;
 }
 
-export interface AssetLocation {
+export interface Asset {
   id: number;
   locationId: number;
-  assetId: number;
+  userId?: number;
   name: string;
+  mark?: string;
+  pricePerHour?: number;
+  assetId: number;
 }
+
+export type AssetLocation = Asset;
 
 export interface Free {
   id: number;

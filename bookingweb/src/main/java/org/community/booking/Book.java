@@ -67,38 +67,27 @@ public class Book {
         @SqlUpdate("DELETE FROM location WHERE id = :id")
         int deleteLocation(@Bind("id") int id);
 
+        @SqlQuery("SELECT * FROM asset ORDER BY id")
+        @RegisterFieldMapper(Models.Asset.class)
+        List<Models.Asset> getAssets();
+
         @SqlQuery("SELECT * FROM asset WHERE id = :id")
         @RegisterFieldMapper(Models.Asset.class)
         Models.Asset getAssetById(@Bind("id") int id);
 
-        @SqlUpdate("INSERT INTO asset (user_id, mark, price_per_hour, blob) VALUES (:userId, :mark, :pricePerHour, :blob)")
+        @SqlQuery("SELECT * FROM asset WHERE location_id = :locationId ORDER BY id")
+        @RegisterFieldMapper(Models.Asset.class)
+        List<Models.Asset> getAssetsByLocation(@Bind("locationId") int locationId);
+
+        @SqlUpdate("INSERT INTO asset (location_id, user_id, name, mark, price_per_hour, blob) VALUES (:locationId, :userId, :name, :mark, :pricePerHour, :blob)")
         @GetGeneratedKeys("id")
         int insertAsset(@BindBean Models.Asset asset);
 
+        @SqlUpdate("UPDATE asset SET location_id = :locationId, user_id = :userId, name = :name, mark = :mark, price_per_hour = :pricePerHour, blob = :blob WHERE id = :id")
+        int updateAsset(@BindBean Models.Asset asset);
+
         @SqlUpdate("DELETE FROM asset WHERE id = :id")
         int deleteAsset(@Bind("id") int id);
-
-        @SqlQuery("SELECT * FROM asset_location ORDER BY id")
-        @RegisterFieldMapper(Models.AssetLocation.class)
-        List<Models.AssetLocation> getAssetLocations();
-
-        @SqlQuery("SELECT * FROM asset_location WHERE id = :id")
-        @RegisterFieldMapper(Models.AssetLocation.class)
-        Models.AssetLocation getAssetLocationById(@Bind("id") int id);
-
-        @SqlQuery("SELECT * FROM asset_location WHERE location_id = :locationId ORDER BY id")
-        @RegisterFieldMapper(Models.AssetLocation.class)
-        List<Models.AssetLocation> getAssetLocationsByLocation(@Bind("locationId") int locationId);
-
-        @SqlUpdate("INSERT INTO asset_location (location_id, asset_id, name) VALUES (:locationId, :assetId, :name)")
-        @GetGeneratedKeys("id")
-        int insertAssetLocation(@BindBean Models.AssetLocation assetLocation);
-
-        @SqlUpdate("DELETE FROM asset_location WHERE id = :id")
-        int deleteAssetLocationById(@Bind("id") int id);
-
-        @SqlUpdate("DELETE FROM asset_location WHERE asset_id = :assetId")
-        int deleteAssetLocationByAssetId(@Bind("assetId") int assetId);
 
         @SqlUpdate("DELETE FROM booked WHERE free_id IN (SELECT id FROM free WHERE asset_id = :assetId)")
         int deleteBookedByAssetId(@Bind("assetId") int assetId);
@@ -107,8 +96,8 @@ public class Book {
         int deleteFreeByAssetId(@Bind("assetId") int assetId);
 
         @SqlQuery("SELECT f.* FROM free f " +
-                "JOIN asset_location al ON f.asset_id = al.asset_id " +
-                "WHERE al.location_id = :locationId AND f.end_time > :startTime " +
+                "JOIN asset a ON f.asset_id = a.id " +
+                "WHERE a.location_id = :locationId AND f.end_time > :startTime " +
                 "ORDER BY f.start_time")
         @RegisterFieldMapper(Models.Free.class)
         List<Models.Free> getFreeBlocks(@Bind("locationId") int locationId, @Bind("startTime") LocalDateTime startTime);
@@ -123,8 +112,8 @@ public class Book {
                 @Bind("startTime") LocalDateTime startTime);
 
         @SqlQuery("SELECT f.* FROM free f " +
-                "JOIN asset_location al ON f.asset_id = al.asset_id " +
-                "WHERE al.location_id = :locationId " +
+                "JOIN asset a ON f.asset_id = a.id " +
+                "WHERE a.location_id = :locationId " +
                 "ORDER BY f.start_time")
         @RegisterFieldMapper(Models.Free.class)
         List<Models.Free> getFreeBlocksByLocation(@Bind("locationId") int locationId);
@@ -137,9 +126,9 @@ public class Book {
                 +
                 "FROM booked b " +
                 "JOIN free f ON b.free_id = f.id " +
-                "JOIN asset_location al ON f.asset_id = al.asset_id " +
+                "JOIN asset a ON f.asset_id = a.id " +
                 "LEFT JOIN user u ON b.user_id = u.id " +
-                "WHERE al.location_id = :locationId AND b.end_time > :startTime " +
+                "WHERE a.location_id = :locationId AND b.end_time > :startTime " +
                 "ORDER BY b.start_time")
         @RegisterFieldMapper(Models.Booked.class)
         List<Models.Booked> getBookedBlocks(@Bind("locationId") int locationId,
@@ -149,9 +138,9 @@ public class Book {
                 +
                 "FROM booked b " +
                 "JOIN free f ON b.free_id = f.id " +
-                "JOIN asset_location al ON f.asset_id = al.asset_id " +
+                "JOIN asset a ON f.asset_id = a.id " +
                 "LEFT JOIN user u ON b.user_id = u.id " +
-                "WHERE al.location_id = :locationId " +
+                "WHERE a.location_id = :locationId " +
                 "ORDER BY b.start_time")
         @RegisterFieldMapper(Models.Booked.class)
         List<Models.Booked> getBookedBlocksByLocation(@Bind("locationId") int locationId);
@@ -239,6 +228,32 @@ public class Book {
                     if (!columns.contains("alias")) {
                         handle.execute("ALTER TABLE user ADD COLUMN alias TEXT");
                     }
+                }
+
+                boolean assetTableExists = handle.createQuery(
+                        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='asset'")
+                        .mapTo(Integer.class)
+                        .one() > 0;
+                if (assetTableExists) {
+                    List<String> assetCols = handle.createQuery("PRAGMA table_info(asset)")
+                            .map((rs, ctx) -> rs.getString("name"))
+                            .list();
+                    if (!assetCols.contains("location_id")) {
+                        handle.execute("ALTER TABLE asset ADD COLUMN location_id INTEGER");
+                    }
+                    if (!assetCols.contains("name")) {
+                        handle.execute("ALTER TABLE asset ADD COLUMN name TEXT DEFAULT ''");
+                    }
+                }
+
+                boolean assetLocExists = handle.createQuery(
+                        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='asset_location'")
+                        .mapTo(Integer.class)
+                        .one() > 0;
+                if (assetLocExists) {
+                    handle.execute(
+                            "UPDATE asset SET location_id = (SELECT location_id FROM asset_location WHERE asset_location.asset_id = asset.id), name = (SELECT name FROM asset_location WHERE asset_location.asset_id = asset.id) WHERE id IN (SELECT asset_id FROM asset_location)");
+                    handle.execute("DROP TABLE IF EXISTS asset_location");
                 }
             });
         } catch (Exception ignored) {
@@ -333,28 +348,29 @@ public class Book {
     }
 
     public void deleteLocation(int id) {
-        List<Models.AssetLocation> assetLocations = dao.getAssetLocationsByLocation(id);
-        if (assetLocations != null) {
-            for (Models.AssetLocation al : assetLocations) {
-                if (al.getAssetId() != null) {
-                    deleteAsset(al.getAssetId());
-                } else {
-                    dao.deleteAssetLocationById(al.getId());
-                }
+        List<Models.Asset> assets = dao.getAssetsByLocation(id);
+        if (assets != null) {
+            for (Models.Asset a : assets) {
+                deleteAsset(a.getId());
             }
         }
         dao.deleteLocation(id);
     }
 
-    public List<Models.AssetLocation> getAssetLocations() {
-        return dao.getAssetLocations();
+    public List<Models.Asset> getAssets() {
+        return dao.getAssets();
     }
 
-    public List<Models.AssetLocation> getAssetLocationsByLocation(int locationId) {
-        return dao.getAssetLocationsByLocation(locationId);
+    public List<Models.Asset> getAssetsByLocation(int locationId) {
+        return dao.getAssetsByLocation(locationId);
     }
 
-    public Models.AssetLocation addAssetToLocation(int locationId, String name, Double pricePerHour, Integer userId) {
+    public Models.Asset getAssetById(int id) {
+        return dao.getAssetById(id);
+    }
+
+    public Models.Asset addAssetToLocation(int locationId, String name, String mark, Double pricePerHour,
+            Integer userId) {
         if (name == null || name.trim().isEmpty()) {
             throw new BookException("Asset name is required");
         }
@@ -364,37 +380,54 @@ public class Book {
         }
         int uid = (userId != null && userId > 0) ? userId : 1;
         double price = (pricePerHour != null && pricePerHour >= 0) ? pricePerHour : 0.0;
+        String m = (mark != null && !mark.trim().isEmpty()) ? mark.trim() : name.trim();
 
         Models.Asset asset = new Models.Asset();
+        asset.setLocationId(locationId);
         asset.setUserId(uid);
-        asset.setMark(name.trim());
+        asset.setName(name.trim());
+        asset.setMark(m);
         asset.setPricePerHour(price);
         int assetId = dao.insertAsset(asset);
+        asset.setId(assetId);
+        return asset;
+    }
 
-        Models.AssetLocation al = new Models.AssetLocation();
-        al.setLocationId(locationId);
-        al.setAssetId(assetId);
-        al.setName(name.trim());
-        int alId = dao.insertAssetLocation(al);
-        al.setId(alId);
-        return al;
+    public Models.Asset addAssetToLocation(int locationId, String name, Double pricePerHour, Integer userId) {
+        return addAssetToLocation(locationId, name, null, pricePerHour, userId);
+    }
+
+    public Models.Asset updateAsset(Models.Asset asset) {
+        if (asset == null || asset.getId() <= 0) {
+            throw new BookException("Valid asset ID is required");
+        }
+        if (asset.getName() == null || asset.getName().trim().isEmpty()) {
+            throw new BookException("Asset name is required");
+        }
+        Models.Asset existing = dao.getAssetById(asset.getId());
+        if (existing == null) {
+            throw new BookException("Asset not found");
+        }
+        if (asset.getLocationId() == null) {
+            asset.setLocationId(existing.getLocationId());
+        }
+        if (asset.getUserId() <= 0) {
+            asset.setUserId(existing.getUserId());
+        }
+        if (asset.getMark() == null) {
+            asset.setMark(existing.getMark());
+        }
+        if (asset.getBlob() == null) {
+            asset.setBlob(existing.getBlob());
+        }
+        dao.updateAsset(asset);
+        return dao.getAssetById(asset.getId());
     }
 
     public void deleteAsset(int assetId) {
         dao.deleteBookedByAssetId(assetId);
         dao.deleteFreeByAssetId(assetId);
-        dao.deleteAssetLocationByAssetId(assetId);
         dao.deleteAsset(assetId);
-    }
-
-    public void deleteAssetLocation(int id) {
-        Models.AssetLocation al = dao.getAssetLocationById(id);
-        if (al != null) {
-            dao.deleteAssetLocationById(id);
-            if (al.getAssetId() != null) {
-                dao.deleteAsset(al.getAssetId());
-            }
-        }
     }
 
     public List<Models.Free> getFreeBlocks(int locationId, LocalDateTime startTime) {

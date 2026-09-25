@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Location, AssetLocation, AuthSession } from './types/models';
 import { getAuthSession, logout } from './services/api';
 import { LocationPage } from './location/LocationPage';
@@ -21,6 +21,15 @@ export const StartPage: React.FC = () => {
   const [step, setStep] = useState<number>(1);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<AssetLocation | null>(null);
+
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      setAuthSessionState(null);
+      setShowLoginModal(true);
+    };
+    window.addEventListener('auth-expired', handleAuthExpired);
+    return () => window.removeEventListener('auth-expired', handleAuthExpired);
+  }, []);
 
   const isAdmin = authSession?.role.split(',').map(r => r.trim()).includes('BOOKADMIN') ?? false;
 

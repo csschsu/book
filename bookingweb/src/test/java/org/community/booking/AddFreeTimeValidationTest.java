@@ -29,23 +29,23 @@ public class AddFreeTimeValidationTest {
             handle.execute(
                     "CREATE TABLE user (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, code INTEGER DEFAULT 0, createtime TEXT NOT NULL, role TEXT NOT NULL, address TEXT, alias TEXT)");
             handle.execute(
-                    "CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, mark TEXT, price_per_hour REAL NOT NULL, blob BLOB, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
-            handle.execute(
                     "CREATE TABLE location (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, latitude REAL, longitude REAL, address TEXT)");
             handle.execute(
-                    "CREATE TABLE asset_location (id INTEGER PRIMARY KEY AUTOINCREMENT, location_id INTEGER, asset_id INTEGER UNIQUE, name TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE, FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE)");
+                    "CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, location_id INTEGER, user_id INTEGER NOT NULL, name TEXT NOT NULL, mark TEXT, price_per_hour REAL NOT NULL, blob BLOB, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE, FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE)");
             handle.execute(
                     "CREATE TABLE free (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE)");
             handle.execute(
                     "CREATE TABLE booked (id INTEGER PRIMARY KEY AUTOINCREMENT, free_id INTEGER NOT NULL, user_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (free_id) REFERENCES free(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
 
-            // Create initial user and asset
+            // Create initial user, location and asset
             handle.execute(
                     "INSERT INTO user (id, email, password, createtime, role, address, alias) VALUES (1, 'owner@example.com', 'pass', '2026-01-01T00:00:00', 'USER', '{}', 'Alias: 1')");
             handle.execute(
-                    "INSERT INTO asset (id, user_id, mark, price_per_hour) VALUES (1, 1, 'Tennis Court 1', 100.0)");
+                    "INSERT INTO location (id, name, latitude, longitude, address) VALUES (1, 'Location 1', 59.3293, 18.0686, '{}')");
             handle.execute(
-                    "INSERT INTO asset (id, user_id, mark, price_per_hour) VALUES (2, 1, 'Tennis Court 2', 100.0)");
+                    "INSERT INTO asset (id, location_id, user_id, name, mark, price_per_hour) VALUES (1, 1, 1, 'Tennis Court 1', 'Tennis Court 1', 100.0)");
+            handle.execute(
+                    "INSERT INTO asset (id, location_id, user_id, name, mark, price_per_hour) VALUES (2, 1, 1, 'Tennis Court 2', 'Tennis Court 2', 100.0)");
         });
     }
 

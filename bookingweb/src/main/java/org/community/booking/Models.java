@@ -134,7 +134,9 @@ public class Models {
     @Data
     public static class Asset {
         public int id;
+        public Integer locationId;
         public int userId;
+        public String name;
         public String mark;
         public double pricePerHour;
         public byte[] blob;
@@ -142,9 +144,12 @@ public class Models {
         public Asset() {
         }
 
-        public Asset(int id, int userId, String mark, double pricePerHour, byte[] blob) {
+        public Asset(int id, Integer locationId, int userId, String name, String mark, double pricePerHour,
+                byte[] blob) {
             this.id = id;
+            this.locationId = locationId;
             this.userId = userId;
+            this.name = name;
             this.mark = mark;
             this.pricePerHour = pricePerHour;
             this.blob = blob;
@@ -158,12 +163,28 @@ public class Models {
             this.id = id;
         }
 
+        public Integer getLocationId() {
+            return locationId;
+        }
+
+        public void setLocationId(Integer locationId) {
+            this.locationId = locationId;
+        }
+
         public int getUserId() {
             return userId;
         }
 
         public void setUserId(int userId) {
             this.userId = userId;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
         }
 
         public String getMark() {
@@ -188,6 +209,14 @@ public class Models {
 
         public void setBlob(byte[] blob) {
             this.blob = blob;
+        }
+
+        public int getAssetId() {
+            return id;
+        }
+
+        public void setAssetId(int assetId) {
+            this.id = assetId;
         }
     }
 

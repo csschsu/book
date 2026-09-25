@@ -11,6 +11,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -35,6 +37,8 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .logout(logout -> logout.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -42,20 +46,24 @@ public class SecurityConfig {
                         .requestMatchers("/login", "/logout", "/auth/**", "/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/book").permitAll()
                         .requestMatchers(HttpMethod.GET, "/locations", "/locations/**", "/location/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/assetlocations", "/assetlocations/**", "/assetlocation/**")
+                        .requestMatchers(HttpMethod.GET, "/assets", "/assets/**", "/asset/**", "/assetlocations",
+                                "/assetlocations/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/booked", "/booked/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/free").permitAll()
                         .requestMatchers(HttpMethod.POST, "/timeslot").permitAll()
                         .requestMatchers("/location", "/location/**", "/locations", "/locations/**")
                         .hasRole("BOOKADMIN")
-                        .requestMatchers("/asset", "/asset/**", "/assetlocation", "/assetlocation/**",
-                                "/assetlocations", "/assetlocations/**")
+                        .requestMatchers("/asset", "/asset/**", "/assets", "/assets/**")
                         .hasRole("BOOKADMIN")
                         .requestMatchers(HttpMethod.GET, "/free/*", "/free/asset/**").hasRole("BOOKADMIN")
                         .requestMatchers(HttpMethod.POST, "/free").hasRole("BOOKADMIN")
                         .requestMatchers("/freeTime", "/freeTime/**").hasRole("BOOKADMIN")
-                        .requestMatchers("/user/**", "/users", "/users/**").hasRole("BOOKADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/user", "/user/**", "/users", "/users/**")
+                        .hasAnyRole("BOOKADMIN", "BOOKUSER")
+                        .requestMatchers(HttpMethod.GET, "/user/**")
+                        .hasAnyRole("BOOKADMIN", "BOOKUSER")
+                        .requestMatchers("/user", "/user/**", "/users", "/users/**").hasRole("BOOKADMIN")
                         .requestMatchers(HttpMethod.POST, "/bookTime").hasAnyRole("BOOKUSER", "BOOKADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/bookedTime/**").hasAnyRole("BOOKUSER", "BOOKADMIN")
                         .requestMatchers("/logout", "/auth/logout").hasAnyRole("BOOKUSER", "BOOKADMIN")

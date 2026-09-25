@@ -61,15 +61,14 @@ public class GenerateFreeYearTest {
                         // KEY-restriktioner
                         handle.execute("DROP TABLE IF EXISTS booked");
                         handle.execute("DROP TABLE IF EXISTS free");
-                        handle.execute("DROP TABLE IF EXISTS asset_location");
-                        handle.execute("DROP TABLE IF EXISTS location");
                         handle.execute("DROP TABLE IF EXISTS asset");
+                        handle.execute("DROP TABLE IF EXISTS location");
                         handle.execute("DROP TABLE IF EXISTS user");
 
                         // Nollställer AUTOINCREMENT-räknarna i SQLite så att ID börjar om på 1
                         try {
                                 handle.execute(
-                                                "DELETE FROM sqlite_sequence WHERE name IN ('booked', 'free', 'asset_location', 'asset', 'user')");
+                                                "DELETE FROM sqlite_sequence WHERE name IN ('booked', 'free', 'asset', 'location', 'user')");
                         } catch (Exception ignored) {
                                 // sqlite_sequence finns inte i en helt ny SQLite-databas förrän en
                                 // AUTOINCREMENT-tabell skapats
@@ -86,11 +85,9 @@ public class GenerateFreeYearTest {
                                                         "address TEXT, " +
                                                         "alias TEXT)");
                         handle.execute(
-                                        "CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, mark TEXT, price_per_hour REAL NOT NULL, blob BLOB, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE)");
-                        handle.execute(
                                         "CREATE TABLE location (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, latitude REAL, longitude REAL, address TEXT)");
                         handle.execute(
-                                        "CREATE TABLE asset_location (id INTEGER PRIMARY KEY AUTOINCREMENT, location_id INTEGER, asset_id INTEGER UNIQUE, name TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE, FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE)");
+                                        "CREATE TABLE asset (id INTEGER PRIMARY KEY AUTOINCREMENT, location_id INTEGER, user_id INTEGER NOT NULL, name TEXT NOT NULL, mark TEXT, price_per_hour REAL NOT NULL, blob BLOB, FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE, FOREIGN KEY (location_id) REFERENCES location(id) ON DELETE CASCADE)");
                         handle.execute(
                                         "CREATE TABLE free (id INTEGER PRIMARY KEY AUTOINCREMENT, asset_id INTEGER NOT NULL, start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY (asset_id) REFERENCES asset(id) ON DELETE CASCADE)");
                         handle.execute(
@@ -119,21 +116,6 @@ public class GenerateFreeYearTest {
                         long user1Id = userIds.get(0);
                         long user2Id = user1Id;
 
-                        // 3. Generera 3 tillgångar (assets)
-                        // Första platsen med 1 tillgång, andra platsen med 2 tillgångar
-                        handle.execute("INSERT INTO asset (user_id, mark, price_per_hour, blob) VALUES (?, ?, ?, ?)",
-                                        user1Id, "Asset 1", 10.0, null);
-                        handle.execute("INSERT INTO asset (user_id, mark, price_per_hour, blob) VALUES (?, ?, ?, ?)",
-                                        user1Id, "Asset 2", 15.0, null);
-                        handle.execute("INSERT INTO asset (user_id, mark, price_per_hour, blob) VALUES (?, ?, ?, ?)",
-                                        user1Id, "Asset 3", 20.0, null);
-
-                        List<Long> assetIds = handle.createQuery("SELECT id FROM asset ORDER BY id ASC")
-                                        .mapTo(Long.class).list();
-                        long asset1Id = assetIds.get(0);
-                        long asset2Id = assetIds.get(1);
-                        long asset3Id = assetIds.get(2);
-
                         // 4. Generera 2 platser (locations)
                         // Första platsen med en tillgång, andra platsen med två tillgångar
                         String location1Address = toJson("location1@example.com", "070-333331");
@@ -149,16 +131,20 @@ public class GenerateFreeYearTest {
                         long location1Id = locationIds.get(0);
                         long location2Id = locationIds.get(1);
 
-                        // Koppla tillgångar till platser i asset_location
-                        // Första platsen med 1 tillgång:
-                        handle.execute("INSERT INTO asset_location (location_id, asset_id, name) VALUES (?, ?, ?)",
-                                        location1Id, asset1Id, "Asset Location 1");
+                        // 3. Generera 3 tillgångar (assets)
+                        // Första platsen med 1 tillgång, andra platsen med 2 tillgångar
+                        handle.execute("INSERT INTO asset (location_id, user_id, name, mark, price_per_hour, blob) VALUES (?, ?, ?, ?, ?, ?)",
+                                        location1Id, user1Id, "Asset 1", "Asset 1", 10.0, null);
+                        handle.execute("INSERT INTO asset (location_id, user_id, name, mark, price_per_hour, blob) VALUES (?, ?, ?, ?, ?, ?)",
+                                        location2Id, user1Id, "Asset 2", "Asset 2", 15.0, null);
+                        handle.execute("INSERT INTO asset (location_id, user_id, name, mark, price_per_hour, blob) VALUES (?, ?, ?, ?, ?, ?)",
+                                        location2Id, user1Id, "Asset 3", "Asset 3", 20.0, null);
 
-                        // Andra platsen med 2 tillgångar:
-                        handle.execute("INSERT INTO asset_location (location_id, asset_id, name) VALUES (?, ?, ?)",
-                                        location2Id, asset2Id, "Asset Location 2");
-                        handle.execute("INSERT INTO asset_location (location_id, asset_id, name) VALUES (?, ?, ?)",
-                                        location2Id, asset3Id, "Asset Location 2");
+                        List<Long> assetIds = handle.createQuery("SELECT id FROM asset ORDER BY id ASC")
+                                        .mapTo(Long.class).list();
+                        long asset1Id = assetIds.get(0);
+                        long asset2Id = assetIds.get(1);
+                        long asset3Id = assetIds.get(2);
 
                         // 5. Generera lediga tider (free) under ÅRET som startar current timestamp
                         // och slutar current timestamp + 1 år.
@@ -254,17 +240,12 @@ public class GenerateFreeYearTest {
                                         .one();
                         assertEquals(2, locationCount, "Det ska finnas 2 platser");
 
-                        int assetLocationCount = handle.createQuery("SELECT COUNT(*) FROM asset_location")
-                                        .mapTo(Integer.class)
-                                        .one();
-                        assertEquals(3, assetLocationCount, "Det ska finnas 3 asset_location kopplingar");
-
                         // Kontrollera att Location 1 har 1 tillgång och Location 2 har 2 tillgångar
-                        int loc1Assets = handle.createQuery("SELECT COUNT(*) FROM asset_location WHERE location_id = 1")
+                        int loc1Assets = handle.createQuery("SELECT COUNT(*) FROM asset WHERE location_id = 1")
                                         .mapTo(Integer.class).one();
                         assertEquals(1, loc1Assets, "Location 1 ska ha 1 tillgång");
 
-                        int loc2Assets = handle.createQuery("SELECT COUNT(*) FROM asset_location WHERE location_id = 2")
+                        int loc2Assets = handle.createQuery("SELECT COUNT(*) FROM asset WHERE location_id = 2")
                                         .mapTo(Integer.class).one();
                         assertEquals(2, loc2Assets, "Location 2 ska ha 2 tillgångar");
 
@@ -339,7 +320,14 @@ public class GenerateFreeYearTest {
                 assertEquals(1, users.size());
                 assertEquals("test@test.se", users.get(0).email);
 
-                List<Models.AssetLocation> assetLocations = book.getAssetLocations();
-                assertEquals(3, assetLocations.size());
+                List<Models.Asset> assets = book.getAssets();
+                assertEquals(3, assets.size());
+
+                List<Models.Asset> loc1Assets = book.getAssetsByLocation(1);
+                assertEquals(1, loc1Assets.size());
+                assertEquals("Asset 1", loc1Assets.get(0).getName());
+
+                List<Models.Asset> loc2Assets = book.getAssetsByLocation(2);
+                assertEquals(2, loc2Assets.size());
         }
 }
