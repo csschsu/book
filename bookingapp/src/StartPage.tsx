@@ -7,6 +7,7 @@ import { BookPage } from './book/BookPage';
 import { FreePage } from './free/FreePage';
 import { UserPage } from './login/UserPage';
 import { LoginPage } from './login/LoginPage';
+import { Footer } from './Footer';
 import { Calendar, Users, Clock, LogIn, LogOut, User as UserIcon } from 'lucide-react';
 
 type ViewMode = 'book' | 'admin-free' | 'admin-users';
@@ -172,6 +173,8 @@ export const StartPage: React.FC = () => {
           </>
         )}
       </main>
+
+      <Footer />
 
       {/* Login Modal */}
       {showLoginModal && (

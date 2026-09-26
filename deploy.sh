@@ -41,8 +41,10 @@ mkdir -p "$DEPLOY_DIR/bookingweb"
 mkdir -p "$DEPLOY_DIR/bookingapp"
 mkdir -p "$DEPLOY_DIR/logs"
 
-# Ensure NO database file is in deploy
+# Ensure NO database file, config file, or remembered location is in deploy
 rm -f "$DEPLOY_DIR/booking_system.db" "$DEPLOY_DIR/bookingweb/booking_system.db" "$DEPLOY_DIR/book_system.db" "$DEPLOY_DIR/bookingweb/book_system.db"
+rm -f "$DEPLOY_DIR/application.properties" "$DEPLOY_DIR/bookingweb/application.properties"
+rm -f "$DEPLOY_DIR/.config_location" "$DEPLOY_DIR/bookingweb/.config_location"
 
 # Copy Backend Artifact
 cp "$WAR_SRC" "$DEPLOY_DIR/bookingweb/bookingweb.war"
@@ -109,12 +111,95 @@ cd "$SCRIPT_DIR"
 
 PORT="${SERVER_PORT:-9091}"
 
+# Locate application.properties
+CONFIG_FILE="${APP_CONFIG_FILE:-${SPRING_CONFIG_LOCATION:-}}"
+if [ -n "$CONFIG_FILE" ] && [[ "$CONFIG_FILE" == file:* ]]; then
+  CONFIG_FILE="${CONFIG_FILE#file:}"
+fi
+
+if [ -z "$CONFIG_FILE" ] || [ ! -f "$CONFIG_FILE" ]; then
+  if [ -f "application.properties" ]; then
+    CONFIG_FILE="$(realpath application.properties)"
+  elif [ -f ".config_location" ] && [ -f "$(cat .config_location 2>/dev/null)" ]; then
+    CONFIG_FILE="$(cat .config_location)"
+  elif [ -f "config/application.properties" ]; then
+    CONFIG_FILE="$(realpath config/application.properties)"
+  elif [ -f "../application.properties" ]; then
+    CONFIG_FILE="$(realpath ../application.properties)"
+  fi
+fi
+
+if [ -z "$CONFIG_FILE" ] || [ ! -f "$CONFIG_FILE" ]; then
+  echo ""
+  echo "======================================================="
+  echo "  Configuration Required"
+  echo "  application.properties was not found in $SCRIPT_DIR"
+  echo "======================================================="
+  read -r -p "Enter path to application.properties: " USER_CONFIG_PATH
+  USER_CONFIG_PATH="${USER_CONFIG_PATH/#\~/$HOME}"
+  if [ -n "$USER_CONFIG_PATH" ] && [ -f "$USER_CONFIG_PATH" ]; then
+    CONFIG_FILE="$(realpath "$USER_CONFIG_PATH")"
+    echo "$CONFIG_FILE" > .config_location
+    echo "Configuration path saved ($CONFIG_FILE)"
+  else
+    echo "Error: Configuration file not found at '$USER_CONFIG_PATH'" >&2
+    exit 1
+  fi
+fi
+
 echo "Starting Spring Boot Backend on http://localhost:$PORT ..."
-exec java -jar bookingweb.war --server.port="$PORT" < /dev/null
+echo "Using configuration: $CONFIG_FILE"
+exec java -jar bookingweb.war --server.port="$PORT" -Dconfig.file="$CONFIG_FILE" --spring.config.location="file:$CONFIG_FILE" < /dev/null
 INNER_EOF
 chmod +x "$DEPLOY_DIR/bookingweb/run.sh"
 
-# 4b. Frontend run script inside deploy/bookingapp/run.sh (port 3001)
+# 4b. Standalone utility script to create/manage users in production
+cat << 'INNER_EOF' > "$DEPLOY_DIR/bookingweb/create_user.sh"
+#!/usr/bin/env bash
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+CONFIG_FILE="${APP_CONFIG_FILE:-${SPRING_CONFIG_LOCATION:-}}"
+if [ -n "$CONFIG_FILE" ] && [[ "$CONFIG_FILE" == file:* ]]; then
+  CONFIG_FILE="${CONFIG_FILE#file:}"
+fi
+
+if [ -z "$CONFIG_FILE" ] || [ ! -f "$CONFIG_FILE" ]; then
+  if [ -f "application.properties" ]; then
+    CONFIG_FILE="$(realpath application.properties)"
+  elif [ -f ".config_location" ] && [ -f "$(cat .config_location 2>/dev/null)" ]; then
+    CONFIG_FILE="$(cat .config_location)"
+  elif [ -f "config/application.properties" ]; then
+    CONFIG_FILE="$(realpath config/application.properties)"
+  elif [ -f "../application.properties" ]; then
+    CONFIG_FILE="$(realpath ../application.properties)"
+  fi
+fi
+
+if [ -z "$CONFIG_FILE" ] || [ ! -f "$CONFIG_FILE" ]; then
+  echo ""
+  echo "======================================================="
+  echo "  Configuration Required"
+  echo "  application.properties was not found in $SCRIPT_DIR"
+  echo "======================================================="
+  read -r -p "Enter path to application.properties: " USER_CONFIG_PATH
+  USER_CONFIG_PATH="${USER_CONFIG_PATH/#\~/$HOME}"
+  if [ -n "$USER_CONFIG_PATH" ] && [ -f "$USER_CONFIG_PATH" ]; then
+    CONFIG_FILE="$(realpath "$USER_CONFIG_PATH")"
+    echo "$CONFIG_FILE" > .config_location
+  else
+    echo "Error: Configuration file not found at '$USER_CONFIG_PATH'" >&2
+    exit 1
+  fi
+fi
+
+exec java -cp bookingweb.war -Dloader.path=WEB-INF/classes,WEB-INF/lib -Dconfig.file="$CONFIG_FILE" -Dloader.main=org.community.booking.CreateInitialUser org.springframework.boot.loader.launch.PropertiesLauncher "$@"
+INNER_EOF
+chmod +x "$DEPLOY_DIR/bookingweb/create_user.sh"
+
+# 4c. Frontend run script inside deploy/bookingapp/run.sh (port 3001)
 cat << 'INNER_EOF' > "$DEPLOY_DIR/bookingapp/run.sh"
 #!/usr/bin/env bash
 set -e
@@ -141,7 +226,7 @@ fi
 INNER_EOF
 chmod +x "$DEPLOY_DIR/bookingapp/run.sh"
 
-# 4c. Main deploy/run.sh script (runs in background without requiring open terminal window)
+# 4d. Main deploy/run.sh script (runs in background without requiring open terminal window)
 cat << 'INNER_EOF' > "$DEPLOY_DIR/run.sh"
 #!/usr/bin/env bash
 set -e
@@ -150,6 +235,45 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 mkdir -p "$SCRIPT_DIR/logs"
+
+BACKEND_DIR="$SCRIPT_DIR/bookingweb"
+
+# Verify or ask for application.properties before backgrounding
+CONFIG_FILE="${APP_CONFIG_FILE:-${SPRING_CONFIG_LOCATION:-}}"
+if [ -n "$CONFIG_FILE" ] && [[ "$CONFIG_FILE" == file:* ]]; then
+  CONFIG_FILE="${CONFIG_FILE#file:}"
+fi
+
+if [ -z "$CONFIG_FILE" ] || [ ! -f "$CONFIG_FILE" ]; then
+  if [ -f "$BACKEND_DIR/application.properties" ]; then
+    CONFIG_FILE="$(realpath "$BACKEND_DIR/application.properties")"
+  elif [ -f "$BACKEND_DIR/.config_location" ] && [ -f "$(cat "$BACKEND_DIR/.config_location" 2>/dev/null)" ]; then
+    CONFIG_FILE="$(cat "$BACKEND_DIR/.config_location")"
+  elif [ -f "$BACKEND_DIR/config/application.properties" ]; then
+    CONFIG_FILE="$(realpath "$BACKEND_DIR/config/application.properties")"
+  elif [ -f "$SCRIPT_DIR/application.properties" ]; then
+    CONFIG_FILE="$(realpath "$SCRIPT_DIR/application.properties")"
+  fi
+fi
+
+if [ -z "$CONFIG_FILE" ] || [ ! -f "$CONFIG_FILE" ]; then
+  echo ""
+  echo "======================================================="
+  echo "  Configuration Required"
+  echo "  application.properties was not found in $BACKEND_DIR"
+  echo "======================================================="
+  read -r -p "Enter path to application.properties: " USER_CONFIG_PATH
+  USER_CONFIG_PATH="${USER_CONFIG_PATH/#\~/$HOME}"
+  if [ -n "$USER_CONFIG_PATH" ] && [ -f "$USER_CONFIG_PATH" ]; then
+    CONFIG_FILE="$(realpath "$USER_CONFIG_PATH")"
+    echo "$CONFIG_FILE" > "$BACKEND_DIR/.config_location"
+    echo "Configuration path saved ($CONFIG_FILE)"
+  else
+    echo "Error: Configuration file not found at '$USER_CONFIG_PATH'" >&2
+    exit 1
+  fi
+fi
+export APP_CONFIG_FILE="$CONFIG_FILE"
 
 BACKEND_PORT="${SERVER_PORT:-9091}"
 FRONTEND_PORT="${VITE_PORT:-3001}"
@@ -170,6 +294,7 @@ echo "======================================================="
 echo "  Starting Production Services in Background"
 echo "  Backend:  http://localhost:$BACKEND_PORT"
 echo "  Frontend: http://localhost:$FRONTEND_PORT"
+echo "  Config:   $CONFIG_FILE"
 echo "======================================================="
 
 # Start Spring Boot in background with setsid
@@ -207,7 +332,7 @@ echo "======================================================="
 INNER_EOF
 chmod +x "$DEPLOY_DIR/run.sh"
 
-# 4d. Stop script deploy/stop.sh
+# 4e. Stop script deploy/stop.sh
 cat << 'INNER_EOF' > "$DEPLOY_DIR/stop.sh"
 #!/usr/bin/env bash
 
@@ -245,7 +370,7 @@ echo "All services stopped."
 INNER_EOF
 chmod +x "$DEPLOY_DIR/stop.sh"
 
-# 4e. Status script deploy/status.sh
+# 4f. Status script deploy/status.sh
 cat << 'INNER_EOF' > "$DEPLOY_DIR/status.sh"
 #!/usr/bin/env bash
 
@@ -271,7 +396,7 @@ fi
 INNER_EOF
 chmod +x "$DEPLOY_DIR/status.sh"
 
-# 4f. Create deploy/README.md
+# 4g. Create deploy/README.md
 cat << 'INNER_EOF' > "$DEPLOY_DIR/README.md"
 # Deployed Production Booking System
 
@@ -285,8 +410,22 @@ This directory is completely self-contained and can be moved to any production l
 - **Frontend (Vite)**: `http://localhost:3001` (Allowed hosts: `book.systemkonstruktion.se`, `localhost`, etc.)
 - **Backend (Spring Boot)**: `http://localhost:9091`
 
-## Database Note
-The SQLite database file `booking_system.db` is not packaged. Ensure your database file is placed in the `bookingweb/` folder or root `deploy/` directory in production.
+## Production Configuration
+The backend configuration is managed outside the WAR file via `bookingweb/application.properties`.
+This file overrides the development properties bundled inside the WAR.
+
+You can edit `bookingweb/application.properties` to set:
+- SQLite database location: `spring.datasource.url=jdbc:sqlite:/path/to/booking_system.db?foreign_keys=true`
+- Server port: `server.port=9091`
+- Or use Environment Variables (highest priority): `export SPRING_DATASOURCE_URL="..."` and `export SERVER_PORT=9091`
+
+## Managing Initial Users
+To add or reset the admin user in production without starting the web server:
+```bash
+cd bookingweb
+./create_user.sh admin@systemkonstruktion.se mypassword123
+```
+This utility automatically reads the production `application.properties` and database.
 
 ## Starting Services (Background Daemon)
 

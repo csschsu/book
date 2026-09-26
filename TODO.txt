@@ -1,3 +1,55 @@
+2026-09-25
+======================================================================================
+using  src/resources/application.properties to configure spring boot and java utilities 
+use data from application.properties  in development. Production requires a different configuration 
+and I dont want to deploy the development appliation.properties to production. What I have in mind 
+is an  application.properties outside the project,  use of environment variables or something 
+else you tink is better. A complexity is that spring needs data and part of that data is 
+needed by java utilities. Please propose a solution.
+======================================================================================
+
+5. Proposed Implementation Plan
+If you approve this direction, here is what we will implement:
+
+Create AppConfig.java in 
+bookingweb/src/main/java/org/community/booking/config/
+:
+Implements standard resolution: System Properties 
+→
+→ Env Vars 
+→
+→ External file (./application.properties, ./config/application.properties) 
+→
+→ Classpath.
+Update 
+JdbiConfig.java
+:
+Use AppConfig.get(...) instead of hardcoded file searches.
+Cleanly resolves relative DB paths relative to the working directory or property.
+Update 
+deploy.sh
+:
+Generate an external production application.properties template in deploy/bookingweb/ (separate from source code).
+In deploy/bookingweb/run.sh, pass the config path or environment variables cleanly so both the server and any CLI utilities (like CreateInitialUser) run consistently.
+Would you like me to proceed with implementing this solution?
+
+======================================================================================
+Just a check, will bookingweb/src/main/resources application.properties still be used in development 
+======================================================================================
+
+Yes, absolutely!
+
+In development—whether you run via:
+
+mvn spring-boot:run
+Inside VS Code / IntelliJ / Eclipse
+mvn test
+Direct Java utility execution (CreateInitialUser, tests, etc.)
+Since no external production file or production environment variable is set on your dev machine, both Spring Boot and the Java utilities will automatically use bookingweb/src/main/resources/application.properties directly from the classpath, exactly as they do today.
+
+Your local development workflow remains 100% zero-setup and unchanged. The external file or environment variables only kick in when you explicitly run in production.
+
+
 2026-09-22
 
 1. 2026-09-22T09:53:57.553+02:00  WARN 3818017 --- [  restartedMain] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with an AuthenticationProvider bean. UserDetailsService beans will not be used by Spring Security for automatically configuring username/password login. Consider removing the AuthenticationProvider bean. Alternatively, consider using the UserDetailsService in a manually instantiated DaoAuthenticationProvider. If the current configuration is intentional, to turn off this warning, increase the logging level of 'org.springframework.security.config.annotation.authentication.configuration.InitializeUserDetailsBeanManagerConfigurer' to ERROR
