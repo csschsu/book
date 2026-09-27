@@ -1,9 +1,11 @@
 package org.community.booking.security;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,31 +26,34 @@ public class AuthController {
         this.jwtService = jwtService;
     }
 
-    @PostMapping({"/login", "/auth/login"})
-    public ResponseEntity<AuthDtos.LoginResponse> login(@RequestBody AuthDtos.LoginRequest request) {
-        String identifier = request.getResolvedIdentifier();
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(identifier, request.getPassword())
-        );
+    @PostMapping({ "/login", "/auth/login" })
+    public ResponseEntity<?> login(@RequestBody AuthDtos.LoginRequest request) {
+        try {
+            String identifier = request.getResolvedIdentifier();
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(identifier, request.getPassword()));
 
-        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        String token = jwtService.generateToken(principal, principal.getId(), principal.getRole());
+            UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+            String token = jwtService.generateToken(principal, principal.getId(), principal.getRole());
 
-        AuthDtos.LoginResponse response = AuthDtos.LoginResponse.builder()
-                .token(token)
-                .type("Bearer")
-                .id(principal.getId())
-                .email(principal.getUsername())
-                .role(principal.getRole())
-                .build();
+            AuthDtos.LoginResponse response = AuthDtos.LoginResponse.builder()
+                    .token(token)
+                    .type("Bearer")
+                    .id(principal.getId())
+                    .email(principal.getUsername())
+                    .role(principal.getRole())
+                    .build();
 
-        return ResponseEntity.ok(response);
+            return ResponseEntity.ok(response);
+        } catch (AuthenticationException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Felaktigt användarnamn eller lösenord."));
+        }
     }
 
-    @PostMapping({"/logout", "/auth/logout"})
+    @PostMapping({ "/logout", "/auth/logout" })
     public ResponseEntity<Map<String, String>> logout() {
         SecurityContextHolder.clearContext();
         return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
     }
 }
-

@@ -144,4 +144,30 @@ public class AddFreeTimeValidationTest {
             book.addFreeTime(1, start1.minusHours(2), start1);
         });
     }
+
+    @Test
+    public void testUpdateFreeTime() {
+        LocalDateTime start1 = LocalDateTime.now().plusDays(2).withHour(10).withMinute(0).withSecond(0);
+        LocalDateTime end1 = start1.plusHours(2);
+        int freeId = book.addFreeTime(1, start1, end1);
+
+        // Update to new valid time
+        LocalDateTime newStart = LocalDateTime.now().plusDays(3).withHour(9).withMinute(0).withSecond(0);
+        LocalDateTime newEnd = newStart.plusHours(3);
+        assertDoesNotThrow(() -> {
+            book.updateFreeTime(freeId, newStart, newEnd);
+        });
+
+        // Test start time in past
+        BookException exPast = assertThrows(BookException.class, () -> {
+            book.updateFreeTime(freeId, LocalDateTime.now().minusHours(1), newEnd);
+        });
+        assertEquals("Start time must be in the future", exPast.getMessage());
+
+        // Test end before start
+        BookException exEnd = assertThrows(BookException.class, () -> {
+            book.updateFreeTime(freeId, newStart, newStart.minusHours(1));
+        });
+        assertEquals("End time must be after start time", exEnd.getMessage());
+    }
 }

@@ -66,7 +66,25 @@ export async function login(identifier: string, password: string): Promise<AuthS
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ identifier, password }),
   });
-  const session = await handleResponse<AuthSession>(res);
+
+  if (!res.ok) {
+    let errorMsg = 'Inloggningen misslyckades. Kontrollera uppgifterna.';
+    try {
+      const errJson = await res.json();
+      if (errJson?.error) {
+        errorMsg = errJson.error;
+      } else if (errJson?.message) {
+        errorMsg = errJson.message;
+      }
+    } catch {
+      if (res.status === 401) {
+        errorMsg = 'Felaktigt användarnamn eller lösenord.';
+      }
+    }
+    throw new Error(errorMsg);
+  }
+
+  const session = (await res.json()) as AuthSession;
   setAuthSession(session);
   return session;
 }
@@ -175,6 +193,22 @@ export async function addFreeTime(
   });
   const res = await fetch(`${API_BASE}/freeTime?${params.toString()}`, {
     method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  return handleResponse<{ id: number; message: string }>(res);
+}
+
+export async function updateFreeTime(
+  freeId: number,
+  startTime: string,
+  endTime: string
+): Promise<{ id: number; message: string }> {
+  const params = new URLSearchParams({
+    startTime,
+    endTime,
+  });
+  const res = await fetch(`${API_BASE}/freeTime/${freeId}?${params.toString()}`, {
+    method: 'PUT',
     headers: getAuthHeaders(),
   });
   return handleResponse<{ id: number; message: string }>(res);

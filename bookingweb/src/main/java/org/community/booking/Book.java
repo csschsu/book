@@ -177,6 +177,10 @@ public class Book {
 
         @SqlUpdate("DELETE FROM free WHERE id = :freeId")
         int deleteFreeTime(@Bind("freeId") int freeId);
+
+        @SqlUpdate("UPDATE free SET start_time = :startTime, end_time = :endTime WHERE id = :id")
+        int updateFreeTime(@Bind("id") int id,
+                @Bind("startTime") LocalDateTime startTime, @Bind("endTime") LocalDateTime endTime);
     }
 
     private final Jdbi jdbi;
@@ -481,6 +485,41 @@ public class Book {
 
     public int deleteFreeTime(int freeId) {
         return dao.deleteFreeTime(freeId);
+    }
+
+    public int updateFreeTime(int freeId, LocalDateTime startTime, LocalDateTime endTime) {
+        if (startTime == null || endTime == null) {
+            throw new BookException("Start time and end time are required");
+        }
+        if (startTime.isBefore(LocalDateTime.now())) {
+            throw new BookException("Start time must be in the future");
+        }
+        if (!endTime.isAfter(startTime)) {
+            throw new BookException("End time must be after start time");
+        }
+
+        Models.Free current = dao.getFreeById(freeId);
+        if (current == null) {
+            throw new BookException("Free time block not found");
+        }
+
+        List<Models.Free> existingBlocks = dao.getAllFreeBlocksByAsset(current.getAssetId());
+        for (Models.Free existing : existingBlocks) {
+            if (existing.getId() != freeId && existing.getStartTime().isBefore(endTime)
+                    && existing.getEndTime().isAfter(startTime)) {
+                throw new BookException("Free time overlaps with existing free time for this asset");
+            }
+        }
+
+        List<Models.Booked> bookings = dao.getBookedBlocksByFreeId(freeId);
+        for (Models.Booked booking : bookings) {
+            if (booking.getStartTime().isBefore(startTime) || booking.getEndTime().isAfter(endTime)) {
+                throw new BookException(
+                        "Cannot shrink free time because existing bookings fall outside the new interval");
+            }
+        }
+
+        return dao.updateFreeTime(freeId, startTime, endTime);
     }
 
     public int bookTime(int freeId, int userId, LocalDateTime startTime, LocalDateTime endTime) {

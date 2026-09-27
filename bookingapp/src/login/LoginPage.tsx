@@ -6,25 +6,29 @@ import { X, Lock, Mail, Loader2 } from 'lucide-react';
 interface LoginPageProps {
   onClose: () => void;
   onLoginSuccess: (session: AuthSession) => void;
+  notice?: string | null;
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onClose, onLoginSuccess }) => {
+export const LoginPage: React.FC<LoginPageProps> = ({ onClose, onLoginSuccess, notice }) => {
   const [identifier, setIdentifier] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [infoNotice, setInfoNotice] = useState<string | null>(notice || null);
 
   useEffect(() => {
     setIdentifier('');
     setPassword('');
     setError(null);
-  }, []);
+    setInfoNotice(notice || null);
+  }, [notice]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setLoading(true);
       setError(null);
+      setInfoNotice(null);
       const session = await login(identifier, password);
       onLoginSuccess(session);
       onClose();
@@ -48,6 +52,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onClose, onLoginSuccess })
           </button>
         </div>
 
+        {infoNotice && !error && <div className="alert-warning">{infoNotice}</div>}
         {error && <div className="alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit} autoComplete="off">

@@ -8,13 +8,14 @@ import { FreePage } from './free/FreePage';
 import { UserPage } from './login/UserPage';
 import { LoginPage } from './login/LoginPage';
 import { Footer } from './Footer';
-import { Calendar, Users, Clock, LogIn, LogOut, User as UserIcon } from 'lucide-react';
+import { Calendar, Users, LogIn, LogOut, User as UserIcon } from 'lucide-react';
 
 type ViewMode = 'book' | 'admin-free' | 'admin-users';
 
 export const StartPage: React.FC = () => {
   const [authSession, setAuthSessionState] = useState<AuthSession | null>(() => getAuthSession());
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
+  const [loginNotice, setLoginNotice] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>('book');
 
   // Booking wizard flow state:
@@ -26,6 +27,7 @@ export const StartPage: React.FC = () => {
   useEffect(() => {
     const handleAuthExpired = () => {
       setAuthSessionState(null);
+      setLoginNotice('Din inloggningssession har gått ut. Vänligen logga in igen.');
       setShowLoginModal(true);
     };
     window.addEventListener('auth-expired', handleAuthExpired);
@@ -77,22 +79,13 @@ export const StartPage: React.FC = () => {
           </button>
 
           {isAdmin && (
-            <>
-              <button
-                className={`nav-link ${view === 'admin-free' ? 'active' : ''}`}
-                onClick={() => setView('admin-free')}
-              >
-                <Clock size={16} style={{ display: 'inline', marginRight: 4, verticalAlign: 'text-bottom' }} />
-                Lediga tider
-              </button>
-              <button
-                className={`nav-link ${view === 'admin-users' ? 'active' : ''}`}
-                onClick={() => setView('admin-users')}
-              >
-                <Users size={16} style={{ display: 'inline', marginRight: 4, verticalAlign: 'text-bottom' }} />
-                Användare
-              </button>
-            </>
+            <button
+              className={`nav-link ${view === 'admin-users' ? 'active' : ''}`}
+              onClick={() => setView('admin-users')}
+            >
+              <Users size={16} style={{ display: 'inline', marginRight: 4, verticalAlign: 'text-bottom' }} />
+              Användare
+            </button>
           )}
 
           {authSession ? (
@@ -107,7 +100,14 @@ export const StartPage: React.FC = () => {
               </button>
             </div>
           ) : (
-            <button className="btn btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: '0.9rem' }} onClick={() => setShowLoginModal(true)}>
+            <button
+              className="btn btn-primary"
+              style={{ padding: '0.4rem 0.9rem', fontSize: '0.9rem' }}
+              onClick={() => {
+                setLoginNotice(null);
+                setShowLoginModal(true);
+              }}
+            >
               <LogIn size={16} /> Logga in
             </button>
           )}
@@ -179,8 +179,15 @@ export const StartPage: React.FC = () => {
       {/* Login Modal */}
       {showLoginModal && (
         <LoginPage
-          onClose={() => setShowLoginModal(false)}
-          onLoginSuccess={(session) => setAuthSessionState(session)}
+          notice={loginNotice}
+          onClose={() => {
+            setShowLoginModal(false);
+            setLoginNotice(null);
+          }}
+          onLoginSuccess={(session) => {
+            setAuthSessionState(session);
+            setLoginNotice(null);
+          }}
         />
       )}
     </div>

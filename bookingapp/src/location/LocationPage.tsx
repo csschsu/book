@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Location } from '../types/models';
 import { fetchLocations, getAuthSession } from '../services/api';
 import { LocationModal } from './LocationModal';
-import { MapPin, Phone, Mail, ArrowRight, Loader2, Plus, Edit3 } from 'lucide-react';
+import { LocationFreeModal } from '../free/LocationFreeModal';
+import { MapPin, Phone, Mail, ArrowRight, Loader2, Plus, Edit3, Clock } from 'lucide-react';
 
 interface LocationPageProps {
   onSelectLocation: (location: Location) => void;
@@ -18,6 +19,10 @@ export const LocationPage: React.FC<LocationPageProps> = ({ onSelectLocation, is
   // Location workflow modal state
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+
+  // Free times workflow modal state for BOOKADMIN
+  const [freeModalOpen, setFreeModalOpen] = useState<boolean>(false);
+  const [freeLocation, setFreeLocation] = useState<Location | null>(null);
 
   // Check if admin from prop or session
   const adminEffective =
@@ -50,6 +55,12 @@ export const LocationPage: React.FC<LocationPageProps> = ({ onSelectLocation, is
     e.stopPropagation();
     setEditingLocation(loc);
     setModalOpen(true);
+  };
+
+  const handleOpenFreeTimes = (e: React.MouseEvent, loc: Location) => {
+    e.stopPropagation();
+    setFreeLocation(loc);
+    setFreeModalOpen(true);
   };
 
   const handleModalClose = (refreshNeeded: boolean) => {
@@ -185,16 +196,26 @@ export const LocationPage: React.FC<LocationPageProps> = ({ onSelectLocation, is
                   borderTop: '1px solid var(--gray-100)',
                 }}
               >
-                {/* 5. Workflow button visible to BOOKADMIN in the location box */}
+                {/* 5. Workflow buttons visible to BOOKADMIN in the location box */}
                 {adminEffective ? (
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-                    onClick={(e) => handleOpenEditLocation(e, loc)}
-                  >
-                    <Edit3 size={14} /> Uppdatera
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                      onClick={(e) => handleOpenEditLocation(e, loc)}
+                    >
+                      <Edit3 size={14} /> Uppdatera
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                      onClick={(e) => handleOpenFreeTimes(e, loc)}
+                    >
+                      <Clock size={14} /> Lediga tider
+                    </button>
+                  </div>
                 ) : (
                   <div />
                 )}
@@ -217,6 +238,16 @@ export const LocationPage: React.FC<LocationPageProps> = ({ onSelectLocation, is
         isOpen={modalOpen}
         initialLocation={editingLocation}
         onClose={handleModalClose}
+      />
+
+      {/* Free times management modal for BOOKADMIN */}
+      <LocationFreeModal
+        isOpen={freeModalOpen}
+        location={freeLocation}
+        onClose={() => {
+          setFreeModalOpen(false);
+          setFreeLocation(null);
+        }}
       />
     </div>
   );

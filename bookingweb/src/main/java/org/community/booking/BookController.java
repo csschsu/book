@@ -205,6 +205,15 @@ public class BookController {
         return ResponseEntity.ok(Map.of("id", freeId, "message", "Free time added successfully"));
     }
 
+    @PutMapping("/freeTime/{freeId}")
+    public ResponseEntity<?> updateFreeTime(
+            @PathVariable int freeId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) {
+        book.updateFreeTime(freeId, startTime, endTime);
+        return ResponseEntity.ok(Map.of("id", freeId, "message", "Free time updated successfully"));
+    }
+
     @PostMapping("/user")
     public ResponseEntity<?> createUser(@RequestBody Models.User user) {
         if (user.getPassword() != null && !user.getPassword().isBlank()) {

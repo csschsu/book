@@ -1,3 +1,25 @@
+2026-09-26
+Jag vill ändra registrering av "Lediga tider"
+1. Knappen "Lediga tider" visas nu för BOOKADMIN i menyrad. Flytta den till
+   sidan "Välj en plats" och visa för BOOKADMIN intill knappen "Uppdatera"  
+2. När användare klickar på "Lediga tider" visas listan över assets i vald location. 
+3. När användaren klickar en asset visas listan med registrerade lediga tider för vald asset
+3a. Klickar användaren på en ledig tid öppnas väljaren för starttid och sluttid och visar registrerade värden samt en knapp "Spara" 
+3b. "Spara" kontrollerar API att start och sluttid uppfyller regler. 
+   Feltext eller svarstatus visas i en textbox
+3c. Vill användaren istället registrera ny ledig tid klicka han på knappen, "registrera ny ledig tid" öppnas väljaren för 
+    starttid och sluttid och visar båda dagens datum och tid, samt knappen "Spara" från 3b.    
+4. Rad med asset har (som nu ) en knapp "Ta bort" som fungerar på samma sätt som nu.
+
+
+5. i listan asset på sidan Lediga tider behövs inte knappen "Ta bort"
+
+
+
+
+
+
+
 2026-09-25
 ======================================================================================
 using  src/resources/application.properties to configure spring boot and java utilities 
