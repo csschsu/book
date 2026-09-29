@@ -1,3 +1,14 @@
+
+2026-09-29
+1 b. clear email, and JWT token when new session is detected. 
+1 a. Prevoius logged in user email with roles are visible and data from earlier session when startpage opens. Replace presentation with a 
+ drop-down menu "Access" with two items "Login", "Logout". 
+
+2. When old session has expired and a new successful login has been made during booking 
+ the error message "Din inloggningssession har gått ut. Vänligen logga in igen." remains on "Bekräfta din bokning".
+ please clear the error message after a successful login
+
+
 2026-09-26
 Jag vill ändra registrering av "Lediga tider"
 1. Knappen "Lediga tider" visas nu för BOOKADMIN i menyrad. Flytta den till

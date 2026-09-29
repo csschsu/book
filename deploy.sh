@@ -149,7 +149,7 @@ fi
 
 echo "Starting Spring Boot Backend on http://localhost:$PORT ..."
 echo "Using configuration: $CONFIG_FILE"
-exec java -jar bookingweb.war --server.port="$PORT" -Dconfig.file="$CONFIG_FILE" --spring.config.location="file:$CONFIG_FILE" < /dev/null
+exec java -jar bookingweb.war --server.port="$PORT" -Dconfig.file="$CONFIG_FILE" --spring.config.additional-location="optional:file:$CONFIG_FILE" < /dev/null
 INNER_EOF
 chmod +x "$DEPLOY_DIR/bookingweb/run.sh"
 
@@ -417,6 +417,8 @@ This file overrides the development properties bundled inside the WAR.
 You can edit `bookingweb/application.properties` to set:
 - SQLite database location: `spring.datasource.url=jdbc:sqlite:/path/to/booking_system.db?foreign_keys=true`
 - Server port: `server.port=9091`
+- JWT secret (optional): `jwt.secret=...`
+- JWT expiration (optional): `jwt.expiration=86400000`
 - Or use Environment Variables (highest priority): `export SPRING_DATASOURCE_URL="..."` and `export SERVER_PORT=9091`
 
 ## Managing Initial Users

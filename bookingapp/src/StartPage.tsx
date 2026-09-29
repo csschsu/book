@@ -8,7 +8,7 @@ import { FreePage } from './free/FreePage';
 import { UserPage } from './login/UserPage';
 import { LoginPage } from './login/LoginPage';
 import { Footer } from './Footer';
-import { Calendar, Users, LogIn, LogOut, User as UserIcon } from 'lucide-react';
+import { Calendar, Users, LogIn, LogOut } from 'lucide-react';
 
 type ViewMode = 'book' | 'admin-free' | 'admin-users';
 
@@ -75,6 +75,7 @@ export const StartPage: React.FC = () => {
             className={`nav-link ${view === 'book' ? 'active' : ''}`}
             onClick={() => { setView('book'); resetBookingFlow(); }}
           >
+            <Calendar size={16} style={{ display: 'inline', marginRight: 4, verticalAlign: 'text-bottom' }} />
             Boka resurs
           </button>
 
@@ -89,26 +90,25 @@ export const StartPage: React.FC = () => {
           )}
 
           {authSession ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: '0.5rem' }}>
-              <div className="auth-badge">
-                <UserIcon size={14} />
-                <span>{authSession.email}</span>
-                <span className="role-tag">{authSession.role}</span>
-              </div>
-              <button className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem' }} onClick={handleLogout}>
-                <LogOut size={14} /> Logga ut
-              </button>
-            </div>
+            <button
+              type="button"
+              className="nav-link"
+              onClick={handleLogout}
+            >
+              <LogOut size={16} style={{ display: 'inline', marginRight: 4, verticalAlign: 'text-bottom' }} />
+              Logout
+            </button>
           ) : (
             <button
-              className="btn btn-primary"
-              style={{ padding: '0.4rem 0.9rem', fontSize: '0.9rem' }}
+              type="button"
+              className="nav-link"
               onClick={() => {
                 setLoginNotice(null);
                 setShowLoginModal(true);
               }}
             >
-              <LogIn size={16} /> Logga in
+              <LogIn size={16} style={{ display: 'inline', marginRight: 4, verticalAlign: 'text-bottom' }} />
+              Login
             </button>
           )}
         </nav>
@@ -193,4 +193,3 @@ export const StartPage: React.FC = () => {
     </div>
   );
 };
-

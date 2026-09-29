@@ -100,7 +100,22 @@ export const BookPage: React.FC<BookPageProps> = ({
     loadData();
   }, [location.id, asset.assetId]);
 
-  const loadData = async () => {
+  // Clear any login session error message when a new successful login has occurred
+  useEffect(() => {
+    if (authSession) {
+      setError(null);
+    }
+  }, [authSession]);
+
+  useEffect(() => {
+    const handleAuthSuccess = () => {
+      setError(null);
+    };
+    window.addEventListener('auth-login-success', handleAuthSuccess);
+    return () => window.removeEventListener('auth-login-success', handleAuthSuccess);
+  }, []);
+
+  const loadData = async (focusDate?: Date) => {
     try {
       setLoading(true);
       setError(null);
@@ -116,10 +131,14 @@ export const BookPage: React.FC<BookPageProps> = ({
       setFreeBlocks(assetFree);
       setBookedBlocks(assetBooked);
 
-      // Focus calendar on first upcoming free block if any
-      const upcoming = assetFree.find(f => new Date(f.endTime) > new Date());
-      if (upcoming) {
-        setCurrentDate(new Date(upcoming.startTime));
+      if (focusDate) {
+        setCurrentDate(focusDate);
+      } else {
+        // Focus calendar on first upcoming free block if any
+        const upcoming = assetFree.find(f => new Date(f.endTime) > new Date());
+        if (upcoming) {
+          setCurrentDate(new Date(upcoming.startTime));
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Kunde inte hämta kalenderdata');
@@ -198,10 +217,12 @@ export const BookPage: React.FC<BookPageProps> = ({
       setError(null);
       const startIso = moment(bookStart).format('YYYY-MM-DDTHH:mm:ss');
       const endIso = moment(bookEnd).format('YYYY-MM-DDTHH:mm:ss');
+      const bookingDate = new Date(bookStart);
       const res = await bookTime(selectedFree.id, authSession.id, startIso, endIso);
       setReceipt(res);
-      onSetStep(8);
-      loadData(); // reload data in background
+      await loadData(bookingDate);
+      setCurrentDate(bookingDate);
+      onSetStep(3);
     } catch (err: any) {
       setError(err.message || 'Kunde inte slutföra bokningen');
     } finally {
@@ -370,6 +391,22 @@ export const BookPage: React.FC<BookPageProps> = ({
       </div>
 
       {error && <div className="alert-error">{error}</div>}
+
+      {receipt && !error && (
+        <div className="alert-success" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <span>
+            <CheckCircle2 size={16} style={{ display: 'inline', marginRight: 6, verticalAlign: 'text-bottom' }} />
+            Bokning bekräftad! Bokningsnummer #{receipt.id}.
+          </span>
+          <button
+            type="button"
+            onClick={() => setReceipt(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--success)', fontWeight: 'bold', fontSize: '1rem', lineHeight: 1 }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>

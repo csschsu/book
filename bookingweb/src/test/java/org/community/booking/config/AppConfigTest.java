@@ -80,4 +80,13 @@ public class AppConfigTest {
         assertTrue(dbUrl.startsWith("jdbc:sqlite:"));
         assertTrue(dbUrl.contains("booking_system.db"));
     }
+
+    @Test
+    public void testJwtPropertiesLoadedFromClasspath() {
+        AppConfig.resetCache();
+        String secret = AppConfig.get("jwt.secret");
+        String expiration = AppConfig.get("jwt.expiration");
+        assertEquals("defaultSecretKeyForCommunityBookingAppSecure256BitsMinimum!", secret);
+        assertEquals("86400000", expiration);
+    }
 }

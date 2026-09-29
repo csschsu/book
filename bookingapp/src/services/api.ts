@@ -2,23 +2,83 @@ import { AuthSession, Location, Asset, AssetLocation, Free, Booked, Timeslot, Us
 
 const API_BASE = '/api';
 const AUTH_KEY = 'community_booking_auth';
+const SESSION_FLAG_KEY = 'community_booking_session_active';
+
+export function isTokenExpired(token?: string): boolean {
+  if (!token) return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return true;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const payload = JSON.parse(jsonPayload);
+    if (payload.exp && Date.now() >= payload.exp * 1000) {
+      return true;
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+export function initSessionCheck(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const isExistingSession = sessionStorage.getItem(SESSION_FLAG_KEY) === 'true';
+    if (!isExistingSession) {
+      // New session detected - clear email, role, and JWT token
+      clearAuthSession();
+      sessionStorage.setItem(SESSION_FLAG_KEY, 'true');
+    }
+  } catch {
+    // Ignore storage errors if disabled
+  }
+}
+
+// Perform session detection on initialization
+initSessionCheck();
 
 export function getAuthSession(): AuthSession | null {
-  const data = localStorage.getItem(AUTH_KEY);
-  if (!data) return null;
+  initSessionCheck();
   try {
-    return JSON.parse(data) as AuthSession;
+    const data = sessionStorage.getItem(AUTH_KEY) || localStorage.getItem(AUTH_KEY);
+    if (!data) return null;
+    const session = JSON.parse(data) as AuthSession;
+    if (!session || !session.token || isTokenExpired(session.token)) {
+      clearAuthSession();
+      return null;
+    }
+    return session;
   } catch {
+    clearAuthSession();
     return null;
   }
 }
 
 export function setAuthSession(session: AuthSession): void {
-  localStorage.setItem(AUTH_KEY, JSON.stringify(session));
+  try {
+    sessionStorage.setItem(SESSION_FLAG_KEY, 'true');
+    sessionStorage.setItem(AUTH_KEY, JSON.stringify(session));
+    // Clear localStorage to prevent leaking across browser sessions
+    localStorage.removeItem(AUTH_KEY);
+  } catch {
+    // Ignore storage errors
+  }
 }
 
 export function clearAuthSession(): void {
-  localStorage.removeItem(AUTH_KEY);
+  try {
+    localStorage.removeItem(AUTH_KEY);
+    sessionStorage.removeItem(AUTH_KEY);
+  } catch {
+    // Ignore storage errors
+  }
 }
 
 export function getAuthHeaders(): HeadersInit {
@@ -86,6 +146,7 @@ export async function login(identifier: string, password: string): Promise<AuthS
 
   const session = (await res.json()) as AuthSession;
   setAuthSession(session);
+  window.dispatchEvent(new CustomEvent('auth-login-success', { detail: session }));
   return session;
 }
 
@@ -319,4 +380,3 @@ export async function deleteAsset(assetId: number): Promise<{ success: boolean }
   });
   return handleResponse<{ success: boolean }>(res);
 }
-
