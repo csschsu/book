@@ -44,10 +44,12 @@ mkdir -p "$DEPLOY_DIR/logs"
 # Ensure NO database file, config file, or remembered location is in deploy
 rm -f "$DEPLOY_DIR/booking_system.db" "$DEPLOY_DIR/bookingweb/booking_system.db" "$DEPLOY_DIR/book_system.db" "$DEPLOY_DIR/bookingweb/book_system.db"
 rm -f "$DEPLOY_DIR/application.properties" "$DEPLOY_DIR/bookingweb/application.properties"
+rm -f "$DEPLOY_DIR/application.properties.template" "$DEPLOY_DIR/bookingweb/application.properties.template"
 rm -f "$DEPLOY_DIR/.config_location" "$DEPLOY_DIR/bookingweb/.config_location"
 
 # Copy Backend Artifact
 cp "$WAR_SRC" "$DEPLOY_DIR/bookingweb/bookingweb.war"
+
 
 # Copy Frontend Files
 cp -r "$ROOT_DIR/bookingapp/dist" "$DEPLOY_DIR/bookingapp/"
@@ -149,7 +151,7 @@ fi
 
 echo "Starting Spring Boot Backend on http://localhost:$PORT ..."
 echo "Using configuration: $CONFIG_FILE"
-exec java -jar bookingweb.war --server.port="$PORT" -Dconfig.file="$CONFIG_FILE" --spring.config.additional-location="optional:file:$CONFIG_FILE" < /dev/null
+exec java -jar bookingweb.war --server.port="$PORT" -Dconfig.file="$CONFIG_FILE" --spring.config.location="file:$CONFIG_FILE" < /dev/null
 INNER_EOF
 chmod +x "$DEPLOY_DIR/bookingweb/run.sh"
 
@@ -411,15 +413,18 @@ This directory is completely self-contained and can be moved to any production l
 - **Backend (Spring Boot)**: `http://localhost:9091`
 
 ## Production Configuration
-The backend configuration is managed outside the WAR file via `bookingweb/application.properties`.
-This file overrides the development properties bundled inside the WAR.
+The backend configuration is managed completely outside this deploy directory and outside the WAR file.
+Neither `application.properties` nor any template file is placed in this directory.
 
-You can edit `bookingweb/application.properties` to set:
-- SQLite database location: `spring.datasource.url=jdbc:sqlite:/path/to/booking_system.db?foreign_keys=true`
-- Server port: `server.port=9091`
-- JWT secret (optional): `jwt.secret=...`
-- JWT expiration (optional): `jwt.expiration=86400000`
-- Or use Environment Variables (highest priority): `export SPRING_DATASOURCE_URL="..."` and `export SERVER_PORT=9091`
+Provide your configuration using:
+1. An external properties file outside the project:
+   - When running `./run.sh` or `./create_user.sh` for the first time, you will be prompted for the path to your external `application.properties` (saved in `.config_location`).
+   - Or set `export APP_CONFIG_FILE="/path/to/your/application.properties"`.
+2. Or use Environment Variables (highest priority):
+   - `export SPRING_DATASOURCE_URL="jdbc:sqlite:/path/to/booking_system.db?foreign_keys=true"`
+   - `export SERVER_PORT=9091`
+   - `export JWT_SECRET="your-production-secret-key-at-least-256-bits!"`
+   - `export JWT_EXPIRATION=86400000`
 
 ## Managing Initial Users
 To add or reset the admin user in production without starting the web server:

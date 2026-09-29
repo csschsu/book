@@ -119,6 +119,7 @@
         <artifactId>maven-war-plugin</artifactId>
         <configuration>
           <failOnMissingWebXml>false</failOnMissingWebXml>
+          <packagingExcludes>WEB-INF/classes/application.properties</packagingExcludes>
         </configuration>
       </plugin>
       <!-- Exec plugin för att köra TestDataGenerator -->
