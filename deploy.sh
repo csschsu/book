@@ -425,6 +425,7 @@ Provide your configuration using:
    - `export SERVER_PORT=9091`
    - `export JWT_SECRET="your-production-secret-key-at-least-256-bits!"`
    - `export JWT_EXPIRATION=86400000`
+   - `export CORS_ALLOWED="https://book.systemkonstruktion.se,http://localhost:3001"`
 
 ## Managing Initial Users
 To add or reset the admin user in production without starting the web server:

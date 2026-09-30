@@ -1,177 +1,22 @@
+2026-09-30 
 
-2026-09-29
-1 b. clear email, and JWT token when new session is detected. 
-1 a. Prevoius logged in user email with roles are visible and data from earlier session when startpage opens. Replace presentation with a 
- drop-down menu "Access" with two items "Login", "Logout". 
+(file:///home/christer/work/book/bookingweb/src/main/java/org/community/booking/security/SecurityConfig.java#L89)
+```java
+configuration.setAllowedOriginPatterns(List.of("*"));
+configuration.setAllowCredentials(true);
+```
 
-2. When old session has expired and a new successful login has been made during booking 
- the error message "Din inloggningssession har gått ut. Vänligen logga in igen." remains on "Bekräfta din bokning".
- please clear the error message after a successful login
+**Problem:** Wildcard CORS with `allowCredentials=true` means any website can make authenticated cross-origin requests to your API. A malicious site could perform actions on behalf of a logged-in user.
 
+**Fix:** Move cors configuration data to application.properties and set cors.allowed in development to `https://localhost:5173`.
+2026-09-30 
 
-2026-09-26
-Jag vill ändra registrering av "Lediga tider"
-1. Knappen "Lediga tider" visas nu för BOOKADMIN i menyrad. Flytta den till
-   sidan "Välj en plats" och visa för BOOKADMIN intill knappen "Uppdatera"  
-2. När användare klickar på "Lediga tider" visas listan över assets i vald location. 
-3. När användaren klickar en asset visas listan med registrerade lediga tider för vald asset
-3a. Klickar användaren på en ledig tid öppnas väljaren för starttid och sluttid och visar registrerade värden samt en knapp "Spara" 
-3b. "Spara" kontrollerar API att start och sluttid uppfyller regler. 
-   Feltext eller svarstatus visas i en textbox
-3c. Vill användaren istället registrera ny ledig tid klicka han på knappen, "registrera ny ledig tid" öppnas väljaren för 
-    starttid och sluttid och visar båda dagens datum och tid, samt knappen "Spara" från 3b.    
-4. Rad med asset har (som nu ) en knapp "Ta bort" som fungerar på samma sätt som nu.
+(file:///home/christer/work/book/bookingweb/src/main/java/org/community/booking/security/SecurityConfig.java#L89)
+```java
+configuration.setAllowedOriginPatterns(List.of("*"));
+configuration.setAllowCredentials(true);
+```
 
+**Problem:** Wildcard CORS with `allowCredentials=true` means any website can make authenticated cross-origin requests to your API. A malicious site could perform actions on behalf of a logged-in user.
 
-5. i listan asset på sidan Lediga tider behövs inte knappen "Ta bort"
-
-
-
-
-
-
-
-2026-09-25
-======================================================================================
-using  src/resources/application.properties to configure spring boot and java utilities 
-use data from application.properties  in development. Production requires a different configuration 
-and I dont want to deploy the development appliation.properties to production. What I have in mind 
-is an  application.properties outside the project,  use of environment variables or something 
-else you tink is better. A complexity is that spring needs data and part of that data is 
-needed by java utilities. Please propose a solution.
-======================================================================================
-
-5. Proposed Implementation Plan
-If you approve this direction, here is what we will implement:
-
-Create AppConfig.java in 
-bookingweb/src/main/java/org/community/booking/config/
-:
-Implements standard resolution: System Properties 
-→
-→ Env Vars 
-→
-→ External file (./application.properties, ./config/application.properties) 
-→
-→ Classpath.
-Update 
-JdbiConfig.java
-:
-Use AppConfig.get(...) instead of hardcoded file searches.
-Cleanly resolves relative DB paths relative to the working directory or property.
-Update 
-deploy.sh
-:
-Generate an external production application.properties template in deploy/bookingweb/ (separate from source code).
-In deploy/bookingweb/run.sh, pass the config path or environment variables cleanly so both the server and any CLI utilities (like CreateInitialUser) run consistently.
-Would you like me to proceed with implementing this solution?
-
-======================================================================================
-Just a check, will bookingweb/src/main/resources application.properties still be used in development 
-======================================================================================
-
-Yes, absolutely!
-
-In development—whether you run via:
-
-mvn spring-boot:run
-Inside VS Code / IntelliJ / Eclipse
-mvn test
-Direct Java utility execution (CreateInitialUser, tests, etc.)
-Since no external production file or production environment variable is set on your dev machine, both Spring Boot and the Java utilities will automatically use bookingweb/src/main/resources/application.properties directly from the classpath, exactly as they do today.
-
-Your local development workflow remains 100% zero-setup and unchanged. The external file or environment variables only kick in when you explicitly run in production.
-
-
-2026-09-22
-
-1. 2026-09-22T09:53:57.553+02:00  WARN 3818017 --- [  restartedMain] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with an AuthenticationProvider bean. UserDetailsService beans will not be used by Spring Security for automatically configuring username/password login. Consider removing the AuthenticationProvider bean. Alternatively, consider using the UserDetailsService in a manually instantiated DaoAuthenticationProvider. If the current configuration is intentional, to turn off this warning, increase the logging level of 'org.springframework.security.config.annotation.authentication.configuration.InitializeUserDetailsBeanManagerConfigurer' to ERROR
-
-2 a. Add public String alias; to User table and class
-2 b. Generate test data set alias = "Alias: " + 'user.id' 
-2 c. Add field Alias to UserPage and show a text in info 
-     box "Alias visas på bokning i kalender" 
-2 d. Ändra text vid visning av bokning i calendar från "Bokad ('email')" till 'alias'
-3 a. Visa kalender från kl 9.00 - 22.00
-
-4 a. Clear email and password field when LoginPage open
-5 a. User som visas i Användarlista kan väljas och alla fält editeras. 
-6a.  Show fields Starttid and Sluttid with swedish 24h clock on FreePage
-6b.  Change presentation of fields in "Registrerade lediga tider" on FreePage
-    from
-     ID,Resurs-ID,Resursnamn,Datum,Tidsintervall,Åtgärd
-    to 
-     ID,
-     Resursnamn,
-     Starttid with swedish 24h clock,
-     Sluttid with swedish 24h clock,
-     Åtgärd
-7a. remove change "6a.  Show fields Starttid and Sluttid with swedish 24h clock on FreePage"
-7b. Edit fields Starttid and Sluttid with swedish 24h clock on FreePage
-
-8a. Oops, I still want calendar support for 7b. Edit fields Starttid and Sluttid with swedish 24h clock on FreePage
-
-9a. FreePage should accept Starttid and Sluttid let the api return error when Sluttid < Starttid. 
-
-
-2026-09-21
-
-1. Create a folder called src/location
-2. Create a folder called src/asset
-3. Move AssetPage.tsx to src/asset
-4. Add a workflow visible to BOOKADMIN starting with a button "Ny Plats" on {/* Main Body */}  
-  4.1 function enter new location data
-  4.2 function view existing assets  
-  4.3 function create new asset  
-
-5. Add a workflow visible to BOOKADMIN starting with a button "uppdatera" in the location box.
-  5.1 function to view and update location data
-  5.2 use function 4.2 view existing assets  
-  5.3 use function 4.3 create new asset  
-  5.4 function to delete asset 
-
-2026-09-20
-1. Split APP.tsx into folders and files
-src/StartPage.tsx
-src/book/LocationPage.tsx
-src/book/AssetPage.tsx
-src/book/BookPage.tsx
-src/free/FreePage.tsx
-src/login/LoginPage.tsx
-src/login/UserPage.tsx
-
-2. Workflow for "1. Platser" for a location with more than one asset opens a page with a 
-   grid of assets on the location. User select one asset by clicking on it and 
-   continue to "3. Kalender"
-
-3. Change GenerateFreeYearTest.java to generate 2 locations, first location with one asset, second location with two assets
-
-4. Change FreePage.tsx to show grid with locations and assets. When user select asset, a new AssetFreePage showing showing free time for the assetis opened, user can add new free time or delete existing item in the list. 
-
-5. Ta bort text "Rutnät över platser och resurser Klicka på en resurs för att visa och redigera dess lediga tider". flytta    
-filtrera plats till "a51. Hantera lediga tider (BOOKADMIN)
-Välj en resurs i rutnätet för att visa, skapa och ta bort dess lediga tider."
-
-6a. ta bort box med Aktiv resurs #1
-Plats: Location 1
-Asset Location 1
-Uppdatera tider
-6b Ta bort fält med Vald Resurs
-6c Visa "Lediga tider för Asset Location 1# 
-  före "Lägg till ny ledig tid för Asset Location 1"
-6d. "Lägg till ny ledig tid för Asset Location 1" visas 2 gånger. "Ta bort den före Lediga tider för Asset Location 1"  
-
-
-
-2026-09-19
--- 2. App.tsx : a. Registration on Free receiving an error from the API shows   two error boxes with the same contents. Please remove one of them.
-App.tsx : b.  Do not show result text from previous request when error from current request is displayed 
-
-
-
-2026-09-18 Please add verification in book.addFreeTime 
-rule a. message="Registration of new free time must not overlapap another free for the asset" 
-rule b. message="Registration of free start_time must be bigger than current time"
-rule c. message="Registration of free end_time must be bigger than start_time"
-if Registration does not meet rule a. or rule b. or rule c. book.addFreeTime return BookException with message 
-Show Exception message on page Lediga tider
+**Fix:** Move cors configuration data to application.properties and set cors.allowed in development to `https://localhost:5173`.

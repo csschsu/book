@@ -89,4 +89,11 @@ public class AppConfigTest {
         assertEquals("defaultSecretKeyForCommunityBookingAppSecure256BitsMinimum!", secret);
         assertEquals("86400000", expiration);
     }
+
+    @Test
+    public void testCorsPropertiesLoadedFromClasspath() {
+        AppConfig.resetCache();
+        String corsAllowed = AppConfig.get("cors.allowed");
+        assertEquals("http://localhost:5173,https://localhost:5173", corsAllowed);
+    }
 }
