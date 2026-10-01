@@ -51,7 +51,7 @@ export const UserPage: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleCancelEdit = () => {
+  const resetForm = () => {
     setEditingUser(null);
     setEmail('');
     setAlias('');
@@ -59,6 +59,10 @@ export const UserPage: React.FC = () => {
     setRole('BOOKUSER');
     setPhone('070-123456');
     setCode(0);
+  };
+
+  const handleCancelEdit = () => {
+    resetForm();
     setError(null);
     setSuccess(null);
   };
@@ -88,8 +92,8 @@ export const UserPage: React.FC = () => {
           currentSession.role = role;
           setAuthSession(currentSession);
         }
+        resetForm();
         setSuccess(`Användare #${editingUser.id} (${email}) har uppdaterats!`);
-        handleCancelEdit();
       } else {
         await addUser({
           email,
@@ -102,11 +106,8 @@ export const UserPage: React.FC = () => {
             phone,
           },
         });
+        resetForm();
         setSuccess(`Användare ${email} har skapats!`);
-        setEmail('');
-        setAlias('');
-        setPassword('password123');
-        setCode(0);
       }
       await loadUsers();
     } catch (err: any) {
@@ -122,9 +123,6 @@ export const UserPage: React.FC = () => {
       <p style={{ color: 'var(--gray-500)', marginBottom: '1.5rem' }}>
         Översikt över alla registrerade systemanvändare samt skapande och redigering av konton.
       </p>
-
-      {error && <div className="alert-error">{error}</div>}
-      {success && <div className="alert-success">{success}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
         {/* User form (Create or Edit) */}
@@ -153,6 +151,9 @@ export const UserPage: React.FC = () => {
             )}
           </div>
 
+          {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
+          {success && <div className="alert-success" style={{ marginBottom: '1rem' }}>{success}</div>}
+
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label className="form-label">E-postadress</label>
@@ -179,15 +180,16 @@ export const UserPage: React.FC = () => {
 
             <div className="form-group">
               <label className="form-label">
-                {editingUser ? 'Nytt lösenord (valfritt)' : 'Lösenord'}
+                {editingUser ? 'Nytt lösenord (valfritt, minst 8 tecken)' : 'Lösenord (minst 8 tecken)'}
               </label>
               <input
                 type="password"
                 className="form-input"
                 value={password}
-                placeholder={editingUser ? 'Lämna tomt för att behålla befintligt' : 'Lösenord'}
+                placeholder={editingUser ? 'Lämna tomt för att behålla befintligt' : 'Minst 8 tecken'}
                 onChange={(e) => setPassword(e.target.value)}
                 required={!editingUser}
+                minLength={8}
               />
             </div>
 

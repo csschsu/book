@@ -215,9 +215,10 @@ public class BookController {
 
     @PostMapping("/user")
     public ResponseEntity<?> createUser(@RequestBody Models.User user) {
-        if (user.getPassword() != null && !user.getPassword().isBlank()) {
-            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        if (user.getPassword() == null || user.getPassword().length() < 8) {
+            throw new BookException("Password är för kort");
         }
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         if (user.getCreatetime() == null || user.getCreatetime().isBlank()) {
             user.setCreatetime(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         }
@@ -233,7 +234,10 @@ public class BookController {
     @PutMapping({ "/user/{id}", "/users/{id}" })
     public ResponseEntity<?> updateUser(@PathVariable int id, @RequestBody Models.User user) {
         user.setId(id);
-        if (user.getPassword() != null && !user.getPassword().isBlank()) {
+        if (user.getPassword() != null) {
+            if (user.getPassword().length() < 8) {
+                throw new BookException("Password är för kort");
+            }
             user.setPassword(passwordEncoder.encode(user.getPassword()));
         }
         Models.User updated = book.updateUser(user);
