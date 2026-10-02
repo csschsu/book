@@ -122,7 +122,7 @@ public class Book {
         @RegisterFieldMapper(Models.Free.class)
         Models.Free getFreeById(@Bind("id") int id);
 
-        @SqlQuery("SELECT b.id, b.free_id, b.user_id, u.email as user_email, u.alias as alias, b.start_time, b.end_time "
+        @SqlQuery("SELECT b.id, b.free_id, b.user_id, u.alias as alias, b.start_time, b.end_time "
                 +
                 "FROM booked b " +
                 "JOIN free f ON b.free_id = f.id " +
@@ -134,7 +134,7 @@ public class Book {
         List<Models.Booked> getBookedBlocks(@Bind("locationId") int locationId,
                 @Bind("startTime") LocalDateTime startTime);
 
-        @SqlQuery("SELECT b.id, b.free_id, b.user_id, u.email as user_email, u.alias as alias, b.start_time, b.end_time "
+        @SqlQuery("SELECT b.id, b.free_id, b.user_id, u.alias as alias, b.start_time, b.end_time "
                 +
                 "FROM booked b " +
                 "JOIN free f ON b.free_id = f.id " +
@@ -145,7 +145,7 @@ public class Book {
         @RegisterFieldMapper(Models.Booked.class)
         List<Models.Booked> getBookedBlocksByLocation(@Bind("locationId") int locationId);
 
-        @SqlQuery("SELECT b.id, b.free_id, b.user_id, u.email as user_email, u.alias as alias, b.start_time, b.end_time "
+        @SqlQuery("SELECT b.id, b.free_id, b.user_id, u.alias as alias, b.start_time, b.end_time "
                 +
                 "FROM booked b " +
                 "LEFT JOIN user u ON b.user_id = u.id " +
@@ -154,7 +154,7 @@ public class Book {
         @RegisterFieldMapper(Models.Booked.class)
         List<Models.Booked> getBookedBlocksByFreeId(@Bind("freeId") int freeId);
 
-        @SqlQuery("SELECT b.id, b.free_id, b.user_id, u.email as user_email, u.alias as alias, b.start_time, b.end_time "
+        @SqlQuery("SELECT b.id, b.free_id, b.user_id, u.alias as alias, b.start_time, b.end_time "
                 +
                 "FROM booked b " +
                 "LEFT JOIN user u ON b.user_id = u.id " +

@@ -1,6 +1,7 @@
 *** Antigravity is allowed to read this file BUT NOT to WRITE in it. ***
 
-2026-10-01 
+2026-10-03 
+BookController should not include email returning Models.Booked. App should not show Booked.userEmail.
 
 
 2026-09-30 

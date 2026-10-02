@@ -42,7 +42,6 @@ export interface Booked {
   id: number;
   freeId: number;
   userId: number;
-  userEmail?: string;
   alias?: string;
   startTime: string;
   endTime: string;

@@ -385,7 +385,6 @@ public class Models {
         public int id;
         public int freeId;
         public int userId;
-        public String userEmail;
         public String alias;
         public LocalDateTime startTime;
         public LocalDateTime endTime;
@@ -393,17 +392,11 @@ public class Models {
         public Booked() {
         }
 
-        public Booked(int id, int freeId, int userId, String userEmail, LocalDateTime startTime,
-                LocalDateTime endTime) {
-            this(id, freeId, userId, userEmail, null, startTime, endTime);
-        }
-
-        public Booked(int id, int freeId, int userId, String userEmail, String alias, LocalDateTime startTime,
+        public Booked(int id, int freeId, int userId, String alias, LocalDateTime startTime,
                 LocalDateTime endTime) {
             this.id = id;
             this.freeId = freeId;
             this.userId = userId;
-            this.userEmail = userEmail;
             this.alias = alias;
             this.startTime = startTime;
             this.endTime = endTime;
@@ -431,14 +424,6 @@ public class Models {
 
         public void setUserId(int userId) {
             this.userId = userId;
-        }
-
-        public String getUserEmail() {
-            return userEmail;
-        }
-
-        public void setUserEmail(String userEmail) {
-            this.userEmail = userEmail;
         }
 
         public String getAlias() {
