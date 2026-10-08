@@ -5,11 +5,11 @@
  * 2. 
  * 3. Generera tillgångar (assets)
  * 4. Generera 2 platser (locations), första platsen med en tillgång, andra platsen med två tillgångar
- * 5. Generera lediga tider (free) under ÅRET som startar current timestamp
+ * 5. Generera lediga tider (free) under ÅRET som startar current timestamp minus one month
  *    och slutar current timestamp + 1 år.
  * 6. Generera bokningar (booked)
- *    a. En tid från kl 18 - 20 för user_1 varje tisdag under ÅRET.
- *    b. En tid från kl 18 - 20 för user_2 varje torsdag under ÅRET.
+ *    a. En tid från kl 18 - 20 för user_1 varje tisdag under ÅRET från start.
+ *    b. En tid från kl 18 - 20 för user_2 varje torsdag under ÅRET från start.
  * keep this instruction as a comment in the file
  */
 
@@ -146,9 +146,9 @@ public class GenerateFreeYearTest {
                         long asset2Id = assetIds.get(1);
                         long asset3Id = assetIds.get(2);
 
-                        // 5. Generera lediga tider (free) under ÅRET som startar current timestamp
+                        // 5. Generera lediga tider (free) under ÅRET som startar current timestamp minus one month
                         // och slutar current timestamp + 1 år.
-                        LocalDateTime start = currentTimestamp;
+                        LocalDateTime start = currentTimestamp.minusMonths(1);
                         LocalDateTime end = currentTimestamp.plusYears(1);
 
                         handle.execute("INSERT INTO free (asset_id, start_time, end_time) VALUES (?, ?, ?)",
@@ -164,8 +164,8 @@ public class GenerateFreeYearTest {
                                         asset3Id, start.format(FORMATTER), end.format(FORMATTER));
 
                         // 6. Generera bokningar (booked)
-                        // a. En tid från kl 18 - 20 för user_1 varje tisdag under ÅRET.
-                        // b. En tid från kl 18 - 20 för user_2 varje torsdag under ÅRET.
+                        // a. En tid från kl 18 - 20 för user_1 varje tisdag under ÅRET från start.
+                        // b. En tid från kl 18 - 20 för user_2 varje torsdag under ÅRET från start.
                         LocalDate startDate = start.toLocalDate();
                         LocalDate endDate = end.toLocalDate();
 
@@ -258,7 +258,7 @@ public class GenerateFreeYearTest {
                         List<String> freeEndTimes = handle.createQuery("SELECT end_time FROM free ORDER BY id ASC")
                                         .mapTo(String.class).list();
                         for (String fStart : freeStartTimes) {
-                                assertEquals(now.format(FORMATTER), fStart);
+                                assertEquals(now.minusMonths(1).format(FORMATTER), fStart);
                         }
                         for (String fEnd : freeEndTimes) {
                                 assertEquals(now.plusYears(1).format(FORMATTER), fEnd);
@@ -300,8 +300,8 @@ public class GenerateFreeYearTest {
                                 assertEquals(0, b.startTime.getMinute(), "Startminut ska vara 00");
                                 assertEquals(20, b.endTime.getHour(), "Sluttid ska vara 20:00");
                                 assertEquals(0, b.endTime.getMinute(), "Slutminut ska vara 00");
-                                assertTrue(!b.startTime.isBefore(now),
-                                                "Bokning ska inte starta före current timestamp");
+                                assertTrue(!b.startTime.isBefore(now.minusMonths(1)),
+                                                "Bokning ska inte starta före start (current timestamp - 1 månad)");
                                 assertTrue(!b.endTime.isAfter(now.plusYears(1)),
                                                 "Bokning ska inte sluta efter current timestamp + 1 år");
                         }

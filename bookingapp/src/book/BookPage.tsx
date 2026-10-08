@@ -133,12 +133,10 @@ export const BookPage: React.FC<BookPageProps> = ({
 
       if (focusDate) {
         setCurrentDate(focusDate);
+        setCurrentView(Views.WEEK);
       } else {
-        // Focus calendar on first upcoming free block if any
-        const upcoming = assetFree.find(f => new Date(f.endTime) > new Date());
-        if (upcoming) {
-          setCurrentDate(new Date(upcoming.startTime));
-        }
+        setCurrentDate(new Date());
+        setCurrentView(Views.WEEK);
       }
     } catch (err: any) {
       setError(err.message || 'Kunde inte hämta kalenderdata');
@@ -222,6 +220,7 @@ export const BookPage: React.FC<BookPageProps> = ({
       setReceipt(res);
       await loadData(bookingDate);
       setCurrentDate(bookingDate);
+      setCurrentView(Views.WEEK);
       onSetStep(3);
     } catch (err: any) {
       setError(err.message || 'Kunde inte slutföra bokningen');

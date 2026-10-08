@@ -8,6 +8,7 @@ target/
 *.eml
 git.txt
 deploy/
+book_deploy.tar.gz
 
 # Logs
 logs

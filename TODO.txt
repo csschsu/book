@@ -1,5 +1,20 @@
 *** Antigravity is allowed to read this file BUT NOT to WRITE in it. ***
 
+2026-10-08
+When Bookpage opens after select asset the Calendar should show the week view for the current date. 
+After booking and return to Calendar, show the week view for the booked date. 
+
+ändra  ...
+ Generera lediga tider (free) under ÅRET som startar current timestamp
+ LocalDateTime start = currentTimestamp();
+ ändra ...
+   till :
+ Generera lediga tider (free) under ÅRET som startar current timestamp minus one month
+ LocalDateTime start = currentTimestamp().minusMonths(1);
+ Create bookings on tuesday and thursday from start. 
+
+
+
 2026-10-03 
 BookController should not include email returning Models.Booked. App should not show Booked.userEmail.
 
