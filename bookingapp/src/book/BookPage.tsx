@@ -3,9 +3,9 @@ import { Calendar as BigCalendar, momentLocalizer, type Formats, View, Views } f
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { Location, AssetLocation, Free, Booked, AuthSession } from '../types/models';
-import { fetchFreeByLocation, fetchBookedByLocation, bookTime } from '../services/api';
+import { fetchFreeByLocation, fetchBookedByLocation, bookTime, deleteBookedTime } from '../services/api';
 import { SWEDISH_WEEKDAYS, SWEDISH_MONTHS, setupSwedishLocale } from '../services/momentSv';
-import { ArrowLeft, CheckCircle2, Calendar as CalendarIcon, Clock, MapPin, Box, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Calendar as CalendarIcon, Clock, MapPin, Box, Loader2, AlertCircle, Trash2, X } from 'lucide-react';
 
 setupSwedishLocale();
 const localizer = momentLocalizer(moment);
@@ -60,6 +60,7 @@ interface CalendarEvent {
   end: Date;
   type: 'free' | 'booked';
   rawFree?: Free;
+  rawBooked?: Booked;
 }
 
 interface BookPageProps {
@@ -92,6 +93,12 @@ export const BookPage: React.FC<BookPageProps> = ({
   const [bookEnd, setBookEnd] = useState<Date | null>(null);
   const [receipt, setReceipt] = useState<{ id: number; message: string } | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
+
+  // State for deleting booking
+  const [bookingToDelete, setBookingToDelete] = useState<Booked | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState<boolean>(false);
+  const [deletingBooking, setDeletingBooking] = useState<boolean>(false);
+  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [currentView, setCurrentView] = useState<View>(Views.WEEK);
@@ -152,7 +159,7 @@ export const BookPage: React.FC<BookPageProps> = ({
     freeBlocks.forEach(f => {
       list.push({
         id: `free-${f.id}`,
-        title: 'Ledig tid (Klicka för att boka)',
+        title: 'Tillåtet för bokning',
         start: new Date(f.startTime),
         end: new Date(f.endTime),
         type: 'free',
@@ -168,6 +175,7 @@ export const BookPage: React.FC<BookPageProps> = ({
         start: new Date(b.startTime),
         end: new Date(b.endTime),
         type: 'booked',
+        rawBooked: b,
       });
     });
 
@@ -176,16 +184,65 @@ export const BookPage: React.FC<BookPageProps> = ({
 
   const handleSelectEvent = (event: CalendarEvent) => {
     if (event.type === 'free' && event.rawFree) {
+      if (event.start <= new Date()) {
+        setError('Ändring före aktuell tid är inte tillåten');
+        setDeleteSuccess(null);
+        setReceipt(null);
+        return;
+      }
+      setError(null);
+      setDeleteSuccess(null);
+      setReceipt(null);
       setSelectedFree(event.rawFree);
       setBookStart(event.start);
       // Default to 2-hour booking or slot end
       const twoHoursLater = new Date(event.start.getTime() + 2 * 3600 * 1000);
       setBookEnd(twoHoursLater <= event.end ? twoHoursLater : event.end);
       onSetStep(6);
+    } else if (event.type === 'booked' && event.rawBooked) {
+      if (event.start <= new Date()) {
+        setError('Ändring före aktuell tid är inte tillåten');
+        setDeleteSuccess(null);
+        setReceipt(null);
+        return;
+      }
+      setBookingToDelete(event.rawBooked);
+      setDeleteModalOpen(true);
+      setError(null);
+      setDeleteSuccess(null);
+    }
+  };
+
+  const handleConfirmDeleteBooking = async () => {
+    if (!bookingToDelete) return;
+    try {
+      setDeletingBooking(true);
+      setError(null);
+      setDeleteSuccess(null);
+      await deleteBookedTime(bookingToDelete.id);
+      const bookedDate = new Date(bookingToDelete.startTime);
+      setDeleteModalOpen(false);
+      setBookingToDelete(null);
+      setDeleteSuccess('Bokningen har tagits bort.');
+      await loadData(bookedDate);
+      setCurrentDate(bookedDate);
+      setCurrentView(Views.WEEK);
+    } catch (err: any) {
+      setDeleteModalOpen(false);
+      setBookingToDelete(null);
+      setError(err.message || 'Kunde inte ta bort bokningen');
+    } finally {
+      setDeletingBooking(false);
     }
   };
 
   const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
+    if (start <= new Date()) {
+      setError('Ändring före aktuell tid är inte tillåten');
+      setDeleteSuccess(null);
+      setReceipt(null);
+      return;
+    }
     // Check if slot falls inside any free block
     const matchingFree = freeBlocks.find(f => {
       const fStart = new Date(f.startTime);
@@ -194,17 +251,24 @@ export const BookPage: React.FC<BookPageProps> = ({
     });
 
     if (matchingFree) {
+      setError(null);
+      setDeleteSuccess(null);
+      setReceipt(null);
       setSelectedFree(matchingFree);
       setBookStart(start);
       setBookEnd(end);
       onSetStep(6);
     } else {
-      alert('Vänligen välj ett tidsintervall inom ett grönt ledigt block.');
+      setError('Vänligen välj ett tidsintervall inom ett grönt ledigt block.');
     }
   };
 
   const handleConfirmBooking = async () => {
     if (!selectedFree || !bookStart || !bookEnd) return;
+    if (bookStart <= new Date()) {
+      setError('Ändring före aktuell tid är inte tillåten');
+      return;
+    }
     if (!authSession) {
       onOpenLogin();
       return;
@@ -372,7 +436,7 @@ export const BookPage: React.FC<BookPageProps> = ({
               {location.name} – {asset.name}
             </h2>
             <p style={{ color: 'var(--gray-500)', fontSize: '0.9rem' }}>
-              Gröna block = lediga tider. Klicka på ett block för att boka.
+              Gröna block = lediga tider. Klicka på ett grönt block för att boka, eller ett rött för att ta bort.
             </p>
           </div>
         </div>
@@ -390,6 +454,22 @@ export const BookPage: React.FC<BookPageProps> = ({
       </div>
 
       {error && <div className="alert-error">{error}</div>}
+
+      {deleteSuccess && !error && (
+        <div className="alert-success" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <span>
+            <CheckCircle2 size={16} style={{ display: 'inline', marginRight: 6, verticalAlign: 'text-bottom' }} />
+            {deleteSuccess}
+          </span>
+          <button
+            type="button"
+            onClick={() => setDeleteSuccess(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--success)', fontWeight: 'bold', fontSize: '1rem', lineHeight: 1 }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {receipt && !error && (
         <div className="alert-success" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -434,6 +514,91 @@ export const BookPage: React.FC<BookPageProps> = ({
             min={new Date(0, 0, 0, 9, 0, 0)}
             max={new Date(0, 0, 0, 22, 0, 0)}
           />
+        </div>
+      )}
+
+      {/* Confirmation modal for deleting a booking */}
+      {deleteModalOpen && bookingToDelete && (
+        <div className="modal-backdrop" onClick={() => { if (!deletingBooking) setDeleteModalOpen(false); }}>
+          <div
+            className="modal-card"
+            style={{ maxWidth: '480px', width: '95%' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <div style={{ background: '#fee2e2', padding: '0.4rem', borderRadius: '50%' }}>
+                  <Trash2 size={20} color="#ef4444" />
+                </div>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
+                  Ta bort bokning
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => { if (!deletingBooking) setDeleteModalOpen(false); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray-500)' }}
+                aria-label="Stäng"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ background: 'var(--gray-50)', padding: '1rem', borderRadius: 'var(--radius)', marginBottom: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.9rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--gray-500)' }}>Plats:</span>
+                <strong>{location.name}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--gray-500)' }}>Resurs:</span>
+                <strong>{asset.name}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--gray-500)' }}>Datum:</span>
+                <strong>{moment(bookingToDelete.startTime).format('dddd D MMMM YYYY')}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--gray-500)' }}>Tid:</span>
+                <strong>{moment(bookingToDelete.startTime).format('HH:mm')} – {moment(bookingToDelete.endTime).format('HH:mm')}</strong>
+              </div>
+              {bookingToDelete.alias && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--gray-500)' }}>Bokad av:</span>
+                  <strong>{bookingToDelete.alias}</strong>
+                </div>
+              )}
+            </div>
+
+            <p style={{ color: 'var(--gray-600)', marginBottom: '1.5rem', fontSize: '0.95rem' }}>
+              Är du säker på att du vill ta bort denna bokning?
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setDeleteModalOpen(false)}
+                disabled={deletingBooking}
+              >
+                Avbryt
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{ background: '#ef4444', color: '#fff', border: 'none' }}
+                onClick={handleConfirmDeleteBooking}
+                disabled={deletingBooking}
+              >
+                {deletingBooking ? (
+                  <>
+                    <Loader2 className="animate-spin" size={16} /> Tar bort...
+                  </>
+                ) : (
+                  'Ta bort bokning'
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

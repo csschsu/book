@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Översikt över bokningssystemet (Community Booking System)</title>
+<style>
+  @page {
+    size: A4;
+    margin: 20mm 15mm 20mm 15mm;
+  }
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    line-height: 1.5;
+    font-size: 10pt;
+    margin: 0;
+    padding: 0;
+  }
+  .header-cover {
+    border-bottom: 3px solid #2563eb;
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+  }
+  .title {
+    font-size: 24pt;
+    font-weight: 800;
+    color: #1e3a8a;
+    margin: 0 0 6px 0;
+  }
+  .subtitle {
+    font-size: 13pt;
+    color: #475569;
+    margin: 0 0 12px 0;
+    font-weight: 500;
+  }
+  .meta-bar {
+    display: flex;
+    font-size: 8.5pt;
+    color: #64748b;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 8px;
+  }
+  .meta-bar span {
+    margin-right: 25px;
+  }
+  h1 {
+    font-size: 15pt;
+    color: #1e3a8a;
+    border-bottom: 1.5px solid #cbd5e1;
+    padding-bottom: 5px;
+    margin-top: 24px;
+    margin-bottom: 12px;
+    page-break-after: avoid;
+  }
+  h2 {
+    font-size: 12pt;
+    color: #2563eb;
+    margin-top: 18px;
+    margin-bottom: 8px;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 10.5pt;
+    color: #0f172a;
+    margin-top: 12px;
+    margin-bottom: 6px;
+    page-break-after: avoid;
+  }
+  p {
+    margin-top: 0;
+    margin-bottom: 10px;
+    text-align: justify;
+  }
+  ul, ol {
+    margin-top: 0;
+    margin-bottom: 12px;
+    padding-left: 20px;
+  }
+  li {
+    margin-bottom: 4px;
+  }
+  .card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #2563eb;
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    page-break-inside: avoid;
+  }
+  .card-warning {
+    background: #fffbeb;
+    border-left-color: #f59e0b;
+  }
+  .card-success {
+    background: #f0fdf4;
+    border-left-color: #10b981;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 14px;
+    font-size: 9pt;
+    page-break-inside: avoid;
+  }
+  th, td {
+    padding: 7px 9px;
+    text-align: left;
+    border: 1px solid #cbd5e1;
+  }
+  th {
+    background-color: #f1f5f9;
+    color: #1e293b;
+    font-weight: 600;
+  }
+  tr:nth-child(even) td {
+    background-color: #f8fafc;
+  }
+  code {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 8.5pt;
+    background: #f1f5f9;
+    padding: 2px 4px;
+    border-radius: 3px;
+    color: #0f172a;
+  }
+  pre {
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 8pt;
+    font-family: 'Consolas', 'Courier New', monospace;
+    overflow-x: auto;
+    margin-bottom: 12px;
+    page-break-inside: avoid;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 7.5pt;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .badge-user {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+  .badge-admin {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  .page-break {
+    page-break-before: always;
+  }
+</style>
+</head>
+<body>
+
+<div class="header-cover">
+  <div class="title">Översikt över bokningssystemet</div>
+  <div class="subtitle">Community Booking System &ndash; Funktioner, Arkitektur och Teknikstack</div>
+  <div class="meta-bar">
+    <span><strong>System:</strong> Community Booking System</span>
+    <span><strong>Datum:</strong> Oktober 2026</span>
+    <span><strong>Organisation:</strong> Stabilizer AB</span>
+    <span><strong>Dokument:</strong> oversikt.pdf</span>
+  </div>
+</div>
+
+<h1>1. Systemöversikt &amp; Arkitektur</h1>
+<p>
+  <strong>Community Booking System</strong> är ett webbaserat bokningssystem för gemensamma resurser och lokaler (t.ex. mötesrum, verktyg, maskiner och idrottsytor). Systemet ger användare en snabb, visuell och intuitiv överblick över lediga och bokade tider i realtid via en interaktiv kalender.
+</p>
+<p>
+  Systemet är byggt enligt en modern klient-server-arkitektur:
+</p>
+<ul>
+  <li><strong>Frontend SPA:</strong> En snabb Single Page Application i React och TypeScript som kommunicerar via ett REST API.</li>
+  <li><strong>Backend API:</strong> En robust Spring Boot-applikation i Java som sköter affärslogik, behörigheter och databastransaktioner.</li>
+  <li><strong>Databas:</strong> En lokal och fristående SQLite-databas som körs utan krav på externa databasservrar.</li>
+  <li><strong>Driftmiljö:</strong> Standardiserade Linux Systemd-tjänster för automatisk omstart, felloggning och övervakning.</li>
+</ul>
+
+<div class="card card-success">
+  <strong>Kärnvärden:</strong>
+  <ul>
+    <li>Enkelhet för användaren genom ett guidat steg-för-steg-flöde.</li>
+    <li>Strikt validering mot dubbelbokningar, överlappningar och retroaktiva ändringar i dåtid.</li>
+    <li>Minimalt underhåll och hög portabilitet med samlad driftsättning via <code>deploy.sh</code>.</li>
+  </ul>
+</div>
+
+<h1>2. Teknik som används</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 25%;">Område / Komponent</th>
+      <th style="width: 25%;">Teknik &amp; Version</th>
+      <th style="width: 50%;">Beskrivning &amp; Roll</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Frontend SPA</strong></td>
+      <td>React 18, TypeScript 5</td>
+      <td>Komponentbaserat, typsäkert användargränssnitt med realtidsvalidering.</td>
+    </tr>
+    <tr>
+      <td><strong>Byggsystem (Frontend)</strong></td>
+      <td>Vite 5</td>
+      <td>Optimerat byggverktyg för produktion och snabb utvecklingsmiljö med HMR.</td>
+    </tr>
+    <tr>
+      <td><strong>Kalendervy</strong></td>
+      <td>React Big Calendar, Moment.js</td>
+      <td>Interaktiva vecko-, dag- och månadsvyer med anpassad svensk lokalisering.</td>
+    </tr>
+    <tr>
+      <td><strong>Ikoner &amp; UI-design</strong></td>
+      <td>Lucide React, CSS-variabler</td>
+      <td>Modern och responsiv design med tydliga modaldialoger och färgkodade block.</td>
+    </tr>
+    <tr>
+      <td><strong>Backend API</strong></td>
+      <td>Java 25, Spring Boot 4.1.1</td>
+      <td>REST-tjänster med strikt datavalidering, transaktionshantering och felrapportering.</td>
+    </tr>
+    <tr>
+      <td><strong>Säkerhet &amp; Autentisering</strong></td>
+      <td>Spring Security, JJWT (0.11.5)</td>
+      <td>Stateless autentisering med JWT (JSON Web Tokens) och krypterade BCrypt-lösenord.</td>
+    </tr>
+    <tr>
+      <td><strong>Databas &amp; DAO</strong></td>
+      <td>SQLite 3 JDBC, JDBI 3 (v3.51)</td>
+      <td>Filbaserad relationsdatabas med typsäkra SQL-frågor och parametriserat injektionsskydd.</td>
+    </tr>
+    <tr>
+      <td><strong>Drift &amp; Tjänster</strong></td>
+      <td>Linux Systemd, Bash, OpenJDK 25</td>
+      <td>Produktionstjänster som körs under dedikerad serviceanvändare (<code>book</code>).</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<h1>3. Kärnfunktioner &amp; Användarflöde</h1>
+
+<h2>3.1 Bokningsflödet i 5 steg</h2>
+<ol>
+  <li><strong>Steg 1 &ndash; Välj plats (Location):</strong> Användaren väljer anläggning, fastighet eller geografiskt område.</li>
+  <li><strong>Steg 2 &ndash; Välj resurs (Asset):</strong> Val av specifik resurs knuten till platsen (t.ex. "Bana 1", "Stora konferensrummet").</li>
+  <li><strong>Steg 3 &ndash; Välj tid i kalendern:</strong>
+    <ul>
+      <li><span style="color:#16a34a; font-weight:bold;">Gröna block (Free):</span> Öppettider och tillgängliga tider.</li>
+      <li><span style="color:#dc2626; font-weight:bold;">Röda block (Booked):</span> Redan uppbokade tider med visning av bokarens alias.</li>
+      <li>Användaren klickar på ett grönt block (eller markerar ett intervall). Standard är 2 timmars bokning eller blockets kvarvarande tid.</li>
+    </ul>
+  </li>
+  <li><strong>Steg 4 &ndash; Bekräfta bokning:</strong> Översikt av datum, resurs och tid. Om användaren inte är inloggad öppnas inloggningsdialogen smidigt.</li>
+  <li><strong>Steg 5 &ndash; Klart &amp; Kvitto:</strong> Bokningsbekräftelse med bokningsnummer, plats och tider.</li>
+</ol>
+
+<h2>3.2 Avbokning och borttagning av bokad tid</h2>
+<ul>
+  <li>Användaren klickar direkt på sitt röda bokningsblock i kalendern.</li>
+  <li>Ett bekräftelsefönster öppnas som visar detaljer (resurs, datum, tid och alias).</li>
+  <li>Vid bekräftelse raderas bokningen och kalendern uppdateras omedelbart med en grön bekräftelse-banner.</li>
+</ul>
+
+<div class="card card-warning">
+  <strong>Säkerhets- och valideringsregler:</strong>
+  <ul>
+    <li><strong>Spärr mot dåtid:</strong> Försök att boka eller avboka en tid vars starttid har passerats blockeras omedelbart med felmeddelandet: <em>"Ändring före aktuell tid är inte tillåten"</em>. Bekräftelsefönstret öppnas inte.</li>
+    <li><strong>Behörighet vid avbokning:</strong> Endast den användare som skapade bokningen, eller en användare med administratörsroll (<span class="badge badge-admin">BOOKADMIN</span>), har rätt att ta bort bokningen.</li>
+    <li><strong>Överlappningsskydd:</strong> Bokningar kan inte krocka med varandra eller sträcka sig utanför definierade öppettider.</li>
+  </ul>
+</div>
+
+<h2>3.3 Administratörsfunktioner (BOOKADMIN)</h2>
+<ul>
+  <li><strong>Användaradministration:</strong> Lista alla konton, skapa nya användare, tilldela roller (<span class="badge badge-user">BOOKUSER</span> eller <span class="badge badge-admin">BOOKADMIN</span>) samt byta lösenord.</li>
+  <li><strong>Resurs- och platshantering:</strong> Skapa, redigera och underhålla platser och tillhörande resurser.</li>
+  <li><strong>Schemaläggning &amp; Öppettider:</strong> Skapa lediga tidsintervall (<code>Free</code>) och köra automatisk generering av öppettider för ett helt år.</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h1>4. Datamodell (Huvudentiteter)</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 18%;">Entitet</th>
+      <th style="width: 32%;">Nyckelfält</th>
+      <th style="width: 50%;">Beskrivning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>User</strong></td>
+      <td><code>id, email, password, role, alias, address, code</code></td>
+      <td>Användarkonton. Lösenord lagras säkert med BCrypt. Alias visas offentligt på bokningsblocken i kalendern.</td>
+    </tr>
+    <tr>
+      <td><strong>Location</strong></td>
+      <td><code>id, name, address</code></td>
+      <td>Fysiska anläggningar eller platser där resurser finns.</td>
+    </tr>
+    <tr>
+      <td><strong>Asset</strong></td>
+      <td><code>id, location_id, name, description</code></td>
+      <td>Bokningsbara resurser knutna till en specifik plats.</td>
+    </tr>
+    <tr>
+      <td><strong>Free</strong></td>
+      <td><code>id, asset_id, start_time, end_time</code></td>
+      <td>Öppettider och bokningsbara block (visas gröna i schemat).</td>
+    </tr>
+    <tr>
+      <td><strong>Booked</strong></td>
+      <td><code>id, free_id, user_id, start_time, end_time</code></td>
+      <td>Genomförda bokningar som reserverar tid inom ett Free-block (visas röda).</td>
+    </tr>
+  </tbody>
+</table>
+
+<h1>5. Drift, Uppstart &amp; Systemd-tjänster</h1>
+
+<h2>5.1 Tjänster och drift med Systemd</h2>
+<p>
+  Systemet är utformat för produktion på Linux (t.ex. Ubuntu/Debian) och körs under den dedikerade systemanvändaren <code>book</code> via Systemd:
+</p>
+
+<pre>
+# Kontrollera status på tjänsterna
+sudo systemctl status bookingweb
+sudo systemctl status bookingapp
+
+# Starta, stoppa eller starta om
+sudo systemctl restart bookingweb
+sudo systemctl restart bookingapp
+
+# Granska loggar via journalctl
+sudo journalctl -u bookingweb -f
+sudo journalctl -u bookingapp -f
+</pre>
+
+<h2>5.2 Konfigurationsfil (application.properties)</h2>
+<p>
+  Tjänsten <code>bookingweb</code> läser sin konfiguration från <code>/usr/local/book/application.properties</code>:
+</p>
+<ul>
+  <li><code>server.port=9091</code> &ndash; Port som Spring Boot-backend lyssnar på.</li>
+  <li><code>sqlite.db=/usr/local/book/booking_system.db</code> &ndash; Sökväg till produktionsdatabasen.</li>
+  <li><code>jwt.secret=...</code> &ndash; Säker hemlig nyckel för signering av tokens.</li>
+  <li><code>jwt.expiration=86400000</code> &ndash; Sessionens giltighetstid (24 timmar).</li>
+</ul>
+
+<h2>5.3 Automatiserad distribution (deploy.sh)</h2>
+<p>
+  Genom att köra <code>./deploy.sh</code> byggs både backend (WAR) och frontend (Vite), varpå ett komplett distributionsarkiv genereras:
+</p>
+<pre>
+./deploy.sh
+# Skapar distributionsarkivet: book_system.tar.gz
+</pre>
+<p>
+  Arkivet innehåller allt som behövs för produktion inklusive körbara artefakter, beroenden och Systemd-konfigurationer.
+</p>
+
+<br>
+<div style="text-align: center; color: #64748b; font-size: 8.5pt; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+  &copy; 2026 Community Booking System &bull; Stabilizer AB &bull; Alla rättigheter förbehållna.
+</div>
+
+</body>
+</html>

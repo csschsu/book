@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -184,7 +185,40 @@ public class BookController {
     }
 
     @DeleteMapping("/bookedTime/{bookedId}")
-    public ResponseEntity<?> deleteBookedTime(@PathVariable int bookedId) {
+    public ResponseEntity<?> deleteBookedTime(@PathVariable int bookedId, Authentication authentication) {
+        Models.Booked booking = book.getBookedById(bookedId);
+        if (booking == null) {
+            throw new BookException("Bokning hittades inte");
+        }
+
+        // 2a. when clicked booking starttime is greater than current time it's ok to continue.
+        //     When not ok Exception message from API "Ändring före aktuell tid är inte tillåten"
+        if (!booking.getStartTime().isAfter(LocalDateTime.now())) {
+            throw new BookException("Ändring före aktuell tid är inte tillåten");
+        }
+
+        // 2b. when current user is logged in it's ok to continue.
+        //     When not ok Exception message from API "Delete kan bara göras av inloggad användare"
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof UserPrincipal principal)) {
+            throw new BookException("Delete kan bara göras av inloggad användare");
+        }
+
+        // 2c. when clicked booking has been created by the current user OR current user has role BOOKADMIN it's ok to continue.
+        //     When not ok Exception message from API "Bokning tillhör annan användare"
+        boolean isCreator = booking.getUserId() == principal.getId();
+        boolean isAdmin = principal.getAuthorities() != null && principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_BOOKADMIN") || a.getAuthority().equals("BOOKADMIN"));
+        if (!isAdmin && principal.getRole() != null) {
+            isAdmin = Arrays.stream(principal.getRole().split(","))
+                    .map(String::trim)
+                    .anyMatch(r -> r.equals("BOOKADMIN") || r.equals("ROLE_BOOKADMIN"));
+        }
+
+        if (!isCreator && !isAdmin) {
+            throw new BookException("Bokning tillhör annan användare");
+        }
+
         int rows = book.deleteBookedTime(bookedId);
         return ResponseEntity.ok(Map.of("success", rows > 0, "deleted", bookedId));
     }

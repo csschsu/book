@@ -529,6 +529,9 @@ public class Book {
         if (!endTime.isAfter(startTime)) {
             throw new BookException("End time must be after start time");
         }
+        if (!startTime.isAfter(LocalDateTime.now())) {
+            throw new BookException("Ändring före aktuell tid är inte tillåten");
+        }
         Models.Free free = dao.getFreeById(freeId);
         if (free == null) {
             throw new BookException("Free block not found");

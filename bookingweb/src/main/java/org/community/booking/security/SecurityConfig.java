@@ -70,7 +70,7 @@ public class SecurityConfig {
                         .hasAnyRole("BOOKADMIN", "BOOKUSER")
                         .requestMatchers("/user", "/user/**", "/users", "/users/**").hasRole("BOOKADMIN")
                         .requestMatchers(HttpMethod.POST, "/bookTime").hasAnyRole("BOOKUSER", "BOOKADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/bookedTime/**").hasAnyRole("BOOKUSER", "BOOKADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/bookedTime/**").permitAll()
                         .requestMatchers("/logout", "/auth/logout").hasAnyRole("BOOKUSER", "BOOKADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

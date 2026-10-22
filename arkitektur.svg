@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" width="800" height="520" font-family="'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#f1f5f9" />
+    </linearGradient>
+    <linearGradient id="client-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+    <linearGradient id="backend-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+    <linearGradient id="db-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#6d28d9" />
+    </linearGradient>
+    <linearGradient id="sys-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <!-- Drop Shadow Filter -->
+    <filter id="shadow" x="-5%" y="-5%" width="115%" height="120%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.1" />
+    </filter>
+    <!-- Marker Arrows -->
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#2563eb" />
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#059669" />
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#d97706" />
+    </marker>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="100%" height="100%" fill="url(#bg-grad)" rx="12" stroke="#cbd5e1" stroke-width="1.5" />
+
+  <!-- Header Title -->
+  <text x="400" y="46" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">Community Booking System – Systemarkitektur</text>
+  <text x="400" y="70" text-anchor="middle" font-size="12" fill="#64748b">Klient • API • Databas • Systemd Processhantering</text>
+
+  <!-- 1. Frontend Node -->
+  <g transform="translate(80, 130)" filter="url(#shadow)">
+    <rect width="240" height="95" rx="10" fill="url(#client-grad)" stroke="#1e40af" stroke-width="1.5" />
+    <text x="120" y="32" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">Frontend SPA (bookingapp)</text>
+    <text x="120" y="54" text-anchor="middle" font-size="11.5" fill="#dbeafe">React 18 • TypeScript • Vite</text>
+    <text x="120" y="74" text-anchor="middle" font-size="11" fill="#bfdbfe">Port 5173 • React Big Calendar</text>
+  </g>
+
+  <!-- 2. Backend Node -->
+  <g transform="translate(480, 130)" filter="url(#shadow)">
+    <rect width="240" height="95" rx="10" fill="url(#backend-grad)" stroke="#065f46" stroke-width="1.5" />
+    <text x="120" y="32" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">Backend REST API (bookingweb)</text>
+    <text x="120" y="54" text-anchor="middle" font-size="11.5" fill="#d1fae5">Java 25 • Spring Boot 4.1.1</text>
+    <text x="120" y="74" text-anchor="middle" font-size="11" fill="#a7f3d0">Port 9091 • JWT Security • JDBI 3</text>
+  </g>
+
+  <!-- 3. Database Node -->
+  <g transform="translate(480, 340)" filter="url(#shadow)">
+    <rect width="240" height="95" rx="10" fill="url(#db-grad)" stroke="#5b21b6" stroke-width="1.5" />
+    <text x="120" y="32" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">SQLite Databas</text>
+    <text x="120" y="54" text-anchor="middle" font-size="11.5" fill="#ede9fe">booking_system.db</text>
+    <text x="120" y="74" text-anchor="middle" font-size="11" fill="#ddd6fe">User, Location, Asset, Free, Booked</text>
+  </g>
+
+  <!-- 4. Systemd Node -->
+  <g transform="translate(80, 340)" filter="url(#shadow)">
+    <rect width="240" height="95" rx="10" fill="url(#sys-grad)" stroke="#b45309" stroke-width="1.5" />
+    <text x="120" y="32" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">Systemd Tjänster</text>
+    <text x="120" y="54" text-anchor="middle" font-size="11.5" fill="#fef3c7">bookingweb.service &amp; bookingapp.service</text>
+    <text x="120" y="74" text-anchor="middle" font-size="11" fill="#fde68a">Användare: book • journalctl</text>
+  </g>
+
+  <!-- Line: Frontend -> Backend -->
+  <path d="M 320 178 L 472 178" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrow-blue)" />
+  <rect x="348" y="156" width="95" height="22" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1" />
+  <text x="395.5" y="171" text-anchor="middle" font-size="10" font-weight="600" fill="#1e40af">REST / JWT</text>
+
+  <!-- Line: Backend -> DB -->
+  <path d="M 600 225 L 600 332" stroke="#059669" stroke-width="2.5" marker-end="url(#arrow-green)" />
+  <rect x="550" y="268" width="100" height="22" rx="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1" />
+  <text x="600" y="283" text-anchor="middle" font-size="10" font-weight="600" fill="#065f46">JDBI 3 (SQL)</text>
+
+  <!-- Line: Systemd -> Frontend -->
+  <path d="M 200 340 L 200 233" stroke="#d97706" stroke-width="2" stroke-dasharray="5,4" marker-end="url(#arrow-amber)" />
+  <rect x="152" y="274" width="96" height="20" rx="4" fill="#ffffff" stroke="#fde68a" stroke-width="1" />
+  <text x="200" y="288" text-anchor="middle" font-size="9" font-weight="600" fill="#b45309">Styr &amp; Övervakar</text>
+
+  <!-- Line: Systemd -> Backend -->
+  <path d="M 320 375 L 430 310 L 476 220" stroke="#d97706" stroke-width="2" stroke-dasharray="5,4" fill="none" marker-end="url(#arrow-amber)" />
+
+  <!-- Footer Info -->
+  <text x="400" y="490" text-anchor="middle" font-size="10" fill="#94a3b8">© 2026 Community Booking System • Stabilizer AB</text>
+</svg>

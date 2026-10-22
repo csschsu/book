@@ -1,4 +1,5 @@
 target/
+systemd/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
@@ -9,6 +10,8 @@ target/
 git.txt
 deploy/
 book_deploy.tar.gz
+book_system.tar.gz
+*.tar.gz
 
 # Logs
 logs

@@ -1,5 +1,6 @@
 *** Antigravity is allowed to read this file BUT NOT to WRITE in it. ***
 
+<<<<<<< Updated upstream
 2026-20-22
 1. Arbetsflöde för att registrera user med BOOKUSER behörighet som  startar från sidan "Logga in för att boka"
   a. registrera email och password, 
@@ -13,6 +14,102 @@
     b5. mailet skickas med GMAIL API
     b6. Api /register kontrollerar att email finns och att kod stämmer. Kod sätts till NULL
     b7. Inloggning med 1a.
+=======
+2026-10-11
+
+1a. Bokning av tid före aktuell tid är inte tillåten. Försöker user göra det visas ett meddelande på BookPage kalendersida
+"Bokning före aktuell tid är inte tillåten". Det är ok.
+1b. Borttag av bokning före aktuell tid är inte heller tillåten. Försöker user göra det öppnas fönstret "Ta bort bokning", och när   
+user klickar på "Ta bort bokning" visas kalendersidan med feltexten "Bokning före aktuell tid är inte tillåten". Ändra så att felmeddelandet
+"Bokning före aktuell tid är inte tillåten" visas på kalendersidan utan att öppna "Ta bort bokning".
+1c. Ändra felmeddelande "Bokning före aktuell tid är inte tillåten" till "Ändring före aktuell tid är inte tillåten"
+
+
+2026-10-09
+
+1.User needs a function to delete a booking selected in the calender.
+2.Rules that must be fullfilled before a booking is deleted:  
+  2a. when clicked booking starttime is greater than current time it's ok to continue. 
+      When not ok Exception message from API "Starttid för bokning överskriden" presented on Booking Page
+  2b. when current user is logged in it's ok to continue.
+      When not ok Exception message from API "Delete kan bara göras av inloggad användare" presented on Booking Page
+  2c. when clicked booking has been created by the current user OR current user has role BOOKADMIN it's ok to continue. 
+      When not ok Exception message from API "Bokning tillhör annan användare" presented on Booking Page
+3. Open a confirmation box where the user click a delete button to delete booking.
+
+==========
+
+4. I want to create a  user "book" to run the deployed system on the production machine. What priviliges do the user book need to allow start with systemd
+
+1. Skapa användaren book
+
+Skapa en systemanvändare med hemkatalog (t.ex. /usr/local/book):
+
+bash
+# Skapa systemanvändaren 'book'
+sudo useradd -r -m -d /usr/local/book -s /bin/bash book
+
+(Om du inte vill att någon ska kunna logga in interaktivt som book kan du använda -s /usr/sbin/nologin istället).
+
+2. Rättigheter i filsystemet
+
+Användaren book behöver:
+
+A. Ägandeskap över deploy-katalogen och databasen
+bash
+sudo chown -R book:book /usr/local/book
+B. Rättigheter för SQLite (Viktigt!)
+
+SQLite kräver skrivrättigheter både på själva .db-filen och på katalogen där databasen ligger (eftersom SQLite skapar temporära journal-/WAL- och låsfiler vid skrivningar):
+
+bash
+# Ge skrivrättigheter på databasfilen och dess katalog
+chmod 750 /usr/local/book
+chmod 600 /usr/local/book/booking_system.db
+C. Konfigurationsfilen (application.properties)
+bash
+chmod 600 /usr/local/book/application.properties
+D. Exekveringsrättighet för Java och Node
+
+Normalt har alla användare redan läs- och körrättighet (755) på:
+
+/usr/bin/java
+/usr/bin/node och /usr/bin/npx
+3. Nätverksportar (Inga särskilda rättigheter krävs)
+Tjänsterna använder port 9091 (backend) och 3001 (frontend).
+I Linux kan vanliga oprivilegierade användare fritt binda till alla portar över 1024. Det behövs alltså inga särskilda nätverks-capabilities (som CAP_NET_BIND_SERVICE).
+4. Service-filerna i systemd
+
+I både bookingweb.service och bookingapp.service sätter du:
+
+ini
+[Service]
+User=book
+Group=book
+WorkingDirectory=/usr/local/book/deploy/bookingweb   # resp. bookingapp
+5. Om du vill att book ska kunna starta/stoppa tjänsterna själv
+
+Om en administratör eller ett deployment-skript inloggat som book ska kunna köra systemctl restart ... utan att ange root-lösenord, kan du lägga till en fil i /etc/sudoers.d/:
+
+bash
+sudo visudo -f /etc/sudoers.d/book-service
+
+Lägg till raden:
+
+text
+book ALL=(ALL) NOPASSWD: /bin/systemctl start bookingweb, /bin/systemctl stop bookingweb, /bin/systemctl restart bookingweb, /bin/systemctl status bookingweb, /bin/systemctl start bookingapp, /bin/systemctl stop bookingapp, /bin/systemctl restart bookingapp, /bin/systemctl status bookingapp
+
+Då kan book köra:
+
+bash
+sudo systemctl restart bookingweb
+
+==========
+
+5. Booking is only allowed in the future.  Error message "Starttid för bokning överskriden" is now visible on  "Bekräfta din bokning" but booking can be made 
+ Error message "Starttid för bokning överskriden" should be presented on the calendar page without open page "Bekräfta din bokning"
+
+>>>>>>> Stashed changes
 
 2026-10-08
 When Bookpage opens after select asset the Calendar should show the week view for the current date. 

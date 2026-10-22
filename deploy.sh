@@ -16,7 +16,13 @@ echo "======================================================="
 echo ""
 echo "--- [1/4] Building Spring Boot Backend (bookingweb) ---"
 cd "$ROOT_DIR"
-mvn clean package -DskipTests
+MVN_CMD="mvn"
+if ! command -v mvn >/dev/null 2>&1; then
+  if [ -x "/home/christer/.m2/wrapper/dists/apache-maven-3.9.14/db91789b/bin/mvn" ]; then
+    MVN_CMD="/home/christer/.m2/wrapper/dists/apache-maven-3.9.14/db91789b/bin/mvn"
+  fi
+fi
+$MVN_CMD clean package -DskipTests
 
 WAR_SRC="$ROOT_DIR/bookingweb/target/bookingweb-1.0-SNAPSHOT.war"
 if [ ! -f "$WAR_SRC" ]; then
@@ -96,8 +102,14 @@ export default defineConfig({
 })
 INNER_EOF
 
-echo "Copying frontend node_modules for standalone portability..."
-cp -r "$ROOT_DIR/bookingapp/node_modules" "$DEPLOY_DIR/bookingapp/"
+# Copy systemd Service Configuration
+if [ -d "$ROOT_DIR/systemd" ]; then
+  echo "Copying systemd service configuration..."
+  cp -r "$ROOT_DIR/systemd" "$DEPLOY_DIR/"
+fi
+
+echo "Copying frontend node_modules for standalone portability (preserving symlinks)..."
+cp -a "$ROOT_DIR/bookingapp/node_modules" "$DEPLOY_DIR/bookingapp/"
 
 # 4. Generate Deploy Scripts
 echo ""
@@ -473,10 +485,17 @@ To stop all running services:
   ```
 INNER_EOF
 
+# 5. Create Deployment Archive
+echo ""
+echo "--- [5/5] Creating Archive book_system.tar.gz in $ROOT_DIR ---"
+cd "$ROOT_DIR"
+tar -cvzf book_system.tar.gz deploy
+
 echo ""
 echo "======================================================="
 echo "  Deployment Complete!"
 echo "  Deploy directory created at: $DEPLOY_DIR"
+echo "  Deploy archive created at:   $ROOT_DIR/book_system.tar.gz"
 echo "  "
 echo "  To test deployment in background:"
 echo "    cd \"$DEPLOY_DIR\" && ./run.sh"
