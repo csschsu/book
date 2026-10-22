@@ -1,5 +1,19 @@
 *** Antigravity is allowed to read this file BUT NOT to WRITE in it. ***
 
+2026-20-22
+1. Arbetsflöde för att registrera user med BOOKUSER behörighet som  startar från sidan "Logga in för att boka"
+  a. registrera email och password, 
+     Inloggning kontrollerar att email och password är rätt och att kod = NULL. API Exception "Verifiera användare med mottaget mail" 
+    
+  b. nytt plugin "registrera användare" som visas när parameter från application.properties "book.user.add" = true   
+    b1. ange mailid och önskat password
+    b2. Generera en slumpmässig kod med 6 numeriska tecken
+    b3. Spara mailid, krypterat password och kod ti usertabell med api
+    b4. Skapa ett mail med länk som POSTAR till öppen url i API /register med mailadress och kod i body
+    b5. mailet skickas med GMAIL API
+    b6. Api /register kontrollerar att email finns och att kod stämmer. Kod sätts till NULL
+    b7. Inloggning med 1a.
+
 2026-10-08
 When Bookpage opens after select asset the Calendar should show the week view for the current date. 
 After booking and return to Calendar, show the week view for the booked date. 
