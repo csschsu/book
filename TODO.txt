@@ -1,20 +1,56 @@
 *** Antigravity is allowed to read this file BUT NOT to WRITE in it. ***
 
-<<<<<<< Updated upstream
 2026-20-22
 1. Arbetsflöde för att registrera user med BOOKUSER behörighet som  startar från sidan "Logga in för att boka"
-  a. registrera email och password, 
-     Inloggning kontrollerar att email och password är rätt och att kod = NULL. API Exception "Verifiera användare med mottaget mail" 
+
+  a. registrera existerande user med email och password
+  a.1 Login kontrollerar med API att email och password är rätt och att code == NULL. 
+  a.2 Finns email, password och code != NULL, felmeddelande "Verifiera användare innan inloggning" på login screen
+  a.3 Är email eller password är NOTOK, felmeddelande "Användare saknas eller password är fel" på login screen
     
-  b. nytt plugin "registrera användare" som visas när parameter från application.properties "book.user.add" = true   
-    b1. ange mailid och önskat password
-    b2. Generera en slumpmässig kod med 6 numeriska tecken
-    b3. Spara mailid, krypterat password och kod ti usertabell med api
-    b4. Skapa ett mail med länk som POSTAR till öppen url i API /register med mailadress och kod i body
-    b5. mailet skickas med GMAIL API
-    b6. Api /register kontrollerar att email finns och att kod stämmer. Kod sätts till NULL
-    b7. Inloggning med 1a.
-=======
+  b. Lägg till plugin "registrera ny användare" visas på login när parameter från application.properties "book.user.add" = true   
+    b1. Ange email och önskat password
+    b2. Generera slumpmässig code med RandomStringGenerator.generateRandomString(20) som inte visas eller kommuniceras till app.
+start =============
+package org.community.booking.plugins;
+
+import java.security.SecureRandom;
+
+public class RandomStringGenerator {
+    private static final String CHAR_POOL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    private static final SecureRandom random = new SecureRandom();
+
+    public static String generateRandomString(int length) {
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            int index = random.nextInt(CHAR_POOL.length());
+            sb.append(CHAR_POOL.charAt(index));
+        }
+        return sb.toString();
+    }
+}
+end =============
+
+    b3. Spara email, krypterat password, code och createtime som timestamp i tabell user med api
+    b3.1 starta b4 men Visa user page med meddelande "Verifiera registrering med mottaget mail, logga därefter in" och en knapp start login.  
+    b4. Skicka mail till email med /org/community/plugin/EmailSender
+    b4.1 mail har länk som när mottagaren av mailet klickar på länken gör POST till öppen url /confirmuser i BookController och skickar mailadress och code i body.
+    b4.2 Add GMAIL setup to application.properties 
+        # SMTP configuration
+        app.smtp.host=smtp.gmail.com
+        app.smtp.port=587
+        app.smtp.user=<gmail email sender>
+        app.smtp.password=<google api key>
+     
+    b6.1 BookController /confirmuser kontrollerar email och code. 
+        b6.1.1 kontroll OK: code i user sätts till NULL, .
+        b6.1.2 kontroll NOTOK: Log message "failed attempt to verify user", Delete user with email 
+    
+
+2. Addera createtime för user på sidan Användarhantering (Admin)
+        Knappen "Skapa konto" sparar user med code == NULL
+3. CreateInitialUser skapar user med code == NULL
+
 2026-10-11
 
 1a. Bokning av tid före aktuell tid är inte tillåten. Försöker user göra det visas ett meddelande på BookPage kalendersida

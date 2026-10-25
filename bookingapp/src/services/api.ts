@@ -161,6 +161,41 @@ export async function logout(): Promise<void> {
   }
 }
 
+export async function fetchAuthConfig(): Promise<{ bookUserAdd: boolean }> {
+  try {
+    const res = await fetch(`${API_BASE}/auth/config`);
+    if (!res.ok) return { bookUserAdd: false };
+    return await res.json();
+  } catch {
+    return { bookUserAdd: false };
+  }
+}
+
+export async function registerUser(email: string, password: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!res.ok) {
+    let errorMsg = 'Registreringen misslyckades.';
+    try {
+      const errJson = await res.json();
+      if (errJson?.error) {
+        errorMsg = errJson.error;
+      } else if (errJson?.message) {
+        errorMsg = errJson.message;
+      }
+    } catch {
+      // not json
+    }
+    throw new Error(errorMsg);
+  }
+
+  return await res.json();
+}
+
 export async function fetchLocations(): Promise<Location[]> {
   const res = await fetch(`${API_BASE}/location`);
   return handleResponse<Location[]>(res);

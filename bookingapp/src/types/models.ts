@@ -59,7 +59,7 @@ export interface User {
   email: string;
   alias?: string;
   password?: string;
-  code: number;
+  code?: string | null;
   createtime?: string;
   role: string;
   address?: Address;

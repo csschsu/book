@@ -41,7 +41,7 @@ public class Models {
         public int id;
         public String email;
         public String password;
-        public int code;
+        public String code;
         public String createtime;
         public String role;
         public Address address;
@@ -50,11 +50,11 @@ public class Models {
         public User() {
         }
 
-        public User(int id, String email, String password, int code, String createtime, String role, Address address) {
+        public User(int id, String email, String password, String code, String createtime, String role, Address address) {
             this(id, email, password, code, createtime, role, address, null);
         }
 
-        public User(int id, String email, String password, int code, String createtime, String role, Address address,
+        public User(int id, String email, String password, String code, String createtime, String role, Address address,
                 String alias) {
             this.id = id;
             this.email = email;
@@ -90,11 +90,11 @@ public class Models {
             this.password = password;
         }
 
-        public int getCode() {
+        public String getCode() {
             return code;
         }
 
-        public void setCode(int code) {
+        public void setCode(String code) {
             this.code = code;
         }
 

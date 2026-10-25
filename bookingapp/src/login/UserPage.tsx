@@ -18,7 +18,7 @@ export const UserPage: React.FC = () => {
   const [password, setPassword] = useState<string>('password123');
   const [role, setRole] = useState<string>('BOOKUSER');
   const [phone, setPhone] = useState<string>('070-123456');
-  const [code, setCode] = useState<number>(0);
+  const [code, setCode] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export const UserPage: React.FC = () => {
     setPassword(''); // leave blank unless updating
     setRole(u.role);
     setPhone(u.address?.phone || '');
-    setCode(u.code ?? 0);
+    setCode(u.code || '');
     setError(null);
     setSuccess(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -58,7 +58,7 @@ export const UserPage: React.FC = () => {
     setPassword('password123');
     setRole('BOOKUSER');
     setPhone('070-123456');
-    setCode(0);
+    setCode('');
   };
 
   const handleCancelEdit = () => {
@@ -80,7 +80,7 @@ export const UserPage: React.FC = () => {
           alias,
           password: password.trim() ? password.trim() : undefined,
           role,
-          code,
+          code: code.trim() ? code.trim() : null,
           address: {
             email,
             phone,
@@ -100,7 +100,7 @@ export const UserPage: React.FC = () => {
           alias,
           password,
           role,
-          code,
+          code: null,
           address: {
             email,
             phone,
@@ -218,12 +218,13 @@ export const UserPage: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Kod</label>
+              <label className="form-label">Verifieringskod (lämna tomt för verifierad)</label>
               <input
-                type="number"
+                type="text"
                 className="form-input"
                 value={code}
-                onChange={(e) => setCode(Number(e.target.value) || 0)}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="NULL (verifierad)"
               />
             </div>
 
@@ -322,7 +323,7 @@ export const UserPage: React.FC = () => {
                       </span>
                     </td>
                     <td>{u.address?.phone || '-'}</td>
-                    <td>{u.code ?? 0}</td>
+                    <td>{u.code ? u.code : '-'}</td>
                     <td style={{ fontSize: '0.8rem', color: 'var(--gray-500)' }}>
                       {u.createtime ? u.createtime.substring(0, 19).replace('T', ' ') : '-'}
                     </td>

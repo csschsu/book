@@ -49,6 +49,12 @@ public class Book {
         @SqlUpdate("UPDATE user SET email = :email, password = :password, role = :role, code = :code, address = :address, alias = :alias WHERE id = :id")
         int updateUserWithPassword(@BindBean Models.User user);
 
+        @SqlUpdate("UPDATE user SET code = :code WHERE id = :id")
+        int updateUserCode(@Bind("id") int id, @Bind("code") String code);
+
+        @SqlUpdate("DELETE FROM user WHERE email = :email")
+        int deleteUserByEmail(@Bind("email") String email);
+
         @SqlQuery("SELECT * FROM location ORDER BY id")
         @RegisterFieldMapper(Models.Location.class)
         List<Models.Location> getLocations();
@@ -321,6 +327,14 @@ public class Book {
 
     public List<Models.User> getUsers() {
         return dao.getUsers();
+    }
+
+    public int updateUserCode(int id, String code) {
+        return dao.updateUserCode(id, code);
+    }
+
+    public int deleteUserByEmail(String email) {
+        return dao.deleteUserByEmail(email);
     }
 
     public List<Models.Location> getLocations() {

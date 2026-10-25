@@ -1,6 +1,8 @@
 package org.community.booking;
 
 import org.community.booking.security.UserPrincipal;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,8 @@ import java.util.Map;
 
 @RestController
 public class BookController {
+
+    private static final Logger logger = LoggerFactory.getLogger(BookController.class);
 
     private final Book book;
     private final PasswordEncoder passwordEncoder;
@@ -259,6 +263,7 @@ public class BookController {
         if (user.getRole() == null || user.getRole().isBlank()) {
             user.setRole("BOOKUSER");
         }
+        user.setCode(null);
         int userId = book.insertUser(user);
         user.setId(userId);
         user.setPassword(null); // Do not return hashed password
@@ -304,5 +309,71 @@ public class BookController {
         List<Models.User> users = book.getUsers();
         users.forEach(u -> u.setPassword(null));
         return ResponseEntity.ok(users);
+    }
+
+    @PostMapping("/confirmuser")
+    public ResponseEntity<?> confirmUserPost(@RequestBody(required = false) Map<String, String> body) {
+        String email = body != null ? body.get("email") : null;
+        String code = body != null ? body.get("code") : null;
+        return executeConfirmUser(email, code, false);
+    }
+
+    @GetMapping("/confirmuser")
+    public ResponseEntity<?> confirmUserGet(@RequestParam(required = false) String email,
+                                           @RequestParam(required = false) String code) {
+        return executeConfirmUser(email, code, true);
+    }
+
+    private ResponseEntity<?> executeConfirmUser(String email, String code, boolean isHtml) {
+        if (email != null) {
+            email = email.trim();
+        }
+        if (code != null) {
+            code = code.trim();
+        }
+
+        Models.User user = (email != null && !email.isEmpty()) ? book.getUserByEmail(email) : null;
+        boolean matches = user != null && code != null && !code.isEmpty() && code.equals(user.getCode());
+
+        if (matches) {
+            // b6.1.1 kontroll OK: code i user sätts till NULL
+            book.updateUserCode(user.getId(), null);
+            if (isHtml) {
+                String html = "<!DOCTYPE html><html lang=\"sv\"><head><meta charset=\"UTF-8\"><title>Konto verifierat</title>"
+                        + "<style>body{font-family:sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#1e293b;}"
+                        + ".card{background:#fff;max-width:480px;margin:auto;padding:32px;border-radius:12px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);}"
+                        + "h1{color:#16a34a;margin-bottom:12px;}p{color:#475569;margin-bottom:24px;line-height:1.5;}"
+                        + "a{display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold;}</style>"
+                        + "</head><body><div class=\"card\">"
+                        + "<h1>Konto verifierat!</h1>"
+                        + "<p>Ditt konto har verifierats. Du kan nu logga in och börja boka resurser.</p>"
+                        + "<a href=\"/\">Gå till inloggning</a>"
+                        + "</div></body></html>";
+                return ResponseEntity.ok().header("Content-Type", "text/html; charset=UTF-8").body(html);
+            }
+            return ResponseEntity.ok(Map.of("message", "Användaren har verifierats"));
+        } else {
+            // b6.1.2 kontroll NOTOK: Log message "failed attempt to verify user", Delete user with email
+            logger.warn("failed attempt to verify user for email: {}, code: {}", email, code);
+            if (email != null && !email.isEmpty() && user != null) {
+                book.deleteUserByEmail(email);
+            }
+            if (isHtml) {
+                String html = "<!DOCTYPE html><html lang=\"sv\"><head><meta charset=\"UTF-8\"><title>Verifiering misslyckades</title>"
+                        + "<style>body{font-family:sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#1e293b;}"
+                        + ".card{background:#fff;max-width:480px;margin:auto;padding:32px;border-radius:12px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);}"
+                        + "h1{color:#dc2626;margin-bottom:12px;}p{color:#475569;margin-bottom:24px;line-height:1.5;}"
+                        + "a{display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold;}</style>"
+                        + "</head><body><div class=\"card\">"
+                        + "<h1>Verifiering misslyckades</h1>"
+                        + "<p>Ogiltig eller utgången verifieringskod. Registrera dig på nytt om nödvändigt.</p>"
+                        + "<a href=\"/\">Tillbaka till start</a>"
+                        + "</div></body></html>";
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .header("Content-Type", "text/html; charset=UTF-8").body(html);
+            }
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "failed attempt to verify user"));
+        }
     }
 }

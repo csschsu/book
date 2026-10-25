@@ -81,7 +81,7 @@ public class CreateInitialUser {
                     "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                     "email TEXT UNIQUE NOT NULL, " +
                     "password TEXT NOT NULL, " +
-                    "code INTEGER DEFAULT 0, " +
+                    "code TEXT DEFAULT NULL, " +
                     "createtime TEXT NOT NULL, " +
                     "role TEXT NOT NULL, " +
                     "address TEXT, " +
@@ -100,7 +100,7 @@ public class CreateInitialUser {
 
         String hashedPassword = PASSWORD_ENCODER.encode(rawPassword);
         String createtime = LocalDateTime.now().format(FORMATTER);
-        int code = 0;
+        String code = null;
 
         Models.Address addr = new Models.Address();
         addr.email = email;

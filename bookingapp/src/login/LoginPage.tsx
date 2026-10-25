@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { login } from '../services/api';
+import { login, fetchAuthConfig, registerUser } from '../services/api';
 import { AuthSession } from '../types/models';
-import { X, Lock, Mail, Loader2 } from 'lucide-react';
+import { X, Lock, Mail, Loader2, CheckCircle2, UserPlus } from 'lucide-react';
 
 interface LoginPageProps {
   onClose: () => void;
@@ -9,21 +9,45 @@ interface LoginPageProps {
   notice?: string | null;
 }
 
+type Mode = 'login' | 'register' | 'registered';
+
 export const LoginPage: React.FC<LoginPageProps> = ({ onClose, onLoginSuccess, notice }) => {
+  const [mode, setMode] = useState<Mode>('login');
+  const [allowRegister, setAllowRegister] = useState<boolean>(false);
+
+  // Login form state
   const [identifier, setIdentifier] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+
+  // Register form state
+  const [regEmail, setRegEmail] = useState<string>('');
+  const [regPassword, setRegPassword] = useState<string>('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState<string>('');
+
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [infoNotice, setInfoNotice] = useState<string | null>(notice || null);
 
   useEffect(() => {
+    fetchAuthConfig().then((cfg) => {
+      if (cfg?.bookUserAdd) {
+        setAllowRegister(true);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
     setIdentifier('');
     setPassword('');
+    setRegEmail('');
+    setRegPassword('');
+    setRegConfirmPassword('');
     setError(null);
     setInfoNotice(notice || null);
+    setMode('login');
   }, [notice]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setLoading(true);
@@ -39,68 +63,258 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onClose, onLoginSuccess, n
     }
   };
 
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (regPassword !== regConfirmPassword) {
+      setError('Lösenorden matchar inte.');
+      return;
+    }
+    if (regPassword.length < 8) {
+      setError('Lösenordet måste bestå av minst 8 tecken.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      setInfoNotice(null);
+      await registerUser(regEmail.trim(), regPassword);
+      setMode('registered');
+    } catch (err: any) {
+      setError(err.message || 'Registreringen misslyckades.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartLogin = () => {
+    setIdentifier(regEmail.trim());
+    setPassword('');
+    setError(null);
+    setInfoNotice(null);
+    setMode('login');
+  };
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Logga in</h2>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
+            {mode === 'login' && 'Logga in'}
+            {mode === 'register' && 'Registrera ny användare'}
+            {mode === 'registered' && 'Registrering klar'}
+          </h2>
           <button
+            type="button"
             onClick={onClose}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray-500)' }}
+            aria-label="Stäng"
           >
             <X size={20} />
           </button>
         </div>
 
-        {infoNotice && !error && <div className="alert-warning">{infoNotice}</div>}
-        {error && <div className="alert-error">{error}</div>}
+        {infoNotice && !error && <div className="alert-warning" style={{ marginBottom: '1rem' }}>{infoNotice}</div>}
+        {error && <div className="alert-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
-        <form onSubmit={handleSubmit} autoComplete="off">
-          <div className="form-group">
-            <label className="form-label">E-post eller ID</label>
-            <div style={{ position: 'relative' }}>
-              <input
-                type="text"
-                className="form-input"
-                style={{ paddingLeft: '2.25rem' }}
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="din.epost@example.com"
-                autoComplete="off"
-                required
-              />
-              <Mail size={16} color="var(--gray-500)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
+        {/* 1. Login Mode */}
+        {mode === 'login' && (
+          <>
+            <form onSubmit={handleLoginSubmit} autoComplete="off">
+              <div className="form-group">
+                <label className="form-label">E-post eller ID</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    style={{ paddingLeft: '2.25rem' }}
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder="din.epost@example.com"
+                    autoComplete="off"
+                    required
+                  />
+                  <Mail size={16} color="var(--gray-500)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Lösenord</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="password"
+                    className="form-input"
+                    style={{ paddingLeft: '2.25rem' }}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Lösenord"
+                    autoComplete="new-password"
+                    required
+                  />
+                  <Lock size={16} color="var(--gray-500)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ width: '100%' }}
+                disabled={loading}
+              >
+                {loading ? <Loader2 className="animate-spin" size={16} /> : 'Logga in'}
+              </button>
+            </form>
+
+            {allowRegister && (
+              <div style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.9rem' }}>
+                <span style={{ color: 'var(--gray-500)' }}>Inget konto än? </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('register');
+                    setError(null);
+                    setInfoNotice(null);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary)',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: 0,
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Registrera ny användare
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* 2. Register Mode (Punkt 1b) */}
+        {mode === 'register' && (
+          <>
+            <form onSubmit={handleRegisterSubmit} autoComplete="off">
+              <div className="form-group">
+                <label className="form-label">E-postadress</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="email"
+                    className="form-input"
+                    style={{ paddingLeft: '2.25rem' }}
+                    value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    placeholder="din.epost@example.com"
+                    autoComplete="off"
+                    required
+                  />
+                  <Mail size={16} color="var(--gray-500)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Önskat lösenord</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="password"
+                    className="form-input"
+                    style={{ paddingLeft: '2.25rem' }}
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    placeholder="Minst 8 tecken"
+                    autoComplete="new-password"
+                    minLength={8}
+                    required
+                  />
+                  <Lock size={16} color="var(--gray-500)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Bekräfta lösenord</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="password"
+                    className="form-input"
+                    style={{ paddingLeft: '2.25rem' }}
+                    value={regConfirmPassword}
+                    onChange={(e) => setRegConfirmPassword(e.target.value)}
+                    placeholder="Upprepa lösenord"
+                    autoComplete="new-password"
+                    minLength={8}
+                    required
+                  />
+                  <Lock size={16} color="var(--gray-500)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}
+                disabled={loading}
+              >
+                {loading ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={16} />}
+                Registrera användare
+              </button>
+            </form>
+
+            <div style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.9rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('login');
+                  setError(null);
+                  setInfoNotice(null);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--gray-500)',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              >
+                ← Tillbaka till inloggning
+              </button>
             </div>
-          </div>
+          </>
+        )}
 
-          <div className="form-group">
-            <label className="form-label">Lösenord</label>
-            <div style={{ position: 'relative' }}>
-              <input
-                type="password"
-                className="form-input"
-                style={{ paddingLeft: '2.25rem' }}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Lösenord"
-                autoComplete="new-password"
-                required
-              />
-              <Lock size={16} color="var(--gray-500)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
+        {/* 3. Registered Mode (Punkt 1b.3.1 i TODO.txt) */}
+        {mode === 'registered' && (
+          <div style={{ textAlign: 'center', padding: '0.5rem 0' }}>
+            <div style={{ display: 'inline-flex', padding: '1rem', background: '#dcfce7', borderRadius: '50%', marginBottom: '1.25rem' }}>
+              <CheckCircle2 size={36} color="#16a34a" />
             </div>
-          </div>
 
-          <button
-            type="submit"
-            className="btn btn-primary"
-            style={{ width: '100%' }}
-            disabled={loading}
-          >
-            {loading ? <Loader2 className="animate-spin" size={16} /> : 'Logga in'}
-          </button>
-        </form>
+            <div
+              className="alert-success"
+              style={{
+                marginBottom: '1.5rem',
+                textAlign: 'left',
+                lineHeight: 1.5,
+                fontSize: '0.95rem',
+              }}
+            >
+              <strong>Verifiera registrering med mottaget mail, logga därefter in</strong>
+              <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: 'var(--gray-600)' }}>
+                Ett verifieringsmail har skickats till <strong>{regEmail}</strong>. Klicka på länken i mailet för att aktivera ditt konto innan du loggar in.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ width: '100%' }}
+              onClick={handleStartLogin}
+            >
+              Start login
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 };
-
