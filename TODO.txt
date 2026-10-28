@@ -1,6 +1,99 @@
 *** Antigravity is allowed to read this file BUT NOT to WRITE in it. ***
 
-2026-20-22
+2026-20-28
+1. code in table must be NULL for a new user in GenerateFreeYearTest generateData
+handle.createUpdate("INSERT INTO user (email, password, code, createtime, role, address, alias) VALUES (:email, :password, :code, :createtime, :role, :address, :alias)")
+                                        .bind("email", email)
+                                        .bind("password", hashedPassword)
+                                        .bind("code", 0)
+                                        .bind("createtime", createtime)
+                                        .bind("role", "BOOKUSER,BOOKADMIN")
+                                        .bind("address", jsonAddress)
+                                        .bind("alias", "Alias: 1")
+                                        .execute();
+
+2026-20-26
+1. I want to use alias instead of user as sender when sending mail.
+  Please fetch alias user from application.properties attribute app.smtp.alias
+  and set app.smtp.alias as sender of the mail in EmailSender in the mail.   
+
+2. Registrera ny användare ändras så att 
+   a1. Registrera ny användare kan startas från meny, a2. eller från bokning a6. 
+   a2. Lägg till Registrera ny användare som nytt menyval i meny med val logga in, logga ut. visa "Registrera ny användare" i meny när book.user.add=true 
+   a3. Bokning som startas utan inloggad användare, kräver Login. Lyckad login bokar tid och visar kalender
+   a4. Lägg till länk "tillbaka till kalender" på loginsida
+   a5. tillbaka till kalender: visar kalendersida
+   a6. Visa "Registrera ny användare" vid bokning när book.user.add=true. Väljer användaren "Registrera ny användare" vid bokning: avsluta bokning, öppna ny sida som visar "Bokning avbruten". Sidan har knapp "Starta registrering" och en länk "tillbaka till kalender".  
+   a7. "Starta registrering" öppnar sidan Registrera ny användare som visar samma data som nu och kort beskriver registrering med mail och vad användare skall göra för att verifiera email.
+ 
+
+
+   
+
+
+2026-20-25
+
+1. adjust rules in 2026-20-22
+from 
+    b6.1 BookController /confirmuser kontrollerar email och code. 
+        b6.1.1 kontroll OK: code i user sätts till NULL, .
+        b6.1.2 kontroll NOTOK: Log message "failed attempt to verify user", Delete user with email 
+to
+    b6.1 BookController /confirmuser kontrollerar email och code. 
+        b6.1.1 kontroll OK: email matches user.email and code matches user.code. code i user sätts till NULL, 
+        b6.1.2 kontroll OK: email matches user.email and table user.code=NULL
+        b6.1.3 kontroll WARNING: email does not match user.email, Log message "Confirmation attempt of NON existing user ", no action
+        b6.1.4 kontroll NOTOK: email is matching table.email, code is not matching table user.code and table user.code != NULL, Log message "Confirmation attempt with wrong code for user ", delete email from table
+
+
+2026-20-24
+1. EmailSender read configuration data from application.properties, No default values! 
+   If configuration is missing and plugin book.user.add=true, abort Spring startup with message 
+   "Mail configuration is missing in application.properties".
+2. change defintion of code to TEXT in table user in BookingDao 
+                        @SqlUpdate("CREATE TABLE IF NOT EXISTS user (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "email TEXT UNIQUE NOT NULL, " +
+                        "password TEXT NOT NULL, " +
+                        "code INTEGER DEFAULT 0, " +
+                        "createtime TEXT NOT NULL, " +
+                        "role TEXT NOT NULL, " +
+                        "address TEXT, " +
+                        "alias TEXT)")
+ 3. in prod book.systemkonstruktion.se app propts that mail is sent but nothing is received in mail and there no log messages. Please add info log messages for EmailSender and functions calling EmailSender 
+
+4. In prod 
+a. new user is stored ok in database
+b. Mail is not received and no messages in backend.log. Do I need conf for log4j 
+c. confirmuser works ok using bruno 
+
+5. bookingweb.service - Community Booking System - Spring Boot Backend
+     Loaded: loaded (/etc/systemd/system/bookingweb.service; enabled; preset: enabled)
+     Active: active (running) since Mon 2026-10-26 09:52:09 UTC; 5min ago
+ Invocation: def7e54b9e694ad5876d1b0882de184e
+   Main PID: 356966 (java)
+      Tasks: 37 (limit: 8173)
+     Memory: 362.1M (peak: 362.4M)
+        CPU: 14.009s
+     CGroup: /system.slice/bookingweb.service
+             └─356966 /usr/bin/java -Xms256m -Xmx512m -jar bookingweb.war --server.port=9091 -Dconfig.file=/usr/local/book/application.properties --spring.config.location=file:/usr/local/book/application.properties
+
+
+Oct 26 09:55:33 cloud-server-10674296 bookingweb[356966]: 2026-10-26T09:55:33.451Z  INFO 356966 --- [book] [nio-9091-exec-7] o.c.booking.security.AuthController      : Registration request received for email: info@systemkonstruktion.se
+Oct 26 09:55:34 cloud-server-10674296 bookingweb[356966]: 2026-10-26T09:55:34.209Z  INFO 356966 --- [book] [nio-9091-exec-7] o.c.booking.security.AuthController      : User registered in database with email: info@systemkonstruktion.se. Calling EmailSender.sendVerificationEmail
+Oct 26 09:55:34 cloud-server-10674296 bookingweb[356966]: 2026-10-26T09:55:34.210Z  INFO 356966 --- [book] [nio-9091-exec-7] o.community.booking.plugins.EmailSender  : sendVerificationEmail called for recipient: info@systemkonstruktion.se
+Oct 26 09:55:34 cloud-server-10674296 bookingweb[356966]: 2026-10-26T09:55:34.210Z  WARN 356966 --- [book] [nio-9091-exec-7] o.community.booking.plugins.EmailSender  : Cannot send email to info@systemkonstruktion.se: SMTP configuration is missing or incomplete (host=null, port=null, user=null)
+Oct 26 09:55:34 cloud-server-10674296 bookingweb[356966]: 2026-10-26T09:55:34.210Z  WARN 356966 --- [book] [nio-9091-exec-7] o.c.booking.security.AuthController      : EmailSender reported failure sending verification email to: info@systemkonstruktion.se
+
+part of /usr/local/book/application.properties 
+# Mail application
+app.smtp.host=smtp.gmail.com
+app.smtp.port=587
+app.smtp.user=christer.sundgren@systemkonstruktion.se
+app.smtp.password=<password not displayed>
+app.confirm.url=https://book.systemkonstruktion.se/api/confirmuser
+
+2026-20-22 
 1. Arbetsflöde för att registrera user med BOOKUSER behörighet som  startar från sidan "Logga in för att boka"
 
   a. registrera existerande user med email och password

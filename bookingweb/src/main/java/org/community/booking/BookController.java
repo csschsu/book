@@ -333,47 +333,77 @@ public class BookController {
         }
 
         Models.User user = (email != null && !email.isEmpty()) ? book.getUserByEmail(email) : null;
-        boolean matches = user != null && code != null && !code.isEmpty() && code.equals(user.getCode());
 
-        if (matches) {
-            // b6.1.1 kontroll OK: code i user sätts till NULL
-            book.updateUserCode(user.getId(), null);
+        // b6.1.3 kontroll WARNING: email does not match user.email, no action
+        if (user == null) {
+            logger.warn("Confirmation attempt of NON existing user {}", email);
             if (isHtml) {
-                String html = "<!DOCTYPE html><html lang=\"sv\"><head><meta charset=\"UTF-8\"><title>Konto verifierat</title>"
-                        + "<style>body{font-family:sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#1e293b;}"
-                        + ".card{background:#fff;max-width:480px;margin:auto;padding:32px;border-radius:12px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);}"
-                        + "h1{color:#16a34a;margin-bottom:12px;}p{color:#475569;margin-bottom:24px;line-height:1.5;}"
-                        + "a{display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold;}</style>"
-                        + "</head><body><div class=\"card\">"
-                        + "<h1>Konto verifierat!</h1>"
-                        + "<p>Ditt konto har verifierats. Du kan nu logga in och börja boka resurser.</p>"
-                        + "<a href=\"/\">Gå till inloggning</a>"
-                        + "</div></body></html>";
-                return ResponseEntity.ok().header("Content-Type", "text/html; charset=UTF-8").body(html);
-            }
-            return ResponseEntity.ok(Map.of("message", "Användaren har verifierats"));
-        } else {
-            // b6.1.2 kontroll NOTOK: Log message "failed attempt to verify user", Delete user with email
-            logger.warn("failed attempt to verify user for email: {}, code: {}", email, code);
-            if (email != null && !email.isEmpty() && user != null) {
-                book.deleteUserByEmail(email);
-            }
-            if (isHtml) {
-                String html = "<!DOCTYPE html><html lang=\"sv\"><head><meta charset=\"UTF-8\"><title>Verifiering misslyckades</title>"
-                        + "<style>body{font-family:sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#1e293b;}"
-                        + ".card{background:#fff;max-width:480px;margin:auto;padding:32px;border-radius:12px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);}"
-                        + "h1{color:#dc2626;margin-bottom:12px;}p{color:#475569;margin-bottom:24px;line-height:1.5;}"
-                        + "a{display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold;}</style>"
-                        + "</head><body><div class=\"card\">"
-                        + "<h1>Verifiering misslyckades</h1>"
-                        + "<p>Ogiltig eller utgången verifieringskod. Registrera dig på nytt om nödvändigt.</p>"
-                        + "<a href=\"/\">Tillbaka till start</a>"
-                        + "</div></body></html>";
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .header("Content-Type", "text/html; charset=UTF-8").body(html);
+                        .header("Content-Type", "text/html; charset=UTF-8")
+                        .body(renderErrorHtml("Ogiltig användare eller felaktig länk."));
             }
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", "failed attempt to verify user"));
+                    .body(Map.of("error", "Confirmation attempt of NON existing user"));
         }
+
+        // b6.1.2 kontroll OK: email matches user.email and table user.code=NULL
+        if (user.getCode() == null) {
+            logger.info("Confirmation attempt for already verified user {}", email);
+            if (isHtml) {
+                return ResponseEntity.ok()
+                        .header("Content-Type", "text/html; charset=UTF-8")
+                        .body(renderSuccessHtml("Ditt konto är redan verifierat. Du kan logga in och boka resurser."));
+            }
+            return ResponseEntity.ok(Map.of("message", "Användaren är redan verifierad"));
+        }
+
+        // b6.1.1 kontroll OK: email matches user.email and code matches user.code
+        if (code != null && !code.isEmpty() && code.equals(user.getCode())) {
+            book.updateUserCode(user.getId(), null);
+            logger.info("User {} successfully confirmed and verified registration", email);
+            if (isHtml) {
+                return ResponseEntity.ok()
+                        .header("Content-Type", "text/html; charset=UTF-8")
+                        .body(renderSuccessHtml("Ditt konto har verifierats. Du kan nu logga in och börja boka resurser."));
+            }
+            return ResponseEntity.ok(Map.of("message", "Användaren har verifierats"));
+        }
+
+        // b6.1.4 kontroll NOTOK: email matches, code does not match and user.code != NULL
+        logger.warn("Confirmation attempt with wrong code for user {}", email);
+        book.deleteUserByEmail(email);
+        if (isHtml) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .header("Content-Type", "text/html; charset=UTF-8")
+                    .body(renderErrorHtml("Ogiltig eller utgången verifieringskod. Registrera dig på nytt om nödvändigt."));
+        }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", "failed attempt to verify user"));
+    }
+
+    private String renderSuccessHtml(String message) {
+        return "<!DOCTYPE html><html lang=\"sv\"><head><meta charset=\"UTF-8\"><title>Konto verifierat</title>"
+                + "<style>body{font-family:sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#1e293b;}"
+                + ".card{background:#fff;max-width:480px;margin:auto;padding:32px;border-radius:12px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);}"
+                + "h1{color:#16a34a;margin-bottom:12px;}p{color:#475569;margin-bottom:24px;line-height:1.5;}"
+                + "a{display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold;}</style>"
+                + "</head><body><div class=\"card\">"
+                + "<h1>Konto verifierat!</h1>"
+                + "<p>" + message + "</p>"
+                + "<a href=\"/\">Gå till inloggning</a>"
+                + "</div></body></html>";
+    }
+
+    private String renderErrorHtml(String message) {
+        return "<!DOCTYPE html><html lang=\"sv\"><head><meta charset=\"UTF-8\"><title>Verifiering misslyckades</title>"
+                + "<style>body{font-family:sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#1e293b;}"
+                + ".card{background:#fff;max-width:480px;margin:auto;padding:32px;border-radius:12px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);}"
+                + "h1{color:#dc2626;margin-bottom:12px;}p{color:#475569;margin-bottom:24px;line-height:1.5;}"
+                + "a{display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold;}</style>"
+                + "</head><body><div class=\"card\">"
+                + "<h1>Verifiering misslyckades</h1>"
+                + "<p>" + message + "</p>"
+                + "<a href=\"/\">Tillbaka till start</a>"
+                + "</div></body></html>";
     }
 }

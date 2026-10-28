@@ -4,6 +4,8 @@ import org.community.booking.Book;
 import org.community.booking.Models;
 import org.community.booking.plugins.EmailSender;
 import org.community.booking.plugins.RandomStringGenerator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +23,8 @@ import java.util.Map;
 
 @RestController
 public class AuthController {
+
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
@@ -40,7 +44,7 @@ public class AuthController {
         this.emailSender = emailSender;
     }
 
-    @GetMapping({ "/auth/config", "/api/config" })
+    @GetMapping("/auth/config")
     public ResponseEntity<Map<String, Object>> getConfig() {
         return ResponseEntity.ok(Map.of("bookUserAdd", bookUserAdd));
     }
@@ -89,6 +93,8 @@ public class AuthController {
         String email = body != null ? body.get("email") : null;
         String password = body != null ? body.get("password") : null;
 
+        logger.info("Registration request received for email: {}", email);
+
         if (email == null || email.trim().isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", "E-postadress måste anges"));
@@ -125,9 +131,15 @@ public class AuthController {
         newUser.setAlias(email.contains("@") ? email.substring(0, email.indexOf('@')) : email);
 
         book.insertUser(newUser);
+        logger.info("User registered in database with email: {}. Calling EmailSender.sendVerificationEmail", email);
 
         // b4: Skicka mail till email med EmailSender
-        emailSender.sendVerificationEmail(email, code);
+        boolean emailSent = emailSender.sendVerificationEmail(email, code);
+        if (emailSent) {
+            logger.info("EmailSender successfully sent verification email to: {}", email);
+        } else {
+            logger.warn("EmailSender reported failure sending verification email to: {}", email);
+        }
 
         // b3.1: Meddelande till frontend
         return ResponseEntity.status(HttpStatus.CREATED)

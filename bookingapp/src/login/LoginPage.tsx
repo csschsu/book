@@ -6,13 +6,21 @@ import { X, Lock, Mail, Loader2, CheckCircle2, UserPlus } from 'lucide-react';
 interface LoginPageProps {
   onClose: () => void;
   onLoginSuccess: (session: AuthSession) => void;
+  onBackToCalendar?: () => void;
   notice?: string | null;
+  initialMode?: 'login' | 'register';
 }
 
 type Mode = 'login' | 'register' | 'registered';
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onClose, onLoginSuccess, notice }) => {
-  const [mode, setMode] = useState<Mode>('login');
+export const LoginPage: React.FC<LoginPageProps> = ({
+  onClose,
+  onLoginSuccess,
+  onBackToCalendar,
+  notice,
+  initialMode = 'login',
+}) => {
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [allowRegister, setAllowRegister] = useState<boolean>(false);
 
   // Login form state
@@ -44,8 +52,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onClose, onLoginSuccess, n
     setRegConfirmPassword('');
     setError(null);
     setInfoNotice(notice || null);
-    setMode('login');
-  }, [notice]);
+    setMode(initialMode || 'login');
+  }, [notice, initialMode]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,12 +197,34 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onClose, onLoginSuccess, n
                 </button>
               </div>
             )}
+
+            {onBackToCalendar && (
+              <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                <button
+                  type="button"
+                  onClick={onBackToCalendar}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary)',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  tillbaka till kalender
+                </button>
+              </div>
+            )}
           </>
         )}
 
         {/* 2. Register Mode (Punkt 1b) */}
         {mode === 'register' && (
           <>
+            <p style={{ color: 'var(--gray-600)', fontSize: '0.9rem', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+              Ange din e-postadress och önskat lösenord. Efter registrering skickas ett verifieringsmail med en länk som du behöver klicka på för att aktivera ditt konto innan du loggar in och bokar.
+            </p>
             <form onSubmit={handleRegisterSubmit} autoComplete="off">
               <div className="form-group">
                 <label className="form-label">E-postadress</label>
@@ -260,7 +290,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onClose, onLoginSuccess, n
               </button>
             </form>
 
-            <div style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.9rem' }}>
+            <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'center', fontSize: '0.9rem' }}>
               <button
                 type="button"
                 onClick={() => {
@@ -278,6 +308,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onClose, onLoginSuccess, n
               >
                 ← Tillbaka till inloggning
               </button>
+
+              {onBackToCalendar && (
+                <button
+                  type="button"
+                  onClick={onBackToCalendar}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary)',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  tillbaka till kalender
+                </button>
+              )}
             </div>
           </>
         )}
@@ -312,6 +359,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onClose, onLoginSuccess, n
             >
               Start login
             </button>
+
+            {onBackToCalendar && (
+              <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                <button
+                  type="button"
+                  onClick={onBackToCalendar}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary)',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  tillbaka till kalender
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

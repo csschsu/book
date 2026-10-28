@@ -33,7 +33,7 @@ public class UserPasswordValidationTest {
 
         jdbi.useHandle(handle -> {
             handle.execute(
-                    "CREATE TABLE user (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, code INTEGER DEFAULT 0, createtime TEXT NOT NULL, role TEXT NOT NULL, address TEXT, alias TEXT)");
+                    "CREATE TABLE user (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, code TEXT DEFAULT NULL, createtime TEXT NOT NULL, role TEXT NOT NULL, address TEXT, alias TEXT)");
             handle.execute(
                     "INSERT INTO user (id, email, password, createtime, role, address, alias) VALUES (1, 'existing@example.com', '"
                             + passwordEncoder.encode("existingPass123") + "', '2026-01-01T00:00:00', 'BOOKUSER', '{}', 'Existing User')");

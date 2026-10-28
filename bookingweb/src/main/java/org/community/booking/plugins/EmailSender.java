@@ -2,7 +2,8 @@ package org.community.booking.plugins;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -17,29 +18,73 @@ public class EmailSender {
 
     private static final Logger logger = LoggerFactory.getLogger(EmailSender.class);
 
-    @Value("${app.smtp.host:smtp.gmail.com}")
     private String smtpHost;
-
-    @Value("${app.smtp.port:587}")
-    private int smtpPort;
-
-    @Value("${app.smtp.user:}")
+    private Integer smtpPort;
     private String smtpUser;
-
-    @Value("${app.smtp.password:}")
+    private String smtpAlias;
     private String smtpPassword;
-
-    @Value("${app.confirm.url:http://localhost:9091/confirmuser}")
     private String confirmUrl;
 
+    @Autowired
+    public EmailSender(Environment env) {
+        if (env != null) {
+            this.smtpHost = env.getProperty("app.smtp.host");
+            String portVal = env.getProperty("app.smtp.port");
+            if (portVal != null && !portVal.isBlank()) {
+                try {
+                    this.smtpPort = Integer.parseInt(portVal.trim());
+                } catch (NumberFormatException e) {
+                    this.smtpPort = null;
+                }
+            }
+            this.smtpUser = env.getProperty("app.smtp.user");
+            this.smtpAlias = env.getProperty("app.smtp.alias");
+            this.smtpPassword = env.getProperty("app.smtp.password");
+            this.confirmUrl = env.getProperty("app.confirm.url");
+
+            logger.info("EmailSender initialized with host={}, port={}, user={}, alias={}, confirmUrl={}",
+                    smtpHost, smtpPort, smtpUser, smtpAlias, confirmUrl);
+
+            boolean userAdd = "true".equalsIgnoreCase(env.getProperty("book.user.add"));
+            if (userAdd && isConfigurationMissing()) {
+                throw new IllegalStateException("Mail configuration is missing in application.properties");
+            }
+        }
+    }
+
+    public EmailSender(String smtpHost, Integer smtpPort, String smtpUser, String smtpPassword, String confirmUrl) {
+        this(smtpHost, smtpPort, smtpUser, null, smtpPassword, confirmUrl);
+    }
+
+    public EmailSender(String smtpHost, Integer smtpPort, String smtpUser, String smtpAlias, String smtpPassword, String confirmUrl) {
+        this.smtpHost = smtpHost;
+        this.smtpPort = smtpPort;
+        this.smtpUser = smtpUser;
+        this.smtpAlias = smtpAlias;
+        this.smtpPassword = smtpPassword;
+        this.confirmUrl = confirmUrl;
+    }
+
+    public boolean isConfigurationMissing() {
+        return smtpHost == null || smtpHost.isBlank()
+                || smtpPort == null || smtpPort <= 0
+                || smtpUser == null || smtpUser.isBlank() || smtpUser.startsWith("<")
+                || smtpPassword == null || smtpPassword.isBlank() || smtpPassword.startsWith("<") 
+                || confirmUrl == null || confirmUrl.isBlank();
+    }
+
     public boolean sendVerificationEmail(String toEmail, String code) {
-        if (smtpUser == null || smtpUser.isBlank() || smtpUser.startsWith("<")
-                || smtpPassword == null || smtpPassword.isBlank() || smtpPassword.startsWith("<")) {
-            logger.warn("SMTP user or password not configured. Simulated verification email to: {}, code: {}", toEmail, code);
+        logger.info("sendVerificationEmail called for recipient: {}", toEmail);
+        if (isConfigurationMissing()) {
+            logger.warn("Cannot send email to {}: SMTP configuration is missing or incomplete (host={}, port={}, user={})",
+                    toEmail, smtpHost, smtpPort, smtpUser);
             return false;
         }
 
         try {
+            String fromSender = (smtpAlias != null && !smtpAlias.isBlank()) ? smtpAlias : smtpUser;
+            logger.info("Preparing and sending verification email to: {} via SMTP {}:{} (from: {})",
+                    toEmail, smtpHost, smtpPort, fromSender);
             JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
             mailSender.setHost(smtpHost);
             mailSender.setPort(smtpPort);
@@ -56,7 +101,7 @@ public class EmailSender {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setFrom(smtpUser);
+            helper.setFrom(fromSender);
             helper.setTo(toEmail);
             helper.setSubject("Verifiera din registrering - Community Booking");
 
@@ -89,13 +134,32 @@ public class EmailSender {
             logger.info("Verification email successfully sent to: {}", toEmail);
             return true;
         } catch (Exception e) {
-            logger.warn("Failed to send verification email to {}: {}", toEmail, e.getMessage());
+            logger.error("Failed to send verification email to {}: {}", toEmail, e.getMessage(), e);
             return false;
         }
+    }
+
+    public String getSmtpHost() {
+        return smtpHost;
+    }
+
+    public Integer getSmtpPort() {
+        return smtpPort;
+    }
+
+    public String getSmtpUser() {
+        return smtpUser;
+    }
+
+    public String getSmtpAlias() {
+        return smtpAlias;
+    }
+
+    public String getSmtpPassword() {
+        return smtpPassword;
     }
 
     public String getConfirmUrl() {
         return confirmUrl;
     }
 }
-

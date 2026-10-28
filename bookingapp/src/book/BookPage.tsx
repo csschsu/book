@@ -5,7 +5,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { Location, AssetLocation, Free, Booked, AuthSession } from '../types/models';
 import { fetchFreeByLocation, fetchBookedByLocation, bookTime, deleteBookedTime } from '../services/api';
 import { SWEDISH_WEEKDAYS, SWEDISH_MONTHS, setupSwedishLocale } from '../services/momentSv';
-import { ArrowLeft, CheckCircle2, Calendar as CalendarIcon, Clock, MapPin, Box, Loader2, AlertCircle, Trash2, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Calendar as CalendarIcon, Clock, MapPin, Box, Loader2, AlertCircle, Trash2, X, XCircle } from 'lucide-react';
 
 setupSwedishLocale();
 const localizer = momentLocalizer(moment);
@@ -68,8 +68,11 @@ interface BookPageProps {
   asset: AssetLocation;
   step: number;
   authSession: AuthSession | null;
+  bookUserAdd?: boolean;
   onSetStep: (step: number) => void;
   onOpenLogin: () => void;
+  onOpenLoginWithCallback?: (cb: (session: AuthSession) => Promise<void>) => void;
+  onOpenRegister?: () => void;
   onBack: () => void;
 }
 
@@ -78,8 +81,11 @@ export const BookPage: React.FC<BookPageProps> = ({
   asset,
   step,
   authSession,
+  bookUserAdd,
   onSetStep,
   onOpenLogin,
+  onOpenLoginWithCallback,
+  onOpenRegister,
   onBack,
 }) => {
   const [freeBlocks, setFreeBlocks] = useState<Free[]>([]);
@@ -339,6 +345,48 @@ export const BookPage: React.FC<BookPageProps> = ({
     );
   }
 
+  // Step 7: Bokning avbruten view (2026-20-26 a6)
+  if (step === 7) {
+    return (
+      <div style={{ maxWidth: '600px', margin: '2rem auto' }}>
+        <div className="card" style={{ textAlign: 'center', padding: '2.5rem' }}>
+          <div style={{ display: 'inline-flex', background: '#fee2e2', padding: '1rem', borderRadius: '50%', marginBottom: '1.5rem' }}>
+            <XCircle size={48} color="#dc2626" />
+          </div>
+          <h2 className="page-title" style={{ marginBottom: '0.5rem' }}>Bokning avbruten</h2>
+          <p style={{ color: 'var(--gray-500)', marginBottom: '2rem' }}>
+            Bokningen har avbrutits eftersom du valde att registrera en ny användare.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+            <button
+              className="btn btn-primary"
+              style={{ width: '100%', maxWidth: '280px' }}
+              onClick={onOpenRegister}
+            >
+              Starta registrering
+            </button>
+
+            <button
+              type="button"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--primary)',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                fontSize: '0.95rem',
+              }}
+              onClick={() => onSetStep(3)}
+            >
+              tillbaka till kalender
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Step 6: Confirmation summary view
   if (step === 6 && selectedFree && bookStart && bookEnd) {
     const durationHours = (bookEnd.getTime() - bookStart.getTime()) / (1000 * 3600);
@@ -399,9 +447,53 @@ export const BookPage: React.FC<BookPageProps> = ({
             <p style={{ color: 'var(--gray-500)', marginBottom: '1.25rem' }}>
               Du måste vara inloggad som användare för att kunna slutföra en bokning.
             </p>
-            <button className="btn btn-primary" onClick={onOpenLogin}>
-              Logga in
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  if (onOpenLoginWithCallback) {
+                    const currentFree = selectedFree;
+                    const currentStart = bookStart;
+                    const currentEnd = bookEnd;
+                    onOpenLoginWithCallback(async (session) => {
+                      try {
+                        setSubmitting(true);
+                        const startIso = moment(currentStart).format('YYYY-MM-DDTHH:mm:ss');
+                        const endIso = moment(currentEnd).format('YYYY-MM-DDTHH:mm:ss');
+                        const bookingDate = new Date(currentStart);
+                        await bookTime(currentFree.id, session.id, startIso, endIso);
+                        await loadData(bookingDate);
+                        setCurrentDate(bookingDate);
+                        setCurrentView(Views.WEEK);
+                        onSetStep(3);
+                      } catch (err: any) {
+                        setError(err.message || 'Kunde inte slutföra bokningen');
+                        onSetStep(3);
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    });
+                  } else {
+                    onOpenLogin();
+                  }
+                }}
+              >
+                Logga in
+              </button>
+              {bookUserAdd && (
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setSelectedFree(null);
+                    setBookStart(null);
+                    setBookEnd(null);
+                    onSetStep(7);
+                  }}
+                >
+                  Registrera ny användare
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>

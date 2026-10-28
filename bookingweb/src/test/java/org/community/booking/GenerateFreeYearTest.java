@@ -79,7 +79,7 @@ public class GenerateFreeYearTest {
                                                         "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                                                         "email TEXT UNIQUE NOT NULL, " +
                                                         "password TEXT NOT NULL, " +
-                                                        "code INTEGER DEFAULT 0, " +
+                                                        "code TEXT DEFAULT NULL, " +
                                                         "createtime TEXT NOT NULL, " +
                                                         "role TEXT NOT NULL, " +
                                                         "address TEXT, " +
@@ -103,7 +103,7 @@ public class GenerateFreeYearTest {
                                         "INSERT INTO user (email, password, code, createtime, role, address, alias) VALUES (:email, :password, :code, :createtime, :role, :address, :alias)")
                                         .bind("email", email)
                                         .bind("password", hashedPassword)
-                                        .bind("code", 0)
+                                        .bind("code", (String) null)
                                         .bind("createtime", createtime)
                                         .bind("role", "BOOKUSER,BOOKADMIN")
                                         .bind("address", jsonAddress)
@@ -230,6 +230,10 @@ public class GenerateFreeYearTest {
                                         .mapTo(String.class).one();
                         assertTrue(PASSWORD_ENCODER.matches("password", user1Password),
                                         "Lösenordet ska vara krypterat och matcha 'password'");
+
+                        String user1Code = handle.createQuery("SELECT code FROM user WHERE id = 1")
+                                        .mapTo(String.class).findOne().orElse(null);
+                        assertNull(user1Code, "Code ska vara NULL för den genererade användaren");
 
                         // 3. Kontrollera 3 tillgångar (assets)
                         int assetCount = handle.createQuery("SELECT COUNT(*) FROM asset").mapTo(Integer.class).one();

@@ -8,7 +8,7 @@ public interface BookingDao {
                         "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                         "email TEXT UNIQUE NOT NULL, " +
                         "password TEXT NOT NULL, " +
-                        "code INTEGER DEFAULT 0, " +
+                        "code TEXT DEFAULT NULL, " +
                         "createtime TEXT NOT NULL, " +
                         "role TEXT NOT NULL, " +
                         "address TEXT, " +

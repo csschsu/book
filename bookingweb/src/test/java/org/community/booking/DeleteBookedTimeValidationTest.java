@@ -43,7 +43,7 @@ public class DeleteBookedTimeValidationTest {
 
         jdbi.useHandle(handle -> {
             handle.execute(
-                    "CREATE TABLE user (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, code INTEGER DEFAULT 0, createtime TEXT NOT NULL, role TEXT NOT NULL, address TEXT, alias TEXT)");
+                    "CREATE TABLE user (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, code TEXT DEFAULT NULL, createtime TEXT NOT NULL, role TEXT NOT NULL, address TEXT, alias TEXT)");
             handle.execute(
                     "CREATE TABLE location (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, latitude REAL, longitude REAL, address TEXT)");
             handle.execute(

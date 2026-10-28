@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Location, AssetLocation, AuthSession } from './types/models';
-import { getAuthSession, logout } from './services/api';
+import { getAuthSession, logout, fetchAuthConfig } from './services/api';
 import { LocationPage } from './location/LocationPage';
 import { AssetPage } from './asset/AssetPage';
 import { BookPage } from './book/BookPage';
@@ -8,15 +8,18 @@ import { FreePage } from './free/FreePage';
 import { UserPage } from './login/UserPage';
 import { LoginPage } from './login/LoginPage';
 import { Footer } from './Footer';
-import { Calendar, Users, LogIn, LogOut } from 'lucide-react';
+import { Calendar, Users, LogIn, LogOut, UserPlus } from 'lucide-react';
 
 type ViewMode = 'book' | 'admin-free' | 'admin-users';
 
 export const StartPage: React.FC = () => {
   const [authSession, setAuthSessionState] = useState<AuthSession | null>(() => getAuthSession());
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
+  const [loginInitialMode, setLoginInitialMode] = useState<'login' | 'register'>('login');
   const [loginNotice, setLoginNotice] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>('book');
+  const [bookUserAdd, setBookUserAdd] = useState<boolean>(false);
+  const [pendingBookingCallback, setPendingBookingCallback] = useState<((session: AuthSession) => Promise<void>) | null>(null);
 
   // Booking wizard flow state:
   // 1 = Location, 2 = Asset, 3 = Calendar, 6 = Confirm, 8 = Receipt
@@ -25,6 +28,12 @@ export const StartPage: React.FC = () => {
   const [selectedAsset, setSelectedAsset] = useState<AssetLocation | null>(null);
 
   useEffect(() => {
+    fetchAuthConfig().then((cfg) => {
+      if (cfg?.bookUserAdd) {
+        setBookUserAdd(true);
+      }
+    });
+
     const handleAuthExpired = () => {
       setAuthSessionState(null);
       setLoginNotice('Din inloggningssession har gått ut. Vänligen logga in igen.');
@@ -61,6 +70,29 @@ export const StartPage: React.FC = () => {
     setStep(1);
   };
 
+  const handleOpenLogin = () => {
+    setLoginNotice(null);
+    setLoginInitialMode('login');
+    setShowLoginModal(true);
+  };
+
+  const handleOpenRegister = () => {
+    setLoginNotice(null);
+    setLoginInitialMode('register');
+    setShowLoginModal(true);
+  };
+
+  const handleBackToCalendar = () => {
+    setShowLoginModal(false);
+    setPendingBookingCallback(null);
+    setView('book');
+    if (selectedLocation && selectedAsset) {
+      setStep(3);
+    } else {
+      setStep(1);
+    }
+  };
+
   return (
     <div className="app-container">
       {/* Header */}
@@ -89,6 +121,17 @@ export const StartPage: React.FC = () => {
             </button>
           )}
 
+          {bookUserAdd && !authSession && (
+            <button
+              type="button"
+              className="nav-link"
+              onClick={handleOpenRegister}
+            >
+              <UserPlus size={16} style={{ display: 'inline', marginRight: 4, verticalAlign: 'text-bottom' }} />
+              Registrera ny användare
+            </button>
+          )}
+
           {authSession ? (
             <button
               type="button"
@@ -102,10 +145,7 @@ export const StartPage: React.FC = () => {
             <button
               type="button"
               className="nav-link"
-              onClick={() => {
-                setLoginNotice(null);
-                setShowLoginModal(true);
-              }}
+              onClick={handleOpenLogin}
             >
               <LogIn size={16} style={{ display: 'inline', marginRight: 4, verticalAlign: 'text-bottom' }} />
               Login
@@ -115,7 +155,7 @@ export const StartPage: React.FC = () => {
       </header>
 
       {/* Steps bar during booking flow */}
-      {view === 'book' && (
+      {view === 'book' && step !== 7 && (
         <div className="steps-bar">
           <div className={`step-item ${step === 1 ? 'active' : step > 1 ? 'done' : ''}`}>
             <span className="step-number">1</span>
@@ -159,14 +199,20 @@ export const StartPage: React.FC = () => {
               />
             )}
 
-            {(step === 3 || step === 6 || step === 8) && selectedLocation && selectedAsset && (
+            {(step === 3 || step === 6 || step === 7 || step === 8) && selectedLocation && selectedAsset && (
               <BookPage
                 location={selectedLocation}
                 asset={selectedAsset}
                 step={step}
                 authSession={authSession}
+                bookUserAdd={bookUserAdd}
                 onSetStep={setStep}
-                onOpenLogin={() => setShowLoginModal(true)}
+                onOpenLogin={handleOpenLogin}
+                onOpenLoginWithCallback={(cb) => {
+                  setPendingBookingCallback(() => cb);
+                  handleOpenLogin();
+                }}
+                onOpenRegister={handleOpenRegister}
                 onBack={() => setStep(2)}
               />
             )}
@@ -180,13 +226,22 @@ export const StartPage: React.FC = () => {
       {showLoginModal && (
         <LoginPage
           notice={loginNotice}
+          initialMode={loginInitialMode}
           onClose={() => {
             setShowLoginModal(false);
             setLoginNotice(null);
+            setPendingBookingCallback(null);
           }}
-          onLoginSuccess={(session) => {
+          onBackToCalendar={handleBackToCalendar}
+          onLoginSuccess={async (session) => {
             setAuthSessionState(session);
             setLoginNotice(null);
+            setShowLoginModal(false);
+            if (pendingBookingCallback) {
+              const cb = pendingBookingCallback;
+              setPendingBookingCallback(null);
+              await cb(session);
+            }
           }}
         />
       )}

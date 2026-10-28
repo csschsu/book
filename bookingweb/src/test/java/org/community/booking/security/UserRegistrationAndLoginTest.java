@@ -163,7 +163,7 @@ public class UserRegistrationAndLoginTest {
     }
 
     @Test
-    public void testConfirmUserPostSuccess() {
+    public void testRuleB6_1_1_ConfirmUserPostSuccess() {
         Models.User before = book.getUserByEmail("unverified@test.se");
         assertNotNull(before);
         assertEquals("ABC12345678901234567", before.getCode());
@@ -180,7 +180,45 @@ public class UserRegistrationAndLoginTest {
     }
 
     @Test
-    public void testConfirmUserPostWrongCodeDeletesUser() {
+    public void testRuleB6_1_2_ConfirmUserPostAlreadyVerifiedDoesNotDeleteUser() {
+        Models.User before = book.getUserByEmail("verified@test.se");
+        assertNotNull(before);
+        assertNull(before.getCode());
+
+        ResponseEntity<?> resp = bookController.confirmUserPost(Map.of(
+                "email", "verified@test.se",
+                "code", "ANY_CODE"
+        ));
+
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        Map<?, ?> body = (Map<?, ?>) resp.getBody();
+        assertNotNull(body);
+        assertEquals("Användaren är redan verifierad", body.get("message"));
+
+        Models.User after = book.getUserByEmail("verified@test.se");
+        assertNotNull(after, "User must NOT be deleted when already verified");
+        assertNull(after.getCode());
+    }
+
+    @Test
+    public void testRuleB6_1_3_ConfirmUserPostNonExistingUserNoAction() {
+        assertNull(book.getUserByEmail("nonexisting@test.se"));
+
+        ResponseEntity<?> resp = bookController.confirmUserPost(Map.of(
+                "email", "nonexisting@test.se",
+                "code", "ABC12345678901234567"
+        ));
+
+        assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
+        Map<?, ?> body = (Map<?, ?>) resp.getBody();
+        assertNotNull(body);
+        assertEquals("Confirmation attempt of NON existing user", body.get("error"));
+
+        assertNull(book.getUserByEmail("nonexisting@test.se"));
+    }
+
+    @Test
+    public void testRuleB6_1_4_ConfirmUserPostWrongCodeDeletesUser() {
         assertNotNull(book.getUserByEmail("unverified@test.se"));
 
         ResponseEntity<?> resp = bookController.confirmUserPost(Map.of(
@@ -189,7 +227,7 @@ public class UserRegistrationAndLoginTest {
         ));
 
         assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
-        // User should have been deleted per rule b6.1.2
+        // User should have been deleted per rule b6.1.4
         assertNull(book.getUserByEmail("unverified@test.se"), "User must be deleted on failed verification");
     }
 
@@ -206,5 +244,29 @@ public class UserRegistrationAndLoginTest {
         Models.User after = book.getUserByEmail("unverified@test.se");
         assertNotNull(after);
         assertNull(after.getCode());
+    }
+
+    @Test
+    public void testConfirmUserGetAlreadyVerified() {
+        Models.User before = book.getUserByEmail("verified@test.se");
+        assertNotNull(before);
+        assertNull(before.getCode());
+
+        ResponseEntity<?> resp = bookController.confirmUserGet("verified@test.se", "ANY_CODE");
+
+        assertEquals(HttpStatus.OK, resp.getStatusCode());
+        assertTrue(resp.getBody().toString().contains("Konto verifierat!"));
+        assertTrue(resp.getBody().toString().contains("Ditt konto är redan verifierat"));
+
+        Models.User after = book.getUserByEmail("verified@test.se");
+        assertNotNull(after);
+    }
+
+    @Test
+    public void testConfirmUserGetNonExistingUser() {
+        ResponseEntity<?> resp = bookController.confirmUserGet("nonexisting@test.se", "ANY_CODE");
+
+        assertEquals(HttpStatus.BAD_REQUEST, resp.getStatusCode());
+        assertTrue(resp.getBody().toString().contains("Verifiering misslyckades"));
     }
 }
